@@ -1,5 +1,11 @@
 import UserLayout from "@/components/layout/userLayout";
-import { Calendar, MessageCircle, User, Users } from "lucide-react";
+import {
+  BadgeDollarSignIcon,
+  Calendar,
+  MessageCircle,
+  User,
+  Users,
+} from "lucide-react";
 import React from "react";
 
 export default async function Layout({
@@ -26,6 +32,12 @@ export default async function Layout({
         amharic: "አዲስ ተማሪ",
         url: "new-student",
         Icon: <Users className="size-6" />,
+      },
+      {
+        english: "deposit",
+        amharic: "ተቀማጭ",
+        url: "deposit",
+        Icon: <BadgeDollarSignIcon className="size-6" />, // You can replace with a more suitable icon if needed
       },
       {
         english: "chat",

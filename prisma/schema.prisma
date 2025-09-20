@@ -124,6 +124,7 @@ model payment {
   year           Int
   month          Int
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([studentId, year, month])
 }
