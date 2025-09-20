@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum role {
+  manager
+  scanner
+  controller
+  teacher
+  student
+  recordStudent
+  recordTeacher
+}
+
+enum gender {
+  Female
+  Male
+}
+
+enum userStatus {
+  new
+  active
+  inactive
+}
+
+model user {
+  id                  String                @id @default(cuid())
+  role                role
+  firstName           String                @default("")
+  fatherName          String                @default("")
+  lastName            String                @default("")
+  gender              gender                @default(Female)
+  age                 Int                   @default(0)
+  phoneNumber         String                @default("")
+  country             String                @default("")
+  username            String                @unique
+  password            String                @default("")
+  chatId              String                @default("")
+  socket              String                @default("")
+  registerDate        DateTime              @default(now())
+  startDate           DateTime?
+  status              userStatus            @default(active)
+  controller          user?                 @relation("students", fields: [controllerId], references: [id])
+  controllerId        String?
+  students            user[]                @relation("students")
+  chatTo              chat[]                @relation("to")
+  chatFrom            chat[]                @relation("from")
+  roomTeacher         room[]                @relation("teacher")
+  roomStudent         room[]                @relation("student")
+  attendance          attendance[]
+  roomAttendance      roomAttendance[]
+  announcementStudent announcementStudent[]
+}
+
+model room {
+  id             String           @id @default(cuid())
+  teacher        user             @relation("teacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId      String
+  student        user             @relation("student", fields: [studentId], references: [id], onDelete: Cascade)
+  studentId      String
+  time           String
+  duration       Int
+  link           String           @default("")
+  updated        DateTime         @updatedAt
+  roomAttendance roomAttendance[]
+}
+
+// model paymentGroup {
+//   id        String        @id @default(uuid())
+//   user      user          @relation(fields: [userId], references: [id], onDelete: Cascade)
+//   userId    String
+//   status    paymentStatus @default(paid)
+//   img       String // Receipt image filename
+//   price     Decimal       @default(0) // Custom payment amount
+//   createdAt DateTime      @default(now())
+//   updatedAt DateTime      @updatedAt
+//   payments  payment[]
+// }
+
+// model payment {
+//   id             String       @id @default(uuid())
+//   paymentGroup   paymentGroup @relation(fields: [paymentGroupId], references: [id], onDelete: Cascade)
+//   paymentGroupId String
+//   year           Int
+//   month          Int
+//   createdAt      DateTime     @default(now())
+
+//   @@unique([paymentGroupId, year, month])
+// }
+
+// enum paymentStatus {
+//   paid
+//   approved
+//   rejected
+// }
+
+enum attendanceName {
+  morning
+  afternoon
+}
+
+model attendance {
+  id     String         @id @default(uuid())
+  user   user           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  date   DateTime       @default(now())
+  time   attendanceName
+}
+
+enum attendanceTimeName {
+  morningScanStart
+  morningWorkStart
+  morningWorkEnd
+  afternoonScanStart
+  afternoonWorkStart
+  afternoonWorkEnd
+}
+
+model attendanceTime {
+  id    String             @id @default(uuid())
+  year  Int
+  month Int
+  name  attendanceTimeName
+  time  String
+
+  @@unique([year, month, name])
+}
+
+model roomAttendance {
+  id     String   @id @default(uuid())
+  user   user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  room   room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId String
+  date   DateTime @default(now())
+}
+
+enum skipDateName {
+  wholeDay
+  morning
+  afternoon
+}
+
+model skipDate {
+  id   String       @id @default(uuid())
+  date DateTime
+  name skipDateName
+}
+
+model deduction {
+  id     String  @id @default(uuid())
+  year   Int
+  month  Int
+  whole  Decimal
+  minute Decimal
+
+  @@unique([year, month])
+}
+
+model chat {
+  id        String   @id @default(cuid())
+  from      user     @relation("from", fields: [fromId], references: [id], onDelete: Cascade)
+  fromId    String
+  to        user     @relation("to", fields: [toId], references: [id], onDelete: Cascade)
+  toId      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  message   String
+}
+
+// Record ----------------------------------------------------------
+
+// model group {
+//   id           String         @id @default(cuid())
+//   chatId       String         @unique
+//   username     String
+//   name         String         @default("")
+//   groupTeacher groupTeacher[]
+//   groupStudent groupStudent[]
+// }
+
+// model groupTeacher {
+//   id        String @id @default(cuid())
+//   teacher   user   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+//   teacherId String
+//   group     group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+//   groupId   String
+// }
+
+// model groupStudent {
+//   id        String @id @default(cuid())
+//   student   user   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+//   studentId String
+//   group     group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+//   groupId   String
+// }
+
+// enum progressStatus {
+//   sent
+//   replayed
+// }
+
+// model progress {
+//   id                String         @id @default(cuid())
+//   student           user           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+//   studentId         String
+//   sentTime          DateTime       @default(now())
+//   sentMessageId     String
+//   status            progressStatus @default(sent)
+//   replayedTime      DateTime?
+//   replayedMessageId String?
+// }
+
+// Announcement ---------------------------------------------------
+
+model announcement {
+  id                  String                @id @default(cuid())
+  text                String
+  lastDate            DateTime?
+  date                DateTime              @default(now())
+  announcementStudent announcementStudent[]
+}
+
+model announcementStudent {
+  id             String       @id @default(cuid())
+  student        user         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId      String
+  announcement   announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  announcementId String
+}
