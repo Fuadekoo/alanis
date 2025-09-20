@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+#file
+/upload
 
 # next.js
 /.next/

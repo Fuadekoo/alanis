@@ -40,6 +40,7 @@ model user {
   phoneNumber         String                @default("")
   country             String                @default("")
   username            String                @unique
+  balance             Decimal               @default(0)
   password            String                @default("")
   chatId              String                @default("")
   socket              String                @default("")
@@ -56,6 +57,9 @@ model user {
   attendance          attendance[]
   roomAttendance      roomAttendance[]
   announcementStudent announcementStudent[]
+  depositedBy         deposit[]             @relation("depositedBy")
+  depositedTo         deposit[]             @relation("depositedTo")
+  payment             payment[]
 }
 
 model room {
@@ -94,11 +98,35 @@ model room {
 //   @@unique([paymentGroupId, year, month])
 // }
 
-// enum paymentStatus {
-//   paid
-//   approved
-//   rejected
-// }
+enum paymentStatus {
+  pending
+  approved
+  rejected
+}
+
+model deposit {
+  id           String        @id @default(uuid())
+  depositedTo  user          @relation("depositedBy", fields: [studentId], references: [id], onDelete: Cascade)
+  studentId    String
+  depositedBy  user          @relation("depositedTo", fields: [controllerId], references: [id])
+  controllerId String
+  amount       Decimal
+  photo        String
+  status       paymentStatus @default(pending)
+  createdAt    DateTime      @default(now())
+}
+
+model payment {
+  id             String   @id @default(uuid())
+  user           user     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId      String
+  perMonthAmount Decimal
+  year           Int
+  month          Int
+  createdAt      DateTime @default(now())
+
+  @@unique([studentId, year, month])
+}
 
 enum attendanceName {
   morning
