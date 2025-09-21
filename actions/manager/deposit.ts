@@ -55,6 +55,14 @@ export async function getDeposit(
             phoneNumber: true,
           },
         },
+        depositedBy: {
+          select: {
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            phoneNumber: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",

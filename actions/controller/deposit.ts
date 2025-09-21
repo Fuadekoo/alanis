@@ -132,7 +132,7 @@ export async function getDeposit(
 
   const where: any = {
     ...(controllerId && { controllerId }),
-    ...(filterByPayment && { status: filterByPayment }),
+    // ...(filterByPayment && { status: filterByPayment }),
     ...(searchPhone
       ? {
           depositedTo: {
@@ -254,5 +254,31 @@ export async function getDepositById(id: string) {
     return depositData;
   } catch (error) {
     return null;
+  }
+}
+
+export async function getStudent(search?: string) {
+  try {
+    const where: any = { role: "student" };
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: "insensitive" } },
+        { lastName: { contains: search, mode: "insensitive" } },
+        { phoneNumber: { contains: search, mode: "insensitive" } },
+      ];
+    }
+    const students = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        phoneNumber: true,
+      },
+    });
+    return students;
+  } catch (error) {
+    return [];
   }
 }

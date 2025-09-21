@@ -27,7 +27,8 @@ export function useRegistration<
   TReturn extends MutationState
 >(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  serverAction: (value: any) => Promise<TReturn>,
+  // serverAction: (value: any) => Promise<TReturn>,
+  serverAction: (value: TFieldValues, editingId?: string) => Promise<TReturn>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: z.ZodSchema<TFieldValues, any, any>,
   onSuccess?: (data: TReturn) => void
