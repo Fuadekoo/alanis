@@ -171,28 +171,54 @@ function Page() {
 
   // Add/Edit buttons and modal
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-6 text-slate-800">
-        Deposit Management
-      </h1>
-      <CustomTable
-        columns={columns}
-        rows={rows}
-        totalRows={data?.pagination?.totalRecords || 0}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(newPageSize) => {
-          setPageSize(newPageSize);
-          setPage(1);
-        }}
-        searchValue={search}
-        onSearch={(value) => {
-          setSearch(value);
-          setPage(1);
-        }}
-        isLoading={isLoading}
-      />
+    <div className="overflow-x-auto px-2">
+      <div className="w-full mx-auto grid grid-rows-[auto_1fr] gap-2 overflow-hidden">
+        <h1 className="text-2xl font-bold mb-6 text-slate-800">
+          Deposit Management
+        </h1>
+        {/* Filter and Add button row */}
+        <div className="p-1 bg-default-50/30 rounded-xl flex flex-wrap gap-2 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Filter:</span>
+            <select
+              value={filterByPayment}
+              onChange={(e) => {
+                setFilterByPayment(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 rounded border border-gray-300 text-sm"
+              style={{ minWidth: 120 }}
+            >
+              {filterOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {/* Table */}
+        <div className="w-full overflow-x-auto">
+          <CustomTable
+            columns={columns}
+            rows={rows}
+            totalRows={data?.pagination?.totalRecords || 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(newPageSize) => {
+              setPageSize(newPageSize);
+              setPage(1);
+            }}
+            searchValue={search}
+            onSearch={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            isLoading={isLoading}
+          />
+        </div>
+      </div>
     </div>
   );
 }

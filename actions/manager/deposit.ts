@@ -17,7 +17,7 @@ export async function getDeposit(
 
   // Build the where clause for filtering
   const session = await auth();
-  const controllerId = session?.user?.id;
+  // const controllerId = session?.user?.id;
 
   //   check login user is admin
   if (session?.user?.role !== "manager") {
@@ -27,9 +27,11 @@ export async function getDeposit(
     };
   }
 
+  // Only add status filter if not "all"
   const where: any = {
     // ...(controllerId && { controllerId }),
-    ...(filterByPayment && { status: filterByPayment }),
+    ...(filterByPayment &&
+      filterByPayment !== "all" && { status: filterByPayment }),
     ...(searchPhone
       ? {
           depositedTo: {
