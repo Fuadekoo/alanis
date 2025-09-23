@@ -6,6 +6,63 @@ import { MutationState, TAttendance } from "@/lib/definitions";
 import { isAuthorized, timeFormat12 } from "@/lib/utils";
 import { z } from "zod";
 
+export async function getStudent(page?: number, pageSize?: number) {
+  // Set default pagination values
+  page = page && page > 0 ? page : 1;
+  pageSize = pageSize && pageSize > 0 ? pageSize : 50;
+
+  try {
+    // Get the total count of students
+    const totalRows = await prisma.user.count({
+      where: { role: "student" },
+    });
+
+    // Fetch paginated students
+    const students = await prisma.user.findMany({
+      where: { role: "student" },
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        phoneNumber: true,
+        balance: true,
+      },
+      // orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    const totalPages = Math.ceil(totalRows / pageSize);
+
+    return {
+      data: students,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        itemsPerPage: pageSize,
+        totalRecords: totalRows,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to get students:", error);
+    return {
+      error: "Failed to retrieve data.",
+      data: [],
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        itemsPerPage: pageSize,
+        totalRecords: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    };
+  }
+}
+
 export async function getPayment(
   studentId: string,
   page?: number,

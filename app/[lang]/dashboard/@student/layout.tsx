@@ -27,11 +27,5 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   // Add balance display (static for now, e.g. 100 ETB)
-  return (
-    <UserLayout menu={menu}>
-      <span className="text-center">Balance: 100 ETB</span>
-
-      {children}
-    </UserLayout>
-  );
+  return <UserLayout menu={menu}>{children}</UserLayout>;
 }

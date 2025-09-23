@@ -2,20 +2,6 @@
 import React, { useState, useMemo, ChangeEvent } from "react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
-import useDelete, { UseDelete } from "@/hooks/useDelete";
-import { useRegistration } from "@/hooks/useRegistration";
-import { DepositSchema } from "@/lib/zodSchema";
-import {
-  Button,
-  Input,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  CModal,
-  Form,
-  Skeleton,
-} from "@/components/ui/heroui";
 import { getBalance, getDeposit } from "@/actions/student/deposit";
 import z from "zod";
 import { useDebouncedCallback } from "use-debounce";
@@ -50,6 +36,7 @@ function Page() {
     pageSize,
     search
   );
+  const [balanceData] = useData(getBalance, () => {});
 
   const rows = (data?.data || []).map((deposit) => ({
     key: String(deposit.id),
@@ -119,6 +106,16 @@ function Page() {
   return (
     <div className="overflow-x-auto px-2">
       <div className="w-full mx-auto">
+        {/* Balance display */}
+        <div className="flex justify-end items-center mb-4">
+          <span className="inline-block bg-green-100 text-green-700 px-4 py-2 rounded-lg font-semibold shadow">
+            Balance:{" "}
+            {balanceData?.balance
+              ? Number(balanceData.balance).toLocaleString()
+              : 0}{" "}
+            ETB
+          </span>
+        </div>
         {/* Filter row */}
         <div className="mb-4 flex items-center gap-2">
           <span className="text-sm font-medium text-gray-700">Filter:</span>
