@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import z from "zod";
 import { MutationState } from "@/lib/definitions";
 import { DepositSchema } from "@/lib/zodSchema";
+import { startOfMonth, endOfMonth } from "date-fns";
 
 // export async function getDeposit(
 //   filterByPayment?: string,
@@ -282,5 +283,60 @@ export async function getStudent(search?: string) {
     return students;
   } catch (error) {
     return [];
+  }
+}
+
+// HELP ME PLASE I N this i went to total deposits,aprove deposit, reject deposit, this month deposit ,this month reject and so on
+export async function controllerDepositDashboard() {
+  try {
+    const totalDeposits = await prisma.deposit.count();
+    const approvedDeposits = await prisma.deposit.count({
+      where: { status: "approved" },
+    });
+    const rejectedDeposits = await prisma.deposit.count({
+      where: { status: "rejected" },
+    });
+    const pendingDeposits = await prisma.deposit.count({
+      where: { status: "pending" },
+    });
+    const thisMonthDeposits = await prisma.deposit.count({
+      where: {
+        createdAt: {
+          gte: startOfMonth(new Date()),
+          lt: endOfMonth(new Date()),
+        },
+      },
+    });
+    const thisMonthRejected = await prisma.deposit.count({
+      where: {
+        status: "rejected",
+        createdAt: {
+          gte: startOfMonth(new Date()),
+          lt: endOfMonth(new Date()),
+        },
+      },
+    });
+    const thisMonthPending = await prisma.deposit.count({
+      where: {
+        status: "pending",
+        createdAt: {
+          gte: startOfMonth(new Date()),
+          lt: endOfMonth(new Date()),
+        },
+      },
+    });
+
+    return {
+      totalDeposits,
+      approvedDeposits,
+      rejectedDeposits,
+      pendingDeposits,
+      thisMonthDeposits,
+      thisMonthRejected,
+      thisMonthPending,
+    };
+  } catch (error) {
+    console.error("Failed to get deposit dashboard data:", error);
+    return null;
   }
 }

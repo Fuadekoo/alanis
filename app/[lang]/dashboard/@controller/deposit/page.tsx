@@ -22,6 +22,7 @@ import {
   deleteDeposit,
   depositUpdate,
   getStudent,
+  controllerDepositDashboard,
 } from "@/actions/controller/deposit";
 import z from "zod";
 import { useDebouncedCallback } from "use-debounce";
@@ -121,6 +122,11 @@ function Page() {
     null
   );
   const [isUploading, setIsUploading] = useState(false);
+
+  const [controllerData, isControllerLoading] = useData(
+    controllerDepositDashboard,
+    () => {}
+  );
 
   // Data fetching
   const [data, isLoading, refresh] = useData(
@@ -343,6 +349,67 @@ function Page() {
   return (
     <div className="overflow-x-auto px-2">
       <div className="w-full mx-auto grid grid-rows-[auto_1fr] gap-2 overflow-hidden">
+        {/* Dashboard summary */}
+        <div className="mb-4 w-full">
+          <div className="grid grid-cols-4 sm:grid-cols-3 md:grid-cols-7 gap-2">
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">Total Deposits</div>
+              <div className="font-bold text-lg text-blue-700">
+                {typeof controllerData?.totalDeposits === "number"
+                  ? controllerData.totalDeposits
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">Approved</div>
+              <div className="font-bold text-lg text-green-600">
+                {typeof controllerData?.approvedDeposits === "number"
+                  ? controllerData.approvedDeposits
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">Rejected</div>
+              <div className="font-bold text-lg text-red-600">
+                {typeof controllerData?.rejectedDeposits === "number"
+                  ? controllerData.rejectedDeposits
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">Pending</div>
+              <div className="font-bold text-lg text-yellow-600">
+                {typeof controllerData?.pendingDeposits === "number"
+                  ? controllerData.pendingDeposits
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">This Month</div>
+              <div className="font-bold text-lg text-blue-700">
+                {typeof controllerData?.thisMonthDeposits === "number"
+                  ? controllerData.thisMonthDeposits
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">This Month Rejected</div>
+              <div className="font-bold text-lg text-red-600">
+                {typeof controllerData?.thisMonthRejected === "number"
+                  ? controllerData.thisMonthRejected
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">This Month Pending</div>
+              <div className="font-bold text-lg text-yellow-600">
+                {typeof controllerData?.thisMonthPending === "number"
+                  ? controllerData.thisMonthPending
+                  : 0}
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="p-1 bg-default-50/30 rounded-xl flex gap-2">
           <div className="flex-1"></div>
           <Button
