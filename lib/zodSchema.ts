@@ -165,7 +165,7 @@ export type AnnouncementSchema = z.infer<typeof announcementSchema>;
 
 export const depositSchema = z.object({
   studentId: z.string().nonempty("student is required").default(""),
-  amount: z.coerce.number().positive("amount must be positive").default(0),
+  amount: z.coerce.number().positive("amount must be positive"),
   photo: z.string().nonempty("photo is required").default(""),
 });
 export type DepositSchema = z.infer<typeof depositSchema>;
@@ -174,6 +174,10 @@ export const paymentSchema = z.object({
   studentId: z.string().nonempty("student is required"),
   perMonthAmount: z.coerce.number().positive("amount must be positive"),
   year: z.coerce.number().int().min(2000, "year must be valid"),
-  month: z.coerce.number().int().min(1).max(12, "month must be between 1 and 12"),
+  month: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(12, "month must be between 1 and 12"),
 });
 export type PaymentSchema = z.infer<typeof paymentSchema>;

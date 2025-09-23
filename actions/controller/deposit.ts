@@ -207,6 +207,7 @@ export async function depositCreate({
   amount,
   photo,
 }: DepositSchema): Promise<MutationState> {
+  console.log("Received deposit data:", { studentId, amount, photo });
   try {
     const sessionId = (await auth())?.user?.id;
     if (!sessionId) throw new Error("unauthenticated");
@@ -214,12 +215,13 @@ export async function depositCreate({
       data: {
         studentId,
         amount,
-        photo,
         controllerId: sessionId,
+        photo: photo ?? "", // Always provide photo, default to empty string if undefined
       },
     });
     return { status: true, message: "successfully deposit" };
   } catch (error) {
+    console.error("Deposit creation failed:", error);
     return { status: false, message: "failed to deposit" };
   }
 }

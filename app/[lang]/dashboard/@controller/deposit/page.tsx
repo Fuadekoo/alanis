@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, ChangeEvent } from "react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import useDelete, { UseDelete } from "@/hooks/useDelete";
@@ -27,6 +27,7 @@ import z from "zod";
 import { useDebouncedCallback } from "use-debounce";
 import Select from "react-select";
 import chroma from "chroma-js";
+import { X } from "lucide-react";
 
 // Define the student option type
 interface StudentOption {
@@ -34,6 +35,24 @@ interface StudentOption {
   label: string;
   color?: string;
 }
+
+interface UploadProgress {
+  file: File;
+  progress: number;
+  uuid: string;
+  serverFilename?: string;
+}
+
+const CHUNK_SIZE = 512 * 1024; // 512KB
+
+function getTimestampUUID(ext: string) {
+  return `${Date.now()}-${Math.floor(Math.random() * 100000)}.${ext}`;
+}
+
+const formatImageUrl = (url: string | null | undefined): string => {
+  if (!url) return "/placeholder.png";
+  return `/api/filedata/${encodeURIComponent(url)}`;
+};
 
 // Define styles for react-select
 const selectStyles = {
@@ -84,7 +103,10 @@ const selectStyles = {
 // Deposit schema for registration form
 const depositSchema = z.object({
   studentId: z.string().min(1, "Student is required"),
-  amount: z.string().min(1, "Amount is required"),
+  amount: z.coerce
+    .number()
+    .min(0.01, "Minimum amount is 0.01")
+    .positive("Amount must be positive"),
   photo: z.string().optional(),
 });
 
@@ -93,6 +115,12 @@ function Page() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // State for upload progress tracking - changed to single file
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
+    null
+  );
+  const [isUploading, setIsUploading] = useState(false);
 
   // Data fetching
   const [data, isLoading, refresh] = useData(
@@ -104,7 +132,96 @@ function Page() {
     search
   );
 
-  // Registration (add/edit) logic - Fixed to match hook signature
+  const uploadFile = async (file: File, uuid: string): Promise<string> => {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const uuidName = uuid || getTimestampUUID(ext);
+
+    const chunkSize = CHUNK_SIZE;
+    const total = Math.ceil(file.size / chunkSize);
+    let finalReturnedName: string | null = null;
+
+    for (let i = 0; i < total; i++) {
+      const start = i * chunkSize;
+      const end = Math.min(file.size, start + chunkSize);
+      const chunk = file.slice(start, end);
+
+      const formData = new FormData();
+      formData.append("chunk", chunk);
+      formData.append("filename", uuidName);
+      formData.append("chunkIndex", i.toString());
+      formData.append("totalChunks", total.toString());
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const json = await res.json();
+      if (json?.filename) finalReturnedName = json.filename;
+
+      // Update progress for this file
+      setUploadProgress((prev) =>
+        prev ? { ...prev, progress: Math.round(((i + 1) / total) * 100) } : null
+      );
+    }
+
+    if (!finalReturnedName) {
+      throw new Error("Upload failed: no filename returned");
+    }
+
+    return finalReturnedName;
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0]; // Only take the first file
+    setIsUploading(true);
+
+    // Set upload progress
+    const newUpload = {
+      file,
+      progress: 0,
+      uuid: getTimestampUUID(file.name.split(".").pop() || "jpg"),
+    };
+
+    setUploadProgress(newUpload);
+
+    try {
+      const serverFilename = await uploadFile(file, newUpload.uuid);
+
+      // Update form with the uploaded image filename
+      form.setValue("photo", serverFilename, {
+        shouldValidate: true,
+      });
+
+      // Mark as completed
+      setUploadProgress((prev) =>
+        prev ? { ...prev, serverFilename, progress: 100 } : null
+      );
+    } catch (error) {
+      console.error("Failed to upload file:", file.name, error);
+      setUploadProgress(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeImage = () => {
+    form.setValue("photo", "", { shouldValidate: true });
+    setUploadProgress(null);
+  };
+
+  const removeUploadingFile = () => {
+    setUploadProgress(null);
+  };
+
+  // Registration (add/edit) logic
   const form = useRegistration(
     async (values: any) => {
       if (editingId) {
@@ -136,11 +253,10 @@ function Page() {
     studentFullName: deposit.depositedTo
       ? `${deposit.depositedTo.firstName} ${deposit.depositedTo.fatherName} ${deposit.depositedTo.lastName}`
       : "N/A",
-    amount: deposit.amount != null ? String(deposit.amount) : "",
+    amount: deposit.amount.toString(),
     photo: deposit.photo ?? "",
-    status: deposit.status ?? "",
+    status: deposit.status ? String(deposit.status) : "",
     createdAt: deposit.createdAt ?? "",
-    // Add these fields for editing
     studentId: deposit.studentId || "",
   }));
 
@@ -154,7 +270,13 @@ function Page() {
       key: "amount",
       label: "Amount",
       renderCell: (item: any) => (
-        <span>${Number(item.amount).toLocaleString()}</span>
+        <span>
+          $
+          {parseFloat(item.amount).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
       ),
     },
     {
@@ -163,7 +285,7 @@ function Page() {
       renderCell: (item: any) =>
         item.photo ? (
           <img
-            src={item.photo}
+            src={formatImageUrl(item.photo)}
             alt="Proof"
             style={{
               width: 40,
@@ -252,7 +374,15 @@ function Page() {
           isLoading={isLoading}
         />
       </div>
-      <Registration form={form} isEditing={!!editingId} />
+      <Registration
+        form={form}
+        isEditing={!!editingId}
+        uploadProgress={uploadProgress}
+        handleImageChange={handleImageChange}
+        removeUploadingFile={removeUploadingFile}
+        removeImage={removeImage}
+        isUploading={isUploading}
+      />
       <Deletion deletion={deletion} />
     </div>
   );
@@ -261,9 +391,19 @@ function Page() {
 function Registration({
   form,
   isEditing,
+  uploadProgress,
+  handleImageChange,
+  removeUploadingFile,
+  removeImage,
+  isUploading,
 }: {
   form: ReturnType<typeof useRegistration>;
   isEditing: boolean;
+  uploadProgress: UploadProgress | null;
+  handleImageChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  removeUploadingFile: () => void;
+  removeImage: () => void;
+  isUploading: boolean;
 }) {
   const [search, setSearch] = useState("");
   const filter = useDebouncedCallback((value: string) => setSearch(value), 300);
@@ -276,7 +416,7 @@ function Registration({
     return students.map((student: any) => ({
       value: student.id,
       label: `${student.firstName} ${student.fatherName} ${student.lastName}`,
-      color: "#2684FF", // You can customize this
+      color: "#2684FF",
     }));
   }, [students]);
 
@@ -285,6 +425,9 @@ function Registration({
     const studentId = form.watch("studentId");
     return studentOptions.find((option) => option.value === studentId) || null;
   }, [form.watch("studentId"), studentOptions]);
+
+  // Get the current photo from the form state
+  const currentPhoto = form.watch("photo") || "";
 
   return (
     <CModal isOpen={form.isOpen} onOpenChange={form.onOpenChange}>
@@ -325,13 +468,94 @@ function Registration({
                       </p>
                     )}
                   </div>
-                  <Input
-                    label="Amount"
-                    type="number"
-                    {...form.register("amount")}
-                    required
-                  />
-                  <Input label="Photo URL" {...form.register("photo")} />
+
+                  <div className="mb-4">
+                    <Input
+                      label="Amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      {...form.register("amount")}
+                      required
+                    />
+                    {form.validationErrors.amount && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {form.validationErrors.amount}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Single Image Upload Section */}
+                  <div className="mb-4">
+                    <label className="block mb-1 text-sm font-medium">
+                      Deposit Proof Photo
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                      disabled={isUploading}
+                    />
+
+                    {/* Upload Progress */}
+                    {uploadProgress && (
+                      <div className="mt-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <div className="flex justify-between text-xs mb-1">
+                              <span>{uploadProgress.file.name}</span>
+                              <span>{uploadProgress.progress}%</span>
+                            </div>
+                            <progress
+                              value={uploadProgress.progress}
+                              max={100}
+                              className="w-full h-2"
+                            />
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onPress={removeUploadingFile}
+                            disabled={uploadProgress.progress === 100}
+                          >
+                            <X size={16} />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Current Photo Preview */}
+                    {currentPhoto && (
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-600 mb-1">
+                          Current Photo:
+                        </p>
+                        <div className="relative inline-block">
+                          <img
+                            src={formatImageUrl(currentPhoto)}
+                            alt="Deposit proof"
+                            className="w-32 h-32 object-cover rounded border"
+                          />
+                          <Button
+                            size="sm"
+                            color="danger"
+                            className="absolute top-1 right-1"
+                            onPress={removeImage}
+                          >
+                            <X size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show photo validation errors */}
+                    {form.validationErrors.photo && (
+                      <span className="text-red-500 text-xs">
+                        {form.validationErrors.photo}
+                      </span>
+                    )}
+                  </div>
                 </ModalBody>
                 <ModalFooter>
                   <Button variant="flat" onPress={onClose}>
@@ -340,7 +564,7 @@ function Registration({
                   <Button
                     color="primary"
                     type="submit"
-                    isLoading={form.isLoading}
+                    isLoading={form.isLoading || isUploading}
                   >
                     Submit
                   </Button>

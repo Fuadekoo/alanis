@@ -110,7 +110,7 @@ model deposit {
   studentId    String
   depositedBy  user          @relation("depositedTo", fields: [controllerId], references: [id])
   controllerId String
-  amount       Decimal
+  amount       Int
   photo        String
   status       paymentStatus @default(pending)
   createdAt    DateTime      @default(now())
@@ -120,7 +120,7 @@ model payment {
   id             String   @id @default(uuid())
   user           user     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId      String
-  perMonthAmount Decimal
+  perMonthAmount Int
   year           Int
   month          Int
   createdAt      DateTime @default(now())
