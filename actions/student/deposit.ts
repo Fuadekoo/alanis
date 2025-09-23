@@ -3,12 +3,13 @@
 import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { isAuthorized } from "@/lib/utils";
+import { id } from "zod/v4/locales";
 
 export async function getDeposit(
   filterByPayment?: string,
   page?: number,
-  pageSize?: number
-  // searchPhone?: string // <-- add this parameter
+  pageSize?: number,
+  searchPhone?: string // <-- add this parameter
 ) {
   // Set default pagination values
   page = page && page > 0 ? page : 1;
@@ -18,22 +19,22 @@ export async function getDeposit(
   const session = await auth();
 
   // check login user is admin
-  if (session?.user?.role !== "manager") {
+  if (session?.user?.role !== "student") {
     return {
       error: "Access denied.",
       data: [],
     };
   }
 
+  // gate the login student id
+  const student = await isAuthorized("student");
+
   const where: any = {
-    ...(filterByPayment && { status: filterByPayment }),
-    // ...(searchPhone
-    //     ? {
-    //             depositedTo: {
-    //                 phoneNumber: { contains: searchPhone },
-    //             },
-    //         }
-    //     : {}),
+    ...(filterByPayment &&
+      filterByPayment !== "all" && { status: filterByPayment }),
+    depositedTo: {
+      id: student.id,
+    },
   };
 
   try {
@@ -44,14 +45,14 @@ export async function getDeposit(
     const deposits = await prisma.deposit.findMany({
       where,
       include: {
-        depositedTo: {
-          select: {
-            firstName: true,
-            fatherName: true,
-            lastName: true,
-            phoneNumber: true,
-          },
-        },
+        // depositedTo: {
+        //   select: {
+        //     firstName: true,
+        //     fatherName: true,
+        //     lastName: true,
+        //     phoneNumber: true,
+        //   },
+        // },
       },
       orderBy: {
         createdAt: "desc",

@@ -9,6 +9,7 @@ import {
   approveDeposit,
   rejectDeposit,
 } from "@/actions/manager/deposit";
+import { controllerDepositDashboard } from "@/actions/controller/deposit";
 import { addToast } from "@heroui/toast";
 import z from "zod";
 
@@ -28,6 +29,11 @@ function Page() {
   );
   const [processingRejectId, setProcessingRejectId] = useState<string | null>(
     null
+  );
+
+  const [controllerData, isLoadingController] = useData(
+    controllerDepositDashboard,
+    () => {}
   );
 
   // Data fetching
@@ -176,6 +182,67 @@ function Page() {
         <h1 className="text-2xl font-bold mb-6 text-slate-800">
           Deposit Management
         </h1>
+        {/* Dashboard summary */}
+        <div className="mb-4 w-full">
+          <div className="grid grid-cols-4 sm:grid-cols-3 md:grid-cols-7 gap-2">
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">Total Deposits</div>
+              <div className="font-bold text-lg text-blue-700">
+                {typeof controllerData?.totalDeposits === "number"
+                  ? controllerData.totalDeposits
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">Approved</div>
+              <div className="font-bold text-lg text-green-600">
+                {typeof controllerData?.approvedDeposits === "number"
+                  ? controllerData.approvedDeposits
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">Rejected</div>
+              <div className="font-bold text-lg text-red-600">
+                {typeof controllerData?.rejectedDeposits === "number"
+                  ? controllerData.rejectedDeposits
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">Pending</div>
+              <div className="font-bold text-lg text-yellow-600">
+                {typeof controllerData?.pendingDeposits === "number"
+                  ? controllerData.pendingDeposits
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">This Month</div>
+              <div className="font-bold text-lg text-blue-700">
+                {typeof controllerData?.thisMonthDeposits === "number"
+                  ? controllerData.thisMonthDeposits
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">This Month Rejected</div>
+              <div className="font-bold text-lg text-red-600">
+                {typeof controllerData?.thisMonthRejected === "number"
+                  ? controllerData.thisMonthRejected
+                  : 0}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500">This Month Pending</div>
+              <div className="font-bold text-lg text-yellow-600">
+                {typeof controllerData?.thisMonthPending === "number"
+                  ? controllerData.thisMonthPending
+                  : 0}
+              </div>
+            </div>
+          </div>
+        </div>
         {/* Filter and Add button row */}
         <div className="p-1 bg-default-50/30 rounded-xl flex flex-wrap gap-2 items-center justify-between">
           <div className="flex items-center gap-2">

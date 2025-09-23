@@ -12,6 +12,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         Icon: <Home className="size-4" />,
       },
       {
+        english: "Deposit",
+        amharic: "መቀላቀል",
+        url: "deposit",
+        Icon: <Home className="size-4" />,
+      },
+      {
         english: "Chat",
         amharic: "ቻት",
         url: "chat",
@@ -20,5 +26,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ],
   ];
 
-  return <UserLayout menu={menu}>{children}</UserLayout>;
+  // Add balance display (static for now, e.g. 100 ETB)
+  return (
+    <UserLayout menu={menu}>
+      <span className="text-center">Balance: 100 ETB</span>
+
+      {children}
+    </UserLayout>
+  );
 }
