@@ -9,7 +9,7 @@ import {
   TableCell,
   getKeyValue,
 } from "@heroui/react"; // <-- Make sure this is the correct package name. If not, replace with the correct one.
-import { X, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Search, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import Image from "next/image";
 
 export interface ColumnDef<T> {
@@ -56,6 +56,13 @@ function CustomTable({
 
   const handleCloseZoom = () => {
     setZoomedImageUrl(null);
+  };
+
+  // Add a handler for showing image from actions
+  const handleShowImage = (item: any) => {
+    if (item.photo) {
+      setZoomedImageUrl(`/api/filedata/${item.photo}`);
+    }
   };
 
   return (
@@ -120,6 +127,29 @@ function CustomTable({
               >
                 {(columnKey) => {
                   const column = columns.find((col) => col.key === columnKey);
+                  // Custom rendering for actions column
+                  if (columnKey === "actions") {
+                    return (
+                      <TableCell className="p-3 text-sm text-gray-700 whitespace-nowrap">
+                        {/* Actions column: Eye icon in one line with Edit/Delete */}
+                        <div className="flex items-center gap-2">
+                          {column && column.renderCell
+                            ? column.renderCell(item)
+                            : null}
+                          {item.photo && (
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center rounded-full bg-gray-100 hover:bg-blue-100 p-1 text-blue-600"
+                              onClick={() => handleShowImage(item)}
+                              aria-label="View proof image"
+                            >
+                              <Eye size={20} />
+                            </button>
+                          )}
+                        </div>
+                      </TableCell>
+                    );
+                  }
                   return (
                     <TableCell className="p-3 text-sm text-gray-700 whitespace-nowrap">
                       {column && column.renderCell ? (
@@ -127,36 +157,50 @@ function CustomTable({
                       ) : columnKey === "photo" &&
                         typeof item.photo === "string" &&
                         item.photo ? (
-                        <Image
-                          src={`/api/filedata/${item.photo}`}
-                          alt={`Proof for ${item.id || item.key || "entry"}`}
-                          width={300}
-                          height={300}
-                          style={{
-                            width: "100px",
-                            height: "auto",
-                            objectFit: "cover",
-                            cursor: "pointer",
-                          }}
+                        <span
+                          className="inline-block"
+                          style={{ cursor: "pointer" }}
                           onClick={() =>
                             handleImageClick(`/api/filedata/${item.photo}`)
                           }
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = "none";
-                            const parent = target.parentElement;
-                            if (
-                              parent &&
-                              !parent.querySelector(".no-preview-text")
-                            ) {
-                              const errorText = document.createElement("span");
-                              errorText.textContent = "No preview";
-                              errorText.className =
-                                "text-xs text-gray-400 no-preview-text";
-                              parent.appendChild(errorText);
+                          tabIndex={0}
+                          role="button"
+                          aria-label="View proof image"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              handleImageClick(`/api/filedata/${item.photo}`);
                             }
                           }}
-                        />
+                        >
+                          <Image
+                            src={`/api/filedata/${item.photo}`}
+                            alt={`Proof for ${item.id || item.key || "entry"}`}
+                            width={180}
+                            height={180}
+                            style={{
+                              width: "180px",
+                              height: "180px",
+                              objectFit: "cover",
+                              display: "block",
+                            }}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = "none";
+                              const parent = target.parentElement;
+                              if (
+                                parent &&
+                                !parent.querySelector(".no-preview-text")
+                              ) {
+                                const errorText =
+                                  document.createElement("span");
+                                errorText.textContent = "No preview";
+                                errorText.className =
+                                  "text-xs text-gray-400 no-preview-text";
+                                parent.appendChild(errorText);
+                              }
+                            }}
+                          />
+                        </span>
                       ) : (
                         getKeyValue(item, columnKey)
                       )}
@@ -233,31 +277,30 @@ function CustomTable({
           </div>
         )}
       </div>
-
       {/* Image Zoom Modal */}
       {zoomedImageUrl && (
         <div
-          className="fixed inset-0 bg-white/30 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={handleCloseZoom}
         >
           <div
-            className="relative bg-white p-2 shadow-xl max-w-[95vw] max-h-[95vh] flex items-center justify-center"
+            className="relative bg-white rounded-lg shadow-xl max-w-[95vw] max-h-[95vh] flex items-center justify-center p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <Image
               src={zoomedImageUrl}
               alt="Zoomed proof"
-              className="block max-w-[98vw] max-h-[90vh] object-contain"
-              width={900}
-              height={600}
-              style={{ width: "900px", height: "600px" }}
+              className="block object-contain rounded"
+              width={1200}
+              height={900}
+              // style={{ width: "100%", height: "auto", maxHeight: "90vh" }}
             />
             <button
               onClick={handleCloseZoom}
-              className="absolute top-2 right-2 bg-gray-800 text-white p-1.5 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-white"
+              className="absolute top-2 right-2 bg-gray-800 text-white p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-white"
               aria-label="Close zoomed image"
             >
-              <X size={20} />
+              <X size={24} />
             </button>
           </div>
         </div>
