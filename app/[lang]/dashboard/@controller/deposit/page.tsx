@@ -341,8 +341,8 @@ function Page() {
   ];
 
   return (
-    <div className="overflow-hidden grid px-2">
-      <div className="md:w-2xl mx-auto grid grid-rows-[auto_1fr] gap-2 overflow-hidden ">
+    <div className="overflow-x-auto px-2">
+      <div className="w-full mx-auto grid grid-rows-[auto_1fr] gap-2 overflow-hidden">
         <div className="p-1 bg-default-50/30 rounded-xl flex gap-2">
           <div className="flex-1"></div>
           <Button
@@ -355,24 +355,27 @@ function Page() {
             Add Deposit
           </Button>
         </div>
-        <CustomTable
-          columns={columns}
-          rows={rows}
-          totalRows={data?.pagination?.totalRecords || 0}
-          page={page}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={(newPageSize) => {
-            setPageSize(newPageSize);
-            setPage(1);
-          }}
-          searchValue={search}
-          onSearch={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          isLoading={isLoading}
-        />
+        {/* Make table horizontally scrollable on mobile */}
+        <div className="w-full overflow-x-auto">
+          <CustomTable
+            columns={columns}
+            rows={rows}
+            totalRows={data?.pagination?.totalRecords || 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(newPageSize) => {
+              setPageSize(newPageSize);
+              setPage(1);
+            }}
+            searchValue={search}
+            onSearch={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            isLoading={isLoading}
+          />
+        </div>
       </div>
       <Registration
         form={form}
