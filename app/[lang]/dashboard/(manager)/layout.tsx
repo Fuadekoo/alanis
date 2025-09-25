@@ -47,6 +47,12 @@ export default async function Layout({
         Icon: <BadgeDollarSignIcon className="size-6" />, // You can replace with a more suitable icon if needed
       },
       {
+        english: "payment",
+        amharic: "ክፍያ",
+        url: "payment",
+        Icon: <BadgeDollarSignIcon className="size-6" />, // You can replace with a more suitable icon if needed
+      },
+      {
         english: "chat",
         amharic: "ቻት",
         url: "chat",

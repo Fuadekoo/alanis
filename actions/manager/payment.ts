@@ -7,17 +7,29 @@ import { isAuthorized, timeFormat12 } from "@/lib/utils";
 import { z } from "zod";
 
 export async function getPayment(
-  studentId: string,
+  studentId?: string,
   page?: number,
-  pageSize?: number
+  pageSize?: number,
+  startDate?: Date,
+  endDate?: Date
 ) {
   // Set default pagination values
   page = page && page > 0 ? page : 1;
   pageSize = pageSize && pageSize > 0 ? pageSize : 50;
 
   const where: any = {
-    ...(studentId && { studentId }),
+    // ...(studentId && { studentId }),
   };
+
+  // Add date range filter if both startDate and endDate are provided
+  if (startDate && endDate) {
+    const endOfDay = new Date(endDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+    where.createdAt = {
+      gte: startDate,
+      lte: endOfDay,
+    };
+  }
 
   try {
     // Get the total count of records matching the filter
@@ -52,6 +64,34 @@ export async function getPayment(
         hasPreviousPage: page > 1,
       },
     };
+  } catch (error) {
+    console.error("Failed to get payments:", error);
+    return {
+      error: "Failed to retrieve data.",
+      data: [],
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        itemsPerPage: pageSize,
+        totalRecords: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    };
+  }
+}
+
+export async function getMonthsPayment(
+  page?: number,
+  pageSize?: number,
+  month?: string,
+  year?: string,
+  status?: string
+) {
+  // Set default pagination values
+  page = page && page > 0 ? page : 1;
+  pageSize = pageSize && pageSize > 0 ? pageSize : 50;
+  try {
   } catch (error) {
     console.error("Failed to get payments:", error);
     return {
