@@ -8,6 +8,7 @@ export default function UserDetailCard({
   firstName,
   fatherName,
   lastName,
+  balance,
   gender,
   age,
   country,
@@ -22,6 +23,7 @@ export default function UserDetailCard({
   firstName: string;
   fatherName: string;
   lastName: string;
+  balance: number;
   gender: "Female" | "Male";
   age: number;
   country: string;
@@ -44,6 +46,9 @@ export default function UserDetailCard({
   return (
     <div className="p-2 bg-default-50/50 rounded-xl ">
       <p className="capitalize font-semibold">{`${firstName} ${fatherName} ${lastName}`}</p>
+      <p className="capitalize font-semibold">{`Balance: ${balance} ETB`}</p>
+      {/* <p className="capitalize font-semibold">{`Username: ${username}`}</p> */}
+      {/* <p className="capitalize font-semibold">{`Phone: ${phoneNumber}`}</p> */}
       <p className="flex gap-2 capitalize">
         <span className="w-20">{isAm ? "ፆታ" : "Gender"}</span>
         <span className="">

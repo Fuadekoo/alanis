@@ -22,7 +22,7 @@ export default function DetailTab({
         <ChevronLeft className="size-4" />
       </Button>
       <div className="flex-1 p-1 bg-default-50/30 rounded-xl flex gap-1 ">
-        {["profile", "room", "attendance"].map((v, i) => (
+        {["profile", "room", "attendance", "payment"].map((v, i) => (
           <Button
             key={i + ""}
             size="sm"

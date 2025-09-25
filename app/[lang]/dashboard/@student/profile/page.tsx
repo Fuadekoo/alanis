@@ -17,6 +17,7 @@ export default async function Page() {
       phoneNumber: true,
       country: true,
       username: true,
+      balance: true,
     },
   });
 
@@ -30,6 +31,7 @@ export default async function Page() {
         ["Age", +data.age],
         ["Phone Number", data.phoneNumber],
         ["Country", data.country],
+        ["Balance", data.balance],
       ].map(([label, value], i) => (
         <div key={i + ""} className="md:flex gap-2 items-center ">
           <p className="w-44 max-md:text-sm max-md:text-default-600">{label}</p>

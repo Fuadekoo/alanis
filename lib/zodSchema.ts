@@ -173,11 +173,7 @@ export type DepositSchema = z.infer<typeof depositSchema>;
 export const paymentSchema = z.object({
   studentId: z.string().nonempty("student is required"),
   perMonthAmount: z.coerce.number().positive("amount must be positive"),
-  year: z.coerce.number().int().min(2000, "year must be valid"),
-  month: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(12, "month must be between 1 and 12"),
+  monthsToPay: z.array(z.string().nonempty("month is required")).nonempty("at least one month must be selected"),
 });
 export type PaymentSchema = z.infer<typeof paymentSchema>;
+

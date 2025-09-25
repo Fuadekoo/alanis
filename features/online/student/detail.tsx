@@ -7,6 +7,7 @@ import { cn } from "@heroui/react";
 import { UserStatus } from "@/components/userStatus";
 import UserDetailCard from "@/components/userDetailCard";
 import { Attendance } from "./attendance";
+import UserPaymentDetail from "@/components/userPaymentDetail";
 import DetailTab from "./detailTab";
 import { useState } from "react";
 
@@ -64,6 +65,10 @@ export default function Detail() {
               />
             ) : tab == "room" ? (
               <AssignedRoom />
+            ) : tab == "payment" ? (
+              <div>
+                <UserPaymentDetail studentId={data.id} />
+              </div>
             ) : tab == "attendance" ? (
               <Attendance />
             ) : (

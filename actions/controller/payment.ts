@@ -136,6 +136,11 @@ export async function createPayment({
   monthsToPay: string[];
 }): Promise<MutationState> {
   try {
+    console.log("Creating payment:", {
+      studentId,
+      perMonthAmount,
+      monthsToPay,
+    });
     // 1. Calculate total payment needed
     const totalPayment = perMonthAmount * monthsToPay.length;
 
