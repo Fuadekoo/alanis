@@ -80,7 +80,6 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
         </span>
       ),
     },
-
     {
       key: "createdAt",
       label: "Created At",
@@ -92,7 +91,14 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
       label: "Actions",
       renderCell: (item: any) => (
         <div className="flex items-center gap-2">
-          {/* Add rollback or edit buttons here if needed */}
+          <Button
+            size="sm"
+            color="danger"
+            variant="flat"
+            onClick={() => deletion.open(item.id)}
+          >
+            Rollback
+          </Button>
         </div>
       ),
     },
@@ -114,7 +120,9 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
   // Month options (always 0-11)
   const monthOptions = Array.from({ length: 12 }, (_, i) => ({
     value: i,
-    label: new Date(2000, i, 1).toLocaleString("default", { month: "long" }),
+    label: `${i + 1} - ${new Date(2000, i, 1).toLocaleString("default", {
+      month: "long",
+    })}`,
   }));
 
   // For the year/month picker
@@ -292,7 +300,45 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
           </ModalContent>
         </Form>
       </CModal>
+      {/* Deletion Modal */}
+      <DeletionModal deletion={deletion} />
     </div>
+  );
+}
+
+function DeletionModal({
+  deletion,
+}: {
+  deletion: ReturnType<typeof useDelete>;
+}) {
+  return (
+    <CModal isOpen={deletion.isOpen} onOpenChange={deletion.close}>
+      <ModalContent>
+        {(onClose) => (
+          <>
+            <ModalHeader>Rollback Payment</ModalHeader>
+            <ModalBody>
+              <p className="p-5 text-center">
+                Are you sure you want to{" "}
+                <span className="text-danger">rollback</span> this payment?
+              </p>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="flat" onPress={onClose}>
+                Cancel
+              </Button>
+              <Button
+                color="danger"
+                onPress={deletion.handle}
+                isLoading={deletion.isLoading}
+              >
+                Rollback
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </CModal>
   );
 }
 

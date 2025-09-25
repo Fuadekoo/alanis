@@ -189,6 +189,7 @@ export async function rollbackPayment(
   studentId: string
 ): Promise<MutationState> {
   try {
+    console.log("Rolling back payments:", { paymentIds, studentId });
     // 1. Get the payments to rollback
     const payments = await prisma.payment.findMany({
       where: {
@@ -230,17 +231,7 @@ export async function rollbackPayment(
         where: { id: studentId },
         data: { balance: { increment: totalRefund } },
       }),
-      ...payments.map((p) =>
-        prisma.payment.create({
-          data: {
-            studentId: p.studentId,
-            perMonthAmount: -Math.abs(Number(p.perMonthAmount)),
-            year: p.year,
-            month: p.month,
-            createdAt: new Date(), // log rollback time
-          },
-        })
-      ),
+      
     ]);
 
     return {
