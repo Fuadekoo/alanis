@@ -66,14 +66,23 @@ export async function getStudent(page?: number, pageSize?: number) {
 export async function getPayment(
   studentId: string,
   page?: number,
-  pageSize?: number
+  pageSize?: number,
+  search?: string
 ) {
   // Set default pagination values
   page = page && page > 0 ? page : 1;
   pageSize = pageSize && pageSize > 0 ? pageSize : 50;
 
   const where: any = {
-    ...(studentId && { studentId }),
+    // ...(studentId && { studentId }),
+    ...(search && search.trim()
+      ? {
+          OR: [
+            { year: { equals: Number(search) } },
+            { month: { equals: Number(search) } },
+          ],
+        }
+      : {}),
   };
 
   try {
@@ -231,7 +240,6 @@ export async function rollbackPayment(
         where: { id: studentId },
         data: { balance: { increment: totalRefund } },
       }),
-      
     ]);
 
     return {

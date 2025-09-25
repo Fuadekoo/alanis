@@ -35,7 +35,8 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
     () => {},
     studentId,
     page,
-    pageSize
+    pageSize,
+    search
   );
   const form = useRegistration(createPayment, paymentSchema, (state) => {
     if (state.status) {
@@ -55,8 +56,8 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
     key: String(p.id),
     id: String(p.id),
     year: p.year,
-    month: p.month + 1,
-    amount: p.amount != null ? String(p.amount) : "",
+    month: p.month,
+    amount: p.perMonthAmount,
     createdAt: p.createdAt ?? "",
   }));
 
@@ -76,7 +77,7 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
       label: "Amount",
       renderCell: (item: any) => (
         <span>
-          {item.amount ? `$${Number(item.amount).toLocaleString()}` : ""}
+          {item.amount ? `${Number(item.amount).toLocaleString()} ETB` : ""}
         </span>
       ),
     },
