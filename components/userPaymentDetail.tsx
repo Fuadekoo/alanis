@@ -4,6 +4,7 @@ import {
   createPayment,
   getPayment,
   rollbackPayment,
+  getBalance,
 } from "@/actions/controller/payment";
 import useData from "@/hooks/useData";
 import { useRegistration } from "@/hooks/useRegistration";
@@ -37,6 +38,11 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
     page,
     pageSize,
     search
+  );
+  const [balance, balanceLoading, balanceRefresh] = useData(
+    getBalance,
+    () => {},
+    studentId
   );
   const form = useRegistration(createPayment, paymentSchema, (state) => {
     if (state.status) {
@@ -176,11 +182,26 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
   return (
     <div className="overflow-x-auto px-2">
       <div className="w-full mx-auto grid grid-rows-[auto_1fr] gap-2 overflow-hidden">
-        <h1 className="text-2xl font-bold mb-6 text-slate-800">
-          Payment Management
-        </h1>
-        {/* Add Payment Button */}
-        <div className="flex justify-end mb-2">
+        <div className="flex items-center justify-between mb-6">
+          {/* Balance and Refresh */}
+          <div className="flex items-center gap-2">
+            {balanceLoading ? (
+              <Skeleton className="h-6 w-32" />
+            ) : (
+              <span className="text-lg font-semibold text-green-700">
+          Balance: {balance?.toFixed(2)} ETB
+              </span>
+            )}
+            <Button
+              size="sm"
+              variant="flat"
+              onClick={balanceRefresh}
+              disabled={balanceLoading}
+            >
+              Refresh
+            </Button>
+          </div>
+          {/* Add Payment Button */}
           <Button color="primary" onClick={() => setShowAddModal(true)}>
             Add Payment
           </Button>

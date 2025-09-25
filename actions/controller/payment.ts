@@ -250,3 +250,16 @@ export async function rollbackPayment(
     return { status: false, message: "Failed to rollback payment(s)" };
   }
 }
+
+export async function getBalance(studentId: string): Promise<number | null> {
+  try {
+    const student = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: { balance: true },
+    });
+    return student?.balance || null;
+  } catch (error) {
+    console.error("Failed to get balance:", error);
+    return null;
+  }
+}
