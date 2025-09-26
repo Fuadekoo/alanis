@@ -18,6 +18,8 @@ function Page() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [filterByPayment, setFilterByPayment] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string | undefined>(undefined);
+  const [endDate, setEndDate] = useState<string | undefined>(undefined);
   const filterOptions = [
     { label: "All", value: "all" },
     { label: "Pending", value: "pending" },
@@ -78,9 +80,6 @@ function Page() {
     studentFullName: deposit.depositedTo
       ? `${deposit.depositedTo.firstName} ${deposit.depositedTo.fatherName} ${deposit.depositedTo.lastName}`
       : "N/A",
-    controllerFullName: deposit.depositedBy
-      ? `${deposit.depositedBy.firstName} ${deposit.depositedBy.fatherName} ${deposit.depositedBy.lastName}`
-      : "N/A",
     amount: deposit.amount != null ? String(deposit.amount) : "",
     photo: deposit.photo ?? "",
     status: deposit.status ?? "",
@@ -93,11 +92,7 @@ function Page() {
       label: "Student Name",
       renderCell: (item: any) => item.studentFullName,
     },
-    {
-      key: "controllerFullName",
-      label: "Controller Name",
-      renderCell: (item: any) => item.controllerFullName,
-    },
+
     {
       key: "amount",
       label: "Amount",
@@ -283,6 +278,14 @@ function Page() {
               setPage(1);
             }}
             isLoading={isLoading}
+            enableDateFilter={true}
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={({ startDate, endDate }) => {
+              setStartDate(startDate || undefined);
+              setEndDate(endDate || undefined);
+              setPage(1);
+            }}
           />
         </div>
       </div>
