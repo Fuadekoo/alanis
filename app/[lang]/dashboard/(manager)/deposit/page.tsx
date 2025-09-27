@@ -45,7 +45,9 @@ function Page() {
     filterByPayment,
     page,
     pageSize,
-    search
+    search,
+    startDate,
+    endDate
   );
 
   // Approve mutation

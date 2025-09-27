@@ -67,10 +67,20 @@ function Page() {
             };
           })
       : [];
-  const monthOptions = Array.from({ length: 12 }, (_, i) => ({
-    value: String(i + 1),
-    label: `${i + 1}`,
-  }));
+  const monthOptions = [
+    { value: "1", label: "January" },
+    { value: "2", label: "February" },
+    { value: "3", label: "March" },
+    { value: "4", label: "April" },
+    { value: "5", label: "May" },
+    { value: "6", label: "June" },
+    { value: "7", label: "July" },
+    { value: "8", label: "August" },
+    { value: "9", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+  ];
 
   const rows = (data?.data || []).map((payment) => ({
     key: String(payment.id),
@@ -99,7 +109,23 @@ function Page() {
     {
       key: "month",
       label: "Month",
-      renderCell: (item: any) => item.month,
+      renderCell: (item: any) => {
+        const monthNames = [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ];
+        return monthNames[Number(item.month) - 1] || item.month;
+      },
     },
     {
       key: "amount",
@@ -223,40 +249,7 @@ function Page() {
                 </option>
               ))}
             </select>
-            {/* Search input */}
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="ml-2 px-3 py-2 rounded border border-gray-300 text-sm"
-              style={{ minWidth: 120 }}
-            />
-            <Button
-              color="primary"
-              className="ml-2"
-              onClick={() => {
-                setPage(1);
-                refresh();
-              }}
-            >
-              Search
-            </Button>
-            <Button
-              variant="flat"
-              className="ml-2"
-              onClick={() => {
-                setYear(undefined);
-                setMonth(undefined);
-                setSearch("");
-                setStartDate(undefined);
-                setEndDate(undefined);
-                setPage(1);
-                refresh();
-              }}
-            >
-              Clear
-            </Button>
+            {/* Removed search input and buttons */}
           </div>
         </div>
         {/* Table */}

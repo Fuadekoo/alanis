@@ -18,6 +18,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         Icon: <Home className="size-4" />,
       },
       {
+        english: "Payment",
+        amharic: "ክፍያ",
+        url: "payment",
+        Icon: <Home className="size-4" />,
+      },
+      {
         english: "Chat",
         amharic: "ቻት",
         url: "chat",

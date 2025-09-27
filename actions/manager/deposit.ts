@@ -9,7 +9,9 @@ export async function getDeposit(
   filterByPayment?: string,
   page?: number,
   pageSize?: number,
-  searchPhone?: string // <-- add this parameter
+  searchPhone?: string,
+  startDate?: string,
+  endDate?: string
 ) {
   // Set default pagination values
   page = page && page > 0 ? page : 1;
@@ -39,6 +41,14 @@ export async function getDeposit(
           },
         }
       : {}),
+    ...(startDate && {
+      createdAt: {
+        ...(startDate && { gte: new Date(startDate) }),
+        ...(endDate && {
+          lte: new Date(new Date(endDate).setUTCHours(23, 59, 59, 999)),
+        }),
+      },
+    }),
   };
 
   try {

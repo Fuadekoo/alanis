@@ -20,39 +20,38 @@ export async function getMonthsPayment(
   pageSize = pageSize && pageSize > 0 ? pageSize : 50;
   try {
     // Build the where clause correctly for Prisma
-    // const where: any = {
-    //   ...(month && { month: Number(month) }),
-    //   ...(year && { year: Number(year) }),
-    //   ...(startDate &&
-    //     endDate && {
-    //       createdAt: {
-    //         gte: startDate,
-    //         lte: new Date(new Date(endDate).setUTCHours(23, 59, 59, 999)),
-    //       },
-    //     }),
-    //   ...(search && search.trim()
-    //     ? {
-    //         OR: [
-    //           {
-    //             user: {
-    //               firstName: { contains: search.trim(), mode: "insensitive" },
-    //             },
-    //           },
-    //           {
-    //             user: {
-    //               fatherName: { contains: search.trim(), mode: "insensitive" },
-    //             },
-    //           },
-    //           {
-    //             user: {
-    //               lastName: { contains: search.trim(), mode: "insensitive" },
-    //             },
-    //           },
-    //         ],
-    //       }
-    //     : {}),
-    // };
-    const where: any = {};
+    const where: any = {
+      ...(month && { month: Number(month) }),
+      ...(year && { year: Number(year) }),
+      ...(startDate &&
+        endDate && {
+          createdAt: {
+            gte: startDate,
+            lte: new Date(new Date(endDate).setUTCHours(23, 59, 59, 999)),
+          },
+        }),
+      ...(search && search.trim()
+        ? {
+            OR: [
+              {
+                user: {
+                  firstName: { contains: search.trim(), mode: "insensitive" },
+                },
+              },
+              {
+                user: {
+                  fatherName: { contains: search.trim(), mode: "insensitive" },
+                },
+              },
+              {
+                user: {
+                  lastName: { contains: search.trim(), mode: "insensitive" },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
 
     const totalRows = await prisma.payment.count({
       where,
@@ -117,10 +116,12 @@ export async function getYearsPayment() {
       distinct: ["year"],
     });
     console.log("Years fetched successfully:", data);
-    return data.map((item) => ({
+    const my = data.map((item) => ({
       value: item.year.toString(),
       label: item.year.toString(),
     }));
+    console.log("Formatted years:", my);
+    return my.map((item) => item.value);
   } catch (error) {
     console.error("Failed to get years:", error);
     return [];
