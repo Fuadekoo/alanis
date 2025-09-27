@@ -109,14 +109,15 @@ export async function getMonthsPayment(
   }
 }
 
-export async function getYearsPayment(){
+export async function getYearsPayment() {
   try {
     const data = await prisma.payment.findMany({
-      orderBy: { year: 'desc' },
+      orderBy: { year: "desc" },
       select: { year: true },
-      distinct: ['year'],
+      distinct: ["year"],
     });
-    return data
+    console.log("Years fetched successfully:", data);
+    return data.map((item) => ({ value: item.year.toString(), label: item.year.toString() }));
   } catch (error) {
     console.error("Failed to get years:", error);
     return [];

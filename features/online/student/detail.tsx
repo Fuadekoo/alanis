@@ -66,9 +66,9 @@ export default function Detail() {
             ) : tab == "room" ? (
               <AssignedRoom />
             ) : tab == "payment" ? (
-              <div>
+              <>
                 <UserPaymentDetail studentId={data.id} />
-              </div>
+              </>
             ) : tab == "attendance" ? (
               <Attendance />
             ) : (

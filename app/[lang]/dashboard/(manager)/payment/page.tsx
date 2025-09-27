@@ -4,7 +4,7 @@ import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
 import { Button, Input, Modal } from "@heroui/react";
-import { getMonthsPayment,getYearsPayment } from "@/actions/manager/payment";
+import { getMonthsPayment, getYearsPayment } from "@/actions/manager/payment";
 import { controllerDepositDashboard } from "@/actions/controller/deposit";
 import { addToast } from "@heroui/toast";
 import z from "zod";
@@ -42,7 +42,30 @@ function Page() {
 
   const [yearsData, isLoadingYears] = useData(getYearsPayment, () => {});
 
-  // Reject mutation
+  // Prepare year and month options
+  const yearOptions =
+    Array.isArray(yearsData) && yearsData.length > 0
+      ? yearsData
+          .filter((y: any) => {
+            // If yearsData is array of objects, check for year property
+            if (typeof y === "object" && y !== null && "year" in y) {
+              return y.year != null && y.year !== "";
+            }
+            return y != null && y !== "";
+          })
+          .map((y: any) => {
+            // If yearsData is array of objects, extract year property
+            const yearValue = typeof y === "object" && y !== null && "year" in y ? y.year : y;
+            return {
+              value: String(yearValue),
+              label: String(yearValue),
+            };
+          })
+      : [];
+  const monthOptions = Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1),
+    label: `${i + 1}`,
+  }));
 
   const rows = (data?.data || []).map((payment) => ({
     key: String(payment.id),
@@ -170,10 +193,83 @@ function Page() {
           </div>
         </div>
         {/* Filter and Add button row */}
-
-
-        {/* Date Filter Modal */}
-
+        <div className="p-1 bg-default-50/30 rounded-xl flex flex-wrap gap-2 items-center justify-between">
+          <div className="flex items-center gap-2">
+            {/* Year filter */}
+            <label className="text-sm font-medium text-gray-700">Year:</label>
+            <select
+              value={year || ""}
+              onChange={(e) => {
+                setYear(e.target.value || undefined);
+                setPage(1);
+              }}
+              className="px-3 py-2 rounded border border-gray-300 text-sm"
+              style={{ minWidth: 80 }}
+              disabled={isLoadingYears}
+            >
+              <option value="">All</option>
+              {yearOptions.map((opt: { value: string; label: string }) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            {/* Month filter */}
+            <label className="text-sm font-medium text-gray-700 ml-2">
+              Month:
+            </label>
+            <select
+              value={month || ""}
+              onChange={(e) => {
+                setMonth(e.target.value || undefined);
+                setPage(1);
+              }}
+              className="px-3 py-2 rounded border border-gray-300 text-sm"
+              style={{ minWidth: 80 }}
+            >
+              <option value="">All</option>
+              {monthOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            {/* Search input */}
+            <input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="ml-2 px-3 py-2 rounded border border-gray-300 text-sm"
+              style={{ minWidth: 120 }}
+            />
+            <Button
+              color="primary"
+              className="ml-2"
+              onClick={() => {
+                setPage(1);
+                refresh();
+              }}
+            >
+              Search
+            </Button>
+            <Button
+              variant="flat"
+              className="ml-2"
+              onClick={() => {
+                setYear(undefined);
+                setMonth(undefined);
+                setSearch("");
+                setStartDate(undefined);
+                setEndDate(undefined);
+                setPage(1);
+                refresh();
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
         {/* Table */}
         <div className="w-full overflow-x-auto">
           <CustomTable
