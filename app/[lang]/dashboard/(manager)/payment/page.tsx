@@ -4,8 +4,12 @@ import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
 import { Button, Input, Modal } from "@heroui/react";
-import { getMonthsPayment, getYearsPayment } from "@/actions/manager/payment";
-import { controllerDepositDashboard } from "@/actions/controller/deposit";
+import {
+  getMonthsPayment,
+  getYearsPayment,
+  paymentDashboard,
+} from "@/actions/manager/payment";
+// import { controllerDepositDashboard } from "@/actions/controller/deposit";
 import { addToast } from "@heroui/toast";
 import z from "zod";
 import { Calendar } from "@heroui/react";
@@ -22,8 +26,8 @@ function Page() {
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [pageSize, setPageSize] = useState(10);
 
-  const [controllerData, isLoadingController] = useData(
-    controllerDepositDashboard,
+  const [dashboardData, isLoadingDashboard] = useData(
+    paymentDashboard,
     () => {}
   );
 
@@ -55,7 +59,8 @@ function Page() {
           })
           .map((y: any) => {
             // If yearsData is array of objects, extract year property
-            const yearValue = typeof y === "object" && y !== null && "year" in y ? y.year : y;
+            const yearValue =
+              typeof y === "object" && y !== null && "year" in y ? y.year : y;
             return {
               value: String(yearValue),
               label: String(yearValue),
@@ -133,60 +138,44 @@ function Page() {
         </h1>
         {/* Dashboard summary */}
         <div className="mb-4 w-full">
-          <div className="grid grid-cols-4 sm:grid-cols-3 md:grid-cols-7 gap-2">
+          <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 gap-2">
             <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">Total Deposits</div>
+              <div className="text-xs text-gray-500">Total Payment</div>
               <div className="font-bold text-lg text-blue-700">
-                {typeof controllerData?.totalDeposits === "number"
-                  ? controllerData.totalDeposits
+                {isLoadingDashboard
+                  ? "..."
+                  : typeof dashboardData?.totalPayment === "number"
+                  ? dashboardData.totalPayment
                   : 0}
               </div>
             </div>
             <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">Approved</div>
+              <div className="text-xs text-gray-500">This Month Payment</div>
               <div className="font-bold text-lg text-green-600">
-                {typeof controllerData?.approvedDeposits === "number"
-                  ? controllerData.approvedDeposits
+                {isLoadingDashboard
+                  ? "..."
+                  : typeof dashboardData?.thisMonthPayment === "number"
+                  ? dashboardData.thisMonthPayment
                   : 0}
               </div>
             </div>
             <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">Rejected</div>
-              <div className="font-bold text-lg text-red-600">
-                {typeof controllerData?.rejectedDeposits === "number"
-                  ? controllerData.rejectedDeposits
+              <div className="text-xs text-gray-500">Max Payment</div>
+              <div className="font-bold text-lg text-purple-700">
+                {isLoadingDashboard
+                  ? "..."
+                  : typeof dashboardData?.maxValuePayment === "number"
+                  ? dashboardData.maxValuePayment
                   : 0}
               </div>
             </div>
             <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">Pending</div>
-              <div className="font-bold text-lg text-yellow-600">
-                {typeof controllerData?.pendingDeposits === "number"
-                  ? controllerData.pendingDeposits
-                  : 0}
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">This Month</div>
-              <div className="font-bold text-lg text-blue-700">
-                {typeof controllerData?.thisMonthDeposits === "number"
-                  ? controllerData.thisMonthDeposits
-                  : 0}
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">This Month Rejected</div>
-              <div className="font-bold text-lg text-red-600">
-                {typeof controllerData?.thisMonthRejected === "number"
-                  ? controllerData.thisMonthRejected
-                  : 0}
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">This Month Pending</div>
-              <div className="font-bold text-lg text-yellow-600">
-                {typeof controllerData?.thisMonthPending === "number"
-                  ? controllerData.thisMonthPending
+              <div className="text-xs text-gray-500">Min Payment</div>
+              <div className="font-bold text-lg text-pink-700">
+                {isLoadingDashboard
+                  ? "..."
+                  : typeof dashboardData?.minValuePayment === "number"
+                  ? dashboardData.minValuePayment
                   : 0}
               </div>
             </div>

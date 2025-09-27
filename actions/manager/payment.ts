@@ -117,9 +117,70 @@ export async function getYearsPayment() {
       distinct: ["year"],
     });
     console.log("Years fetched successfully:", data);
-    return data.map((item) => ({ value: item.year.toString(), label: item.year.toString() }));
+    return data.map((item) => ({
+      value: item.year.toString(),
+      label: item.year.toString(),
+    }));
   } catch (error) {
     console.error("Failed to get years:", error);
     return [];
+  }
+}
+
+export async function paymentDashboard() {
+  try {
+    // Total payment sum
+    const totalPayment = await prisma.payment.aggregate({
+      _sum: { perMonthAmount: true },
+    });
+
+    // This month's payment sum
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+
+    const thisMonthPayment = await prisma.payment.aggregate({
+      _sum: { perMonthAmount: true },
+      where: {
+        createdAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+    });
+
+    // Max payment value
+    const maxValuePayment = await prisma.payment.aggregate({
+      _max: { perMonthAmount: true },
+    });
+
+    // Min payment value
+    const minValuePayment = await prisma.payment.aggregate({
+      _min: { perMonthAmount: true },
+    });
+
+    return {
+      totalPayment: totalPayment._sum.perMonthAmount || 0,
+      thisMonthPayment: thisMonthPayment._sum.perMonthAmount || 0,
+      maxValuePayment: maxValuePayment._max.perMonthAmount || 0,
+      minValuePayment: minValuePayment._min.perMonthAmount || 0,
+    };
+  } catch (error) {
+    console.error("Failed to get payment dashboard data:", error);
+    return {
+      totalPayment: 0,
+      thisMonthPayment: 0,
+      maxValuePayment: 0,
+      minValuePayment: 0,
+      error: "Failed to retrieve dashboard data.",
+    };
   }
 }
