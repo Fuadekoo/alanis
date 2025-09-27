@@ -3,7 +3,13 @@ import React, { useState } from "react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import { getPayment } from "@/actions/student/payment";
-import { DollarSign, Calendar } from "lucide-react";
+import {
+  DollarSign,
+  Calendar,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
 
 function Page() {
   const [search, setSearch] = useState("");
@@ -65,20 +71,45 @@ function Page() {
           "December",
         ];
         const monthName = monthNames[Number(item.month) - 1] || item.month;
-        const isCurrentMonth =
-          Number(item.month) === currentMonth &&
-          Number(item.year) === currentYear;
+        const paymentYear = Number(item.year);
+        const paymentMonth = Number(item.month);
+
+        // Determine status based on year and month
+        let status = "";
+        let statusClass = "";
+        let statusIcon = null;
+
+        if (paymentYear === currentYear && paymentMonth === currentMonth) {
+          status = "Current";
+          statusClass =
+            "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+          statusIcon = <Clock className="h-3 w-3" />;
+        } else if (
+          paymentYear > currentYear ||
+          (paymentYear === currentYear && paymentMonth > currentMonth)
+        ) {
+          status = "Future";
+          statusClass =
+            "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
+          statusIcon = <AlertCircle className="h-3 w-3" />;
+        } else {
+          status = "Past";
+          statusClass =
+            "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+          statusIcon = <CheckCircle className="h-3 w-3" />;
+        }
 
         return (
           <div className="flex items-center gap-2">
             <span className="font-medium text-gray-900 dark:text-gray-100">
-              {monthName}
+              {monthName} {paymentYear}
             </span>
-            {isCurrentMonth && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                Current
-              </span>
-            )}
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusClass}`}
+            >
+              {statusIcon}
+              {status}
+            </span>
           </div>
         );
       },
