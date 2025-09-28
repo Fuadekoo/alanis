@@ -42,10 +42,7 @@ function Page() {
     null
   );
 
-  const [controllerData, ] = useData(
-    controllerDepositDashboard,
-    () => {}
-  );
+  const [controllerData] = useData(controllerDepositDashboard, () => {});
 
   // Data fetching
   const [data, isLoading, refresh] = useData(
@@ -151,6 +148,7 @@ function Page() {
     {
       key: "actions",
       label: t("common.actions"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <div className="flex items-center gap-2">
           {item.status === "pending" && (

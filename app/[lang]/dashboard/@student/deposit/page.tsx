@@ -101,7 +101,7 @@ function Page() {
     {
       key: "actions",
       label: "Actions",
-      renderCell: (item: any) => (
+      renderCell: () => (
         <div className="flex items-center gap-2"></div>
       ),
     },
