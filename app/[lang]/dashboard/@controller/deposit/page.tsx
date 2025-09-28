@@ -4,7 +4,7 @@ import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import useDelete, { UseDelete } from "@/hooks/useDelete";
 import { useRegistration } from "@/hooks/useRegistration";
-import { DepositSchema } from "@/lib/zodSchema";
+// import { DepositSchema } from "@/lib/zodSchema";
 import {
   Button,
   Input,
@@ -31,12 +31,10 @@ import chroma from "chroma-js";
 import { X } from "lucide-react";
 import { useLocalization } from "@/hooks/useLocalization";
 import {
-  DollarSign,
   CheckCircle,
   XCircle,
   Clock,
   TrendingUp,
-  Users,
   FileText,
   Plus,
 } from "lucide-react";
@@ -68,12 +66,14 @@ const formatImageUrl = (url: string | null | undefined): string => {
 
 // Define styles for react-select
 const selectStyles = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   control: (styles: any) => ({
     ...styles,
     backgroundColor: "white",
     minHeight: "44px",
     borderRadius: "8px",
   }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   option: (styles: any, { data, isDisabled, isFocused, isSelected }: any) => {
     const color = chroma(data.color || "#2684FF");
     return {
@@ -104,8 +104,11 @@ const selectStyles = {
       },
     };
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   input: (styles: any) => ({ ...styles, height: "40px" }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   placeholder: (styles: any) => ({ ...styles, color: "#aaa" }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   singleValue: (styles: any, { data }: any) => ({
     ...styles,
     color: data.color,
@@ -135,7 +138,7 @@ function Page() {
   );
   const [isUploading, setIsUploading] = useState(false);
 
-  const [controllerData, isControllerLoading] = useData(
+  const [controllerData, ] = useData(
     controllerDepositDashboard,
     () => {}
   );
@@ -241,6 +244,7 @@ function Page() {
 
   // Registration (add/edit) logic
   const form = useRegistration(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async (values: any) => {
       if (editingId) {
         return depositUpdate(editingId, values);
@@ -282,11 +286,13 @@ function Page() {
     {
       key: "studentFullName",
       label: t("deposit.studentName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.studentFullName,
     },
     {
       key: "amount",
       label: t("deposit.amount"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <span>{formatCurrency(parseFloat(item.amount))}</span>
       ),
@@ -294,6 +300,7 @@ function Page() {
     {
       key: "photo",
       label: t("deposit.photo"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) =>
         item.photo ? (
           <img
@@ -313,6 +320,7 @@ function Page() {
     {
       key: "status",
       label: t("deposit.status"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <span className="capitalize">{t(`deposit.${item.status}`)}</span>
       ),
@@ -320,12 +328,14 @@ function Page() {
     {
       key: "createdAt",
       label: t("deposit.createdAt"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) =>
         item.createdAt ? new Date(item.createdAt).toLocaleString() : "",
     },
     {
       key: "actions",
       label: t("common.actions"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <div className="flex items-center gap-2">
           <Button
@@ -615,7 +625,7 @@ function Registration({
   // Transform students data to options for react-select
   const studentOptions = useMemo(() => {
     if (!students) return [];
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
     return students.map((student: any) => ({
       value: student.id,
       label: `${student.firstName} ${student.fatherName} ${student.lastName}`,

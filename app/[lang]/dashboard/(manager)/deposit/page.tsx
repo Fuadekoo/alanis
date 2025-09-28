@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
-import { Button, Input, Modal } from "@heroui/react";
+import { Button } from "@heroui/react";
 import {
   getDeposit,
   approveDeposit,
@@ -103,12 +103,14 @@ function Page() {
     {
       key: "studentFullName",
       label: t("deposit.studentName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.studentFullName,
     },
 
     {
       key: "amount",
       label: t("deposit.amount"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <span>{formatCurrency(Number(item.amount))}</span>
       ),
@@ -116,6 +118,7 @@ function Page() {
     {
       key: "photo",
       label: t("deposit.photo"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) =>
         item.photo ? (
           <img
@@ -135,6 +138,7 @@ function Page() {
     {
       key: "status",
       label: t("deposit.status"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <span className="capitalize">{t(`deposit.${item.status}`)}</span>
       ),
@@ -142,6 +146,7 @@ function Page() {
     {
       key: "createdAt",
       label: t("deposit.createdAt"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) =>
         item.createdAt ? new Date(item.createdAt).toLocaleString() : "",
     },

@@ -2,25 +2,22 @@
 import React, { useState } from "react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
-import useMutation from "@/hooks/useMutation";
-import { Button, Input, Modal } from "@heroui/react";
+// import useMutation from "@/hooks/useMutation";
+// import { Button, Input, Modal } from "@heroui/react";
 import {
   getMonthsPayment,
   getYearsPayment,
   paymentDashboard,
 } from "@/actions/manager/payment";
 // import { controllerDepositDashboard } from "@/actions/controller/deposit";
-import { addToast } from "@heroui/toast";
-import z from "zod";
-import { Calendar } from "@heroui/react";
-import { X } from "lucide-react";
-import { parseDate, DateValue } from "@internationalized/date";
+// import { addToast } from "@heroui/toast";
+// import { Calendar } from "@heroui/react";
+// import { X } from "lucide-react";
+// import { parseDate, DateValue } from "@internationalized/date";
 import { useLocalization } from "@/hooks/useLocalization";
 import {
-  DollarSign,
   TrendingUp,
   Calendar as CalendarIcon,
-  Users,
   CreditCard,
   BarChart3,
 } from "lucide-react";
@@ -33,7 +30,7 @@ function Page() {
   const [year, setYear] = useState<string | undefined>(undefined);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [showDateFilter, setShowDateFilter] = useState(false);
+  // const [showDateFilter, setShowDateFilter] = useState(false);
   const [pageSize, setPageSize] = useState(10);
 
   const [dashboardData, isLoadingDashboard] = useData(
@@ -42,7 +39,7 @@ function Page() {
   );
 
   // Data fetching
-  const [data, isLoading, refresh] = useData(
+  const [data, isLoading, ] = useData(
     getMonthsPayment,
     () => {},
     search,
@@ -60,6 +57,7 @@ function Page() {
   const yearOptions =
     Array.isArray(yearsData) && yearsData.length > 0
       ? yearsData
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .filter((y: any) => {
             // If yearsData is array of objects, check for year property
             if (typeof y === "object" && y !== null && "year" in y) {
@@ -109,16 +107,19 @@ function Page() {
     {
       key: "studentFullName",
       label: t("deposit.studentName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.studentFullName,
     },
     {
       key: "year",
       label: t("payment.year"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.year,
     },
     {
       key: "month",
       label: t("payment.month"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => {
         return getMonthName(Number(item.month));
       },
@@ -127,12 +128,14 @@ function Page() {
       key: "amount",
       label: t("payment.amount"),
       renderCell: (item: any) => (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         <span>{formatCurrency(Number(item.amount))}</span>
       ),
     },
     {
       key: "createdAt",
       label: t("payment.paymentDate"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) =>
         item.createdAt ? new Date(item.createdAt).toLocaleString() : "",
     },
