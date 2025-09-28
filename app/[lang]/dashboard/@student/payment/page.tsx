@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import { getPayment } from "@/actions/student/payment";
+import { useLocalization } from "@/hooks/useLocalization";
 import {
   DollarSign,
   Calendar,
@@ -10,9 +11,14 @@ import {
   CheckCircle,
   AlertCircle,
   Eye,
+  CreditCard,
+  TrendingUp,
+  Wallet,
+  Receipt,
 } from "lucide-react";
 
 function Page() {
+  const { t, getMonthName, formatCurrency } = useLocalization();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -48,7 +54,7 @@ function Page() {
   const columns = [
     {
       key: "year",
-      label: "Year",
+      label: t("payment.year"),
       renderCell: (item: any) => (
         <span className="font-medium text-gray-900 dark:text-gray-100">
           {item.year}
@@ -57,23 +63,9 @@ function Page() {
     },
     {
       key: "month",
-      label: "Month",
+      label: t("payment.month"),
       renderCell: (item: any) => {
-        const monthNames = [
-          "January",
-          "February",
-          "March",
-          "April",
-          "May",
-          "June",
-          "July",
-          "August",
-          "September",
-          "October",
-          "November",
-          "December",
-        ];
-        const monthName = monthNames[Number(item.month) - 1] || item.month;
+        const monthName = getMonthName(Number(item.month));
         const paymentYear = Number(item.year);
         const paymentMonth = Number(item.month);
 
@@ -83,7 +75,7 @@ function Page() {
         let statusIcon = null;
 
         if (paymentYear === currentYear && paymentMonth === currentMonth) {
-          status = "Current";
+          status = t("payment.currentMonth");
           statusClass =
             "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
           statusIcon = <Clock className="h-3 w-3" />;
@@ -91,12 +83,12 @@ function Page() {
           paymentYear > currentYear ||
           (paymentYear === currentYear && paymentMonth > currentMonth)
         ) {
-          status = "Future";
+          status = t("payment.futurePayment");
           statusClass =
             "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
           statusIcon = <AlertCircle className="h-3 w-3" />;
         } else {
-          status = "Past";
+          status = t("payment.pastPayment");
           statusClass =
             "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
           statusIcon = <CheckCircle className="h-3 w-3" />;
@@ -134,11 +126,11 @@ function Page() {
                 }`}
               >
                 {paymentYear === currentYear && paymentMonth === currentMonth
-                  ? "● Current Month"
+                  ? `● ${t("payment.currentMonth")}`
                   : paymentYear > currentYear ||
                     (paymentYear === currentYear && paymentMonth > currentMonth)
-                  ? "● Future Payment"
-                  : "● Past Payment"}
+                  ? `● ${t("payment.futurePayment")}`
+                  : `● ${t("payment.pastPayment")}`}
               </span>
             </div>
 
@@ -155,18 +147,18 @@ function Page() {
     },
     {
       key: "amount",
-      label: "Amount",
+      label: t("payment.amount"),
       renderCell: (item: any) => (
         <div className="flex items-center gap-2">
           <span className="font-semibold text-green-700 dark:text-green-400">
-            {Number(item.amount).toLocaleString()} ETB
+            {formatCurrency(Number(item.amount))}
           </span>
         </div>
       ),
     },
     {
       key: "createdAt",
-      label: "Payment Date",
+      label: t("payment.paymentDate"),
       renderCell: (item: any) => (
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
@@ -188,11 +180,155 @@ function Page() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                Payment History
+                {t("payment.title")}
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                View your payment history and track monthly payments
+                {t("payment.subtitle")}
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Dashboard Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Total Payments Card */}
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl shadow-lg border border-blue-200 dark:border-blue-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 dark:text-blue-200 text-sm font-medium">
+                  {t("payment.totalPayments")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {data?.data?.length || 0}
+                </p>
+                <p className="text-blue-100 dark:text-blue-200 text-xs mt-1">
+                  {t("payment.monthlyPaymentsMade")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <CreditCard className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Total Amount Card */}
+          <div className="bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-xl shadow-lg border border-green-200 dark:border-green-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 dark:text-green-200 text-sm font-medium">
+                  {t("payment.totalAmount")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {formatCurrency(
+                    data?.data?.reduce(
+                      (sum, payment) => sum + (payment.perMonthAmount || 0),
+                      0
+                    ) || 0
+                  )}
+                </p>
+                <p className="text-green-100 dark:text-green-200 text-xs mt-1">
+                  {t("payment.totalPaidAmount")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <DollarSign className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Average Payment Card */}
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-xl shadow-lg border border-purple-200 dark:border-purple-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 dark:text-purple-200 text-sm font-medium">
+                  {t("payment.averagePayment")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {formatCurrency(
+                    data?.data && data.data.length > 0
+                      ? Math.round(
+                          data.data.reduce(
+                            (sum, payment) =>
+                              sum + (payment.perMonthAmount || 0),
+                            0
+                          ) / data.data.length
+                        )
+                      : 0
+                  )}
+                </p>
+                <p className="text-purple-100 dark:text-purple-200 text-xs mt-1">
+                  {t("payment.perMonthAverage")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <TrendingUp className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Current Month Status Card */}
+          <div
+            className={`rounded-xl shadow-lg border p-6 ${
+              data?.data?.find(
+                (payment) =>
+                  payment.month === currentMonth && payment.year === currentYear
+              )
+                ? "bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 border-emerald-200 dark:border-emerald-800 text-white"
+                : "bg-gradient-to-br from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700 border-amber-200 dark:border-amber-800 text-white"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p
+                  className={`text-sm font-medium ${
+                    data?.data?.find(
+                      (payment) =>
+                        payment.month === currentMonth &&
+                        payment.year === currentYear
+                    )
+                      ? "text-emerald-100 dark:text-emerald-200"
+                      : "text-amber-100 dark:text-amber-200"
+                  }`}
+                >
+                  {t("payment.thisMonth")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {data?.data?.find(
+                    (payment) =>
+                      payment.month === currentMonth &&
+                      payment.year === currentYear
+                  )
+                    ? t("payment.paid")
+                    : t("payment.pending")}
+                </p>
+                <p
+                  className={`text-xs mt-1 ${
+                    data?.data?.find(
+                      (payment) =>
+                        payment.month === currentMonth &&
+                        payment.year === currentYear
+                    )
+                      ? "text-emerald-100 dark:text-emerald-200"
+                      : "text-amber-100 dark:text-amber-200"
+                  }`}
+                >
+                  {new Date().toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                {data?.data?.find(
+                  (payment) =>
+                    payment.month === currentMonth &&
+                    payment.year === currentYear
+                ) ? (
+                  <CheckCircle className="h-8 w-8 text-white" />
+                ) : (
+                  <Clock className="h-8 w-8 text-white" />
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -203,10 +339,10 @@ function Page() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  Payment History
+                  {t("payment.title")}
                 </h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  View all your monthly payments
+                  {t("payment.subtitle")}
                 </p>
               </div>
             </div>
