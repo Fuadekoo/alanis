@@ -165,88 +165,88 @@ function Page() {
         {/* Dashboard summary */}
         <div className="mb-4 w-full">
           <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 gap-2">
-            <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">Total Payment</div>
-              <div className="font-bold text-lg text-blue-700">
-                {isLoadingDashboard
-                  ? "..."
-                  : typeof dashboardData?.totalPayment === "number"
-                  ? dashboardData.totalPayment
-                  : 0}
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-300">Total Payment</div>
+              <div className="font-bold text-lg text-blue-700 dark:text-blue-400">
+          {isLoadingDashboard
+            ? "..."
+            : typeof dashboardData?.totalPayment === "number"
+            ? dashboardData.totalPayment
+            : 0}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">This Month Payment</div>
-              <div className="font-bold text-lg text-green-600">
-                {isLoadingDashboard
-                  ? "..."
-                  : typeof dashboardData?.thisMonthPayment === "number"
-                  ? dashboardData.thisMonthPayment
-                  : 0}
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-300">This Month Payment</div>
+              <div className="font-bold text-lg text-green-600 dark:text-green-400">
+          {isLoadingDashboard
+            ? "..."
+            : typeof dashboardData?.thisMonthPayment === "number"
+            ? dashboardData.thisMonthPayment
+            : 0}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">Max Payment</div>
-              <div className="font-bold text-lg text-purple-700">
-                {isLoadingDashboard
-                  ? "..."
-                  : typeof dashboardData?.maxValuePayment === "number"
-                  ? dashboardData.maxValuePayment
-                  : 0}
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-300">Max Payment</div>
+              <div className="font-bold text-lg text-purple-700 dark:text-purple-400">
+          {isLoadingDashboard
+            ? "..."
+            : typeof dashboardData?.maxValuePayment === "number"
+            ? dashboardData.maxValuePayment
+            : 0}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-3 text-center">
-              <div className="text-xs text-gray-500">Min Payment</div>
-              <div className="font-bold text-lg text-pink-700">
-                {isLoadingDashboard
-                  ? "..."
-                  : typeof dashboardData?.minValuePayment === "number"
-                  ? dashboardData.minValuePayment
-                  : 0}
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-3 text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-300">Min Payment</div>
+              <div className="font-bold text-lg text-pink-700 dark:text-pink-400">
+          {isLoadingDashboard
+            ? "..."
+            : typeof dashboardData?.minValuePayment === "number"
+            ? dashboardData.minValuePayment
+            : 0}
               </div>
             </div>
           </div>
         </div>
         {/* Filter and Add button row */}
-        <div className="p-1 bg-default-50/30 rounded-xl flex flex-wrap gap-2 items-center justify-between">
+        <div className="p-1 rounded-xl flex flex-wrap gap-2 items-center justify-between bg-default-50/30 dark:bg-slate-800">
           <div className="flex items-center gap-2">
             {/* Year filter */}
-            <label className="text-sm font-medium text-gray-700">Year:</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Year:</label>
             <select
               value={year || ""}
               onChange={(e) => {
-                setYear(e.target.value || undefined);
-                setPage(1);
+          setYear(e.target.value || undefined);
+          setPage(1);
               }}
-              className="px-3 py-2 rounded border border-gray-300 text-sm"
+              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100"
               style={{ minWidth: 80 }}
               disabled={isLoadingYears}
             >
               <option value="">All</option>
               {yearOptions.map((opt: { value: string; label: string }) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
               ))}
             </select>
             {/* Month filter */}
-            <label className="text-sm font-medium text-gray-700 ml-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-200 ml-2">
               Month:
             </label>
             <select
               value={month || ""}
               onChange={(e) => {
-                setMonth(e.target.value || undefined);
-                setPage(1);
+          setMonth(e.target.value || undefined);
+          setPage(1);
               }}
-              className="px-3 py-2 rounded border border-gray-300 text-sm"
+              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100"
               style={{ minWidth: 80 }}
             >
               <option value="">All</option>
               {monthOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
               ))}
             </select>
             {/* Removed search input and buttons */}

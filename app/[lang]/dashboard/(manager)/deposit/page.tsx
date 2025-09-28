@@ -241,22 +241,22 @@ function Page() {
           </div>
         </div>
         {/* Filter and Add button row */}
-        <div className="p-1 bg-default-50/30 rounded-xl flex flex-wrap gap-2 items-center justify-between">
+        <div className="p-1 rounded-xl flex flex-wrap gap-2 items-center justify-between bg-default-50/30 dark:bg-slate-800">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">Filter:</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Filter:</span>
             <select
               value={filterByPayment}
               onChange={(e) => {
-                setFilterByPayment(e.target.value);
-                setPage(1);
+          setFilterByPayment(e.target.value);
+          setPage(1);
               }}
-              className="px-3 py-2 rounded border border-gray-300 text-sm"
+              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100"
               style={{ minWidth: 120 }}
             >
               {filterOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
               ))}
             </select>
           </div>

@@ -9,6 +9,7 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  Eye,
 } from "lucide-react";
 
 function Page() {
@@ -17,6 +18,7 @@ function Page() {
   const [pageSize, setPageSize] = useState(10);
   const [startDate, setStartDate] = useState<string | undefined>(undefined);
   const [endDate, setEndDate] = useState<string | undefined>(undefined);
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   // Fetch payment data
   const [data, isLoading, refresh] = useData(
@@ -34,6 +36,7 @@ function Page() {
     month: payment.month,
     amount:
       payment.perMonthAmount != null ? String(payment.perMonthAmount) : "",
+    photo: "", // Payment records don't have photos, only deposits do
     createdAt: payment.createdAt ?? "",
   }));
 
@@ -178,23 +181,25 @@ function Page() {
   ];
 
   return (
-    <div className="overflow-x-auto px-2">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-auto px-2 py-6">
       <div className="w-full mx-auto grid grid-rows-[auto_1fr] gap-6 overflow-hidden">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              Payment History
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              View your payment history and track monthly payments
-            </p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                Payment History
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                View your payment history and track monthly payments
+              </p>
+            </div>
           </div>
         </div>
 
         {/* Payment Table */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -207,7 +212,7 @@ function Page() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-6 bg-white dark:bg-gray-900">
             <CustomTable
               columns={columns}
               rows={rows}
@@ -237,6 +242,44 @@ function Page() {
           </div>
         </div>
       </div>
+
+      {/* Image Zoom Modal */}
+      {zoomedImageUrl && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setZoomedImageUrl(null)}
+        >
+          <div
+            className="relative bg-white dark:bg-gray-800 p-4 rounded-xl shadow-2xl max-w-[95vw] max-h-[95vh] flex items-center justify-center border border-gray-200 dark:border-gray-600"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={zoomedImageUrl}
+              alt="Zoomed payment proof"
+              className="block max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+            />
+            <button
+              onClick={() => setZoomedImageUrl(null)}
+              className="absolute top-4 right-4 bg-black/50 dark:bg-gray-700/80 text-white dark:text-gray-200 p-2 rounded-full hover:bg-black/75 dark:hover:bg-gray-600/80 focus:outline-none transition-colors"
+              aria-label="Close zoomed image"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
