@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
-import { getBalance, getDeposit } from "@/actions/student/deposit";
+import { getDeposit } from "@/actions/student/deposit";
 // import z from "zod";
 // import { useDebouncedCallback } from "use-debounce";
 // import Select from "react-select";
@@ -28,7 +28,7 @@ function Page() {
   ];
 
   // Data fetching
-  const [data, isLoading, ] = useData(
+  const [data, isLoading] = useData(
     getDeposit,
     () => {},
     filterByPayment,
@@ -36,7 +36,7 @@ function Page() {
     pageSize,
     search
   );
-  const [balanceData] = useData(getBalance, () => {});
+  // const [balanceData] = useData(getBalance, () => {});
 
   const rows = (data?.data || []).map((deposit) => ({
     key: String(deposit.id),
@@ -101,9 +101,7 @@ function Page() {
     {
       key: "actions",
       label: "Actions",
-      renderCell: () => (
-        <div className="flex items-center gap-2"></div>
-      ),
+      renderCell: () => <div className="flex items-center gap-2"></div>,
     },
   ];
 
@@ -111,7 +109,7 @@ function Page() {
     <div className="overflow-x-auto px-2">
       <div className="w-full mx-auto">
         {/* Balance display */}
-        <div className="flex justify-end items-center mb-4">
+        {/* <div className="flex justify-end items-center mb-4">
           <span className="inline-block bg-green-100 text-green-700 px-4 py-2 rounded-lg font-semibold shadow">
             Balance:{" "}
             {balanceData?.balance
@@ -119,7 +117,7 @@ function Page() {
               : 0}{" "}
             ETB
           </span>
-        </div>
+        </div> */}
         {/* Filter row */}
         <div className="mb-4 flex items-center gap-2">
           <span className="text-sm font-medium text-gray-700">Filter:</span>
