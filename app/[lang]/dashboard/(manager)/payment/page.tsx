@@ -65,6 +65,7 @@ function Page() {
             }
             return y != null && y !== "";
           })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((y: any) => {
             // If yearsData is array of objects, extract year property
             const yearValue =
@@ -127,8 +128,8 @@ function Page() {
     {
       key: "amount",
       label: t("payment.amount"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         <span>{formatCurrency(Number(item.amount))}</span>
       ),
     },

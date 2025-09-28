@@ -44,7 +44,7 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
     () => {},
     studentId
   );
-  const form = useRegistration(createPayment, paymentSchema, (state) => {
+  useRegistration(createPayment, paymentSchema, (state) => {
     if (state.status) {
       refresh();
     }
@@ -58,6 +58,7 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
       }
     }
   );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = (paymentData?.data || []).map((p: any) => ({
     key: String(p.id),
     id: String(p.id),
@@ -71,16 +72,19 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
     {
       key: "year",
       label: "Year",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.year,
     },
     {
       key: "month",
       label: "Month",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.month,
     },
     {
       key: "amount",
       label: "Amount",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <span>
           {item.amount ? `${Number(item.amount).toLocaleString()} ETB` : ""}
@@ -90,12 +94,14 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
     {
       key: "createdAt",
       label: "Created At",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) =>
         item.createdAt ? new Date(item.createdAt).toLocaleString() : "",
     },
     {
       key: "actions",
       label: "Actions",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <div className="flex items-center gap-2">
           <Button
@@ -268,6 +274,7 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
                         isMulti
                         options={monthOptions}
                         value={tempMonths}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         onChange={(val) => setTempMonths(val as any)}
                         placeholder="Select months..."
                         className="react-select-container"

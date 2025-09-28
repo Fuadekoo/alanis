@@ -1,13 +1,13 @@
 "use client";
-import React, { useState, useMemo, ChangeEvent } from "react";
+import React, { useState } from "react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import { getBalance, getDeposit } from "@/actions/student/deposit";
-import z from "zod";
-import { useDebouncedCallback } from "use-debounce";
-import Select from "react-select";
-import chroma from "chroma-js";
-import { X } from "lucide-react";
+// import z from "zod";
+// import { useDebouncedCallback } from "use-debounce";
+// import Select from "react-select";
+// import chroma from "chroma-js";
+// import { X } from "lucide-react";
 
 const formatImageUrl = (url: string | null | undefined): string => {
   if (!url) return "/placeholder.png";
@@ -17,7 +17,7 @@ function Page() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // const [editingId, setEditingId] = useState<string | null>(null);
   const [filterByPayment, setFilterByPayment] = useState<string>("all");
 
   const filterOptions = [
@@ -28,7 +28,7 @@ function Page() {
   ];
 
   // Data fetching
-  const [data, isLoading, refresh] = useData(
+  const [data, isLoading, ] = useData(
     getDeposit,
     () => {},
     filterByPayment,
@@ -52,6 +52,7 @@ function Page() {
     {
       key: "amount",
       label: "Amount",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <span>
           $
@@ -65,6 +66,7 @@ function Page() {
     {
       key: "photo",
       label: "Photo",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) =>
         item.photo ? (
           <img
@@ -84,6 +86,7 @@ function Page() {
     {
       key: "status",
       label: "Status",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <span className="capitalize">{item.status}</span>
       ),
@@ -91,6 +94,7 @@ function Page() {
     {
       key: "createdAt",
       label: "Created At",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) =>
         item.createdAt ? new Date(item.createdAt).toLocaleString() : "",
     },

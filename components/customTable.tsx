@@ -32,8 +32,10 @@ export interface ColumnDef<T> {
 
 interface CustomTableProps {
   rows: Array<
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Record<string, any> & { key?: string | number; id?: string | number }
   >;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   columns: Array<ColumnDef<Record<string, any>>>;
   totalRows: number;
   page: number;
@@ -105,11 +107,12 @@ function CustomTable({
   };
 
   // Add a handler for showing image from actions
-  const handleShowImage = (item: any) => {
-    if (item.photo) {
-      setZoomedImageUrl(`/api/filedata/${item.photo}`);
-    }
-  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // const handleShowImage = (item: any) => {
+  //   if (item.photo) {
+  //     setZoomedImageUrl(`/api/filedata/${item.photo}`);
+  //   }
+  // };
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">

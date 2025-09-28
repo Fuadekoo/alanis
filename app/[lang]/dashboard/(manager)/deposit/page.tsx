@@ -11,15 +11,13 @@ import {
 } from "@/actions/manager/deposit";
 import { controllerDepositDashboard } from "@/actions/controller/deposit";
 import { addToast } from "@heroui/toast";
-import z from "zod";
+// import z from "zod";
 import { useLocalization } from "@/hooks/useLocalization";
 import {
-  DollarSign,
   CheckCircle,
   XCircle,
   Clock,
   TrendingUp,
-  Users,
   FileText,
 } from "lucide-react";
 
@@ -44,7 +42,7 @@ function Page() {
     null
   );
 
-  const [controllerData, isLoadingController] = useData(
+  const [controllerData, ] = useData(
     controllerDepositDashboard,
     () => {}
   );

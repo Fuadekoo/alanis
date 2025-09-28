@@ -10,11 +10,8 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Eye,
   CreditCard,
   TrendingUp,
-  Wallet,
-  Receipt,
 } from "lucide-react";
 
 function Page() {
@@ -27,7 +24,7 @@ function Page() {
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   // Fetch payment data
-  const [data, isLoading, refresh] = useData(
+  const [data, isLoading, ] = useData(
     getPayment,
     () => {},
     page,
@@ -55,6 +52,7 @@ function Page() {
     {
       key: "year",
       label: t("payment.year"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <span className="font-medium text-gray-900 dark:text-gray-100">
           {item.year}
@@ -64,6 +62,7 @@ function Page() {
     {
       key: "month",
       label: t("payment.month"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => {
         const monthName = getMonthName(Number(item.month));
         const paymentYear = Number(item.year);
@@ -148,6 +147,7 @@ function Page() {
     {
       key: "amount",
       label: t("payment.amount"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <div className="flex items-center gap-2">
           <span className="font-semibold text-green-700 dark:text-green-400">
@@ -159,6 +159,7 @@ function Page() {
     {
       key: "createdAt",
       label: t("payment.paymentDate"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
