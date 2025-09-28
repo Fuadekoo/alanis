@@ -99,7 +99,7 @@ function Page() {
       key: "amount",
       label: "Amount",
       renderCell: (item: any) => (
-        <span>${Number(item.amount).toLocaleString()}</span>
+        <span>{Number(item.amount).toLocaleString()} ETB</span>
       ),
     },
     {

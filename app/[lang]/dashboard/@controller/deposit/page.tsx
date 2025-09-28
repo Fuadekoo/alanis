@@ -277,11 +277,11 @@ function Page() {
       label: "Amount",
       renderCell: (item: any) => (
         <span>
-          $
           {parseFloat(item.amount).toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}
+          ETB
         </span>
       ),
     },

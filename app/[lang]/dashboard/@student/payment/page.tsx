@@ -100,10 +100,46 @@ function Page() {
         }
 
         return (
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-900 dark:text-gray-100">
-              {monthName} {paymentYear}
-            </span>
+          <div className="flex items-center gap-3">
+            {/* Status indicator dot */}
+            <div
+              className={`w-3 h-3 rounded-full {
+                paymentYear === currentYear && paymentMonth === currentMonth
+                  ? "bg-blue-500"
+                  : paymentYear > currentYear ||
+                    (paymentYear === currentYear && paymentMonth > currentMonth)
+                  ? "bg-purple-500"
+                  : "bg-gray-400"
+              }`}
+            />
+
+            {/* Month and year */}
+            <div className="flex flex-col">
+              <span className="font-medium text-gray-900 dark:text-gray-100">
+                {monthName} {paymentYear}
+              </span>
+              {/* Quick status text */}
+              <span
+                className={`text-xs font-medium ${
+                  paymentYear === currentYear && paymentMonth === currentMonth
+                    ? "text-blue-600 dark:text-blue-400"
+                    : paymentYear > currentYear ||
+                      (paymentYear === currentYear &&
+                        paymentMonth > currentMonth)
+                    ? "text-purple-600 dark:text-purple-400"
+                    : "text-gray-500 dark:text-gray-400"
+                }`}
+              >
+                {paymentYear === currentYear && paymentMonth === currentMonth
+                  ? "● Current Month"
+                  : paymentYear > currentYear ||
+                    (paymentYear === currentYear && paymentMonth > currentMonth)
+                  ? "● Future Payment"
+                  : "● Past Payment"}
+              </span>
+            </div>
+
+            {/* Status badge */}
             <span
               className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusClass}`}
             >
