@@ -1,6 +1,7 @@
 export const en = {
   // Common terms
   common: {
+    all: "All",
     search: "Search",
     filter: "Filter",
     clear: "Clear",
@@ -31,6 +32,7 @@ export const en = {
 
   // Payment related
   payment: {
+    amount: "Amount",
     title: "Payment History",
     subtitle: "View your payment history and track monthly payments",
     totalPayments: "Total Payments",

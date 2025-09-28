@@ -1,6 +1,7 @@
 export const am = {
   // Common terms
   common: {
+    all: "ሁሉም",
     search: "ፍለጋ",
     filter: "መሰጠጥ",
     clear: "አጽዳ",
@@ -31,6 +32,7 @@ export const am = {
 
   // Payment related
   payment: {
+    amount: "መጠን",
     title: "የክፍያ ታሪክ",
     subtitle: "የክፍያ ታሪክዎን ይመልከቱ እና ወርሃዊ ክፍያዎችን ይከታተሉ",
     totalPayments: "ጠቅላላ ክፍያዎች",
