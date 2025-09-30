@@ -106,18 +106,18 @@ export const am = {
 
   // Months
   months: {
-    january: "ጥር",
-    february: "የካቲት",
-    march: "መጋቢት",
-    april: "ሚያዝያ",
-    may: "ግንቦት",
-    june: "ሰኔ",
-    july: "ሐምሌ",
-    august: "ነሐሴ",
-    september: "መስከረም",
-    october: "ጥቅምት",
-    november: "ሕዳር",
-    december: "ታኅሣሥ",
+    january: "ጀኑዋሪ",
+    february: "ፌብሩዋሪ",
+    march: "ማርች",
+    april: "ኤፕሪል",
+    may: "ሜይ",
+    june: "ጁን",
+    july: "ጁላይ",
+    august: "ኦገስት",
+    september: "ሴፕቴምበር",
+    october: "ኦክቶበር",
+    november: "ኖቬምበር",
+    december: "ዲሴምበር",
   },
 
   // Status messages
