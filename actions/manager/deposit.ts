@@ -248,3 +248,96 @@ export async function rejectDeposit(depositId: string) {
     };
   }
 }
+
+export async function depositAnalytics() {
+  try {
+    const now = new Date();
+
+    // This month deposit analytics
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+
+    const thisMonthDeposit = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      _count: { id: true },
+      where: {
+        createdAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+    });
+
+    // This year deposit analytics
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+
+    const thisYearDeposit = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      _count: { id: true },
+      where: {
+        createdAt: {
+          gte: startOfYear,
+          lte: endOfYear,
+        },
+      },
+    });
+
+    // This week deposit analytics
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const thisWeekDeposit = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      _count: { id: true },
+      where: {
+        createdAt: {
+          gte: startOfWeek,
+          lte: endOfWeek,
+        },
+      },
+    });
+
+    // Total deposit (all-time)
+    const totalDeposit = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      _count: { id: true },
+    });
+
+    return {
+      thisMonthDepositAmount: thisMonthDeposit._sum.amount || 0,
+      thisMonthDepositCount: thisMonthDeposit._count.id || 0,
+      thisYearDepositAmount: thisYearDeposit._sum.amount || 0,
+      thisYearDepositCount: thisYearDeposit._count.id || 0,
+      thisWeekDepositAmount: thisWeekDeposit._sum.amount || 0,
+      thisWeekDepositCount: thisWeekDeposit._count.id || 0,
+      totalDepositAmount: totalDeposit._sum.amount || 0,
+      totalDepositCount: totalDeposit._count.id || 0,
+    };
+  } catch (error) {
+    console.error("Failed to get deposit analytics:", error);
+    return {
+      thisMonthDepositAmount: 0,
+      thisMonthDepositCount: 0,
+      thisYearDepositAmount: 0,
+      thisYearDepositCount: 0,
+      thisWeekDepositAmount: 0,
+      thisWeekDepositCount: 0,
+      totalDepositAmount: 0,
+      totalDepositCount: 0,
+      error: "Failed to retrieve deposit analytics.",
+    };
+  }
+}

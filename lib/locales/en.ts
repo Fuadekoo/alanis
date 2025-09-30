@@ -167,4 +167,32 @@ export const en = {
     dataLoading: "Loading data...",
     pleaseWait: "Please wait...",
   },
+
+  // Analytics
+  analytics: {
+    // Payment Analytics
+    payment: {
+      thisMonthPersonCount: "This Month Payment Person Count",
+      thisMonthETB: "This Month Payment ETB",
+      thisYearETB: "This Year Payment ETB",
+      totalETB: "Total Payment ETB",
+      uniqueStudentsPaid: "Unique Students Paid",
+      currentMonth: "Current Month",
+      currentYear: "Current Year",
+      allTime: "All Time",
+    },
+    // Deposit Analytics
+    deposit: {
+      thisMonthAmount: "This Month Deposit Amount",
+      thisYearAmount: "This Year Deposit Amount",
+      thisWeekAmount: "This Week Deposit Amount",
+      thisMonthCount: "This Month Deposit Count",
+      totalAmount: "Total Deposit Amount",
+      currentMonth: "Current Month",
+      currentYear: "Current Year",
+      currentWeek: "Current Week",
+      depositsThisMonth: "Deposits This Month",
+      allTimeDeposits: "All Time Deposits",
+    },
+  },
 };

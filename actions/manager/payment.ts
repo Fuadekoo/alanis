@@ -176,6 +176,32 @@ export async function paymentDashboard() {
       },
     });
 
+    // This month payment person count (unique students who made payments this month)
+    const thisMonthPaymentPersonCount = await prisma.payment.groupBy({
+      by: ["studentId"],
+      where: {
+        createdAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+      _count: { studentId: true },
+    });
+
+    // This year payment sum
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+
+    const thisYearPayment = await prisma.payment.aggregate({
+      _sum: { perMonthAmount: true },
+      where: {
+        createdAt: {
+          gte: startOfYear,
+          lte: endOfYear,
+        },
+      },
+    });
+
     // Max payment value
     const maxValuePayment = await prisma.payment.aggregate({
       _max: { perMonthAmount: true },
@@ -189,6 +215,8 @@ export async function paymentDashboard() {
     return {
       totalPayment: totalPayment._sum.perMonthAmount || 0,
       thisMonthPayment: thisMonthPayment._sum.perMonthAmount || 0,
+      thisMonthPaymentPersonCount: thisMonthPaymentPersonCount.length,
+      thisYearPayment: thisYearPayment._sum.perMonthAmount || 0,
       maxValuePayment: maxValuePayment._max.perMonthAmount || 0,
       minValuePayment: minValuePayment._min.perMonthAmount || 0,
     };
@@ -197,6 +225,8 @@ export async function paymentDashboard() {
     return {
       totalPayment: 0,
       thisMonthPayment: 0,
+      thisMonthPaymentPersonCount: 0,
+      thisYearPayment: 0,
       maxValuePayment: 0,
       minValuePayment: 0,
       error: "Failed to retrieve dashboard data.",

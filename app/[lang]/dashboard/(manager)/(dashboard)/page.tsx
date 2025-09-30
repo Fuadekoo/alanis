@@ -6,6 +6,6 @@ export default async function Page({
 }: {
   params: Promise<{ lang: string }>;
 }) {
-  redirect(`/${(await params).lang}/dashboard/controller`);
+  redirect(`/${(await params).lang}/dashboard/dashboard`);
   return <div className="grid place-content-center"></div>;
 }

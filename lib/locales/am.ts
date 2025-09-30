@@ -167,4 +167,32 @@ export const am = {
     dataLoading: "ዳታ በመጫን ላይ...",
     pleaseWait: "እባክዎ ይጠብቁ...",
   },
+
+  // Analytics
+  analytics: {
+    // Payment Analytics
+    payment: {
+      thisMonthPersonCount: "የዚህ ወር ክፍያ የሰዎች ብዛት",
+      thisMonthETB: "የዚህ ወር ክፍያ ብር",
+      thisYearETB: "የዚህ ዓመት ክፍያ ብር",
+      totalETB: "ጠቅላላ ክፍያ ብር",
+      uniqueStudentsPaid: "ክፍያ የከፈሉ ልዩ ተማሪዎች",
+      currentMonth: "የአሁኑ ወር",
+      currentYear: "የአሁኑ ዓመት",
+      allTime: "ሁሉም ጊዜ",
+    },
+    // Deposit Analytics
+    deposit: {
+      thisMonthAmount: "የዚህ ወር ተቀማጭ መጠን",
+      thisYearAmount: "የዚህ ዓመት ተቀማጭ መጠን",
+      thisWeekAmount: "የዚህ ሳምንት ተቀማጭ መጠን",
+      thisMonthCount: "የዚህ ወር ተቀማጭ ብዛት",
+      totalAmount: "ጠቅላላ ተቀማጭ መጠን",
+      currentMonth: "የአሁኑ ወር",
+      currentYear: "የአሁኑ ዓመት",
+      currentWeek: "የአሁኑ ሳምንት",
+      depositsThisMonth: "የዚህ ወር ተቀማጮች",
+      allTimeDeposits: "ሁሉም ጊዜ ተቀማጮች",
+    },
+  },
 };

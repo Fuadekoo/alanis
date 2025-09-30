@@ -20,6 +20,8 @@ import {
   Calendar as CalendarIcon,
   CreditCard,
   BarChart3,
+  Users,
+  DollarSign,
 } from "lucide-react";
 
 function Page() {
@@ -185,6 +187,101 @@ function Page() {
               <p className="text-gray-600 dark:text-gray-400 mt-1">
                 {t("payment.subtitle")}
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Analytics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* This Month Payment Person Count */}
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl shadow-lg border border-blue-200 dark:border-blue-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 dark:text-blue-200 text-sm font-medium">
+                  {t("analytics.payment.thisMonthPersonCount")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {isLoadingDashboard
+                    ? "..."
+                    : dashboardData?.thisMonthPaymentPersonCount || 0}
+                </p>
+                <p className="text-blue-100 dark:text-blue-200 text-xs mt-1">
+                  {t("analytics.payment.uniqueStudentsPaid")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <Users className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* This Month Payment ETB */}
+          <div className="bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-xl shadow-lg border border-green-200 dark:border-green-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 dark:text-green-200 text-sm font-medium">
+                  {t("analytics.payment.thisMonthETB")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {isLoadingDashboard
+                    ? "..."
+                    : formatCurrency(
+                        Number(dashboardData?.thisMonthPayment || 0)
+                      )}
+                </p>
+                <p className="text-green-100 dark:text-green-200 text-xs mt-1">
+                  {t("analytics.payment.currentMonth")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <DollarSign className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* This Year Payment ETB */}
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-xl shadow-lg border border-purple-200 dark:border-purple-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 dark:text-purple-200 text-sm font-medium">
+                  {t("analytics.payment.thisYearETB")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {isLoadingDashboard
+                    ? "..."
+                    : formatCurrency(
+                        Number(dashboardData?.thisYearPayment || 0)
+                      )}
+                </p>
+                <p className="text-purple-100 dark:text-purple-200 text-xs mt-1">
+                  {t("analytics.payment.currentYear")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <TrendingUp className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Total Payment ETB */}
+          <div className="bg-gradient-to-br from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700 rounded-xl shadow-lg border border-amber-200 dark:border-amber-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-amber-100 dark:text-amber-200 text-sm font-medium">
+                  {t("analytics.payment.totalETB")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {isLoadingDashboard
+                    ? "..."
+                    : formatCurrency(Number(dashboardData?.totalPayment || 0))}
+                </p>
+                <p className="text-amber-100 dark:text-amber-200 text-xs mt-1">
+                  {t("analytics.payment.allTime")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <BarChart3 className="h-8 w-8 text-white" />
+              </div>
             </div>
           </div>
         </div>

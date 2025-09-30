@@ -8,6 +8,7 @@ import {
   getDeposit,
   approveDeposit,
   rejectDeposit,
+  depositAnalytics,
 } from "@/actions/manager/deposit";
 import { controllerDepositDashboard } from "@/actions/controller/deposit";
 import { addToast } from "@heroui/toast";
@@ -19,6 +20,8 @@ import {
   Clock,
   TrendingUp,
   FileText,
+  DollarSign,
+  Calendar,
 } from "lucide-react";
 
 function Page() {
@@ -43,6 +46,10 @@ function Page() {
   );
 
   const [controllerData] = useData(controllerDepositDashboard, () => {});
+  const [depositAnalyticsData, isLoadingAnalytics] = useData(
+    depositAnalytics,
+    () => {}
+  );
 
   // Data fetching
   const [data, isLoading, refresh] = useData(
@@ -213,6 +220,129 @@ function Page() {
               <p className="text-gray-600 dark:text-gray-400 mt-1">
                 {t("deposit.subtitle")}
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Deposit Analytics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          {/* This Month Deposit Amount */}
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl shadow-lg border border-blue-200 dark:border-blue-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 dark:text-blue-200 text-sm font-medium">
+                  {t("analytics.deposit.thisMonthAmount")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {isLoadingAnalytics
+                    ? "..."
+                    : formatCurrency(
+                        Number(
+                          depositAnalyticsData?.thisMonthDepositAmount || 0
+                        )
+                      )}
+                </p>
+                <p className="text-blue-100 dark:text-blue-200 text-xs mt-1">
+                  {t("analytics.deposit.currentMonth")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <DollarSign className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* This Year Deposit Amount */}
+          <div className="bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-xl shadow-lg border border-green-200 dark:border-green-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 dark:text-green-200 text-sm font-medium">
+                  {t("analytics.deposit.thisYearAmount")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {isLoadingAnalytics
+                    ? "..."
+                    : formatCurrency(
+                        Number(depositAnalyticsData?.thisYearDepositAmount || 0)
+                      )}
+                </p>
+                <p className="text-green-100 dark:text-green-200 text-xs mt-1">
+                  {t("analytics.deposit.currentYear")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <TrendingUp className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* This Week Deposit Amount */}
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-xl shadow-lg border border-purple-200 dark:border-purple-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 dark:text-purple-200 text-sm font-medium">
+                  {t("analytics.deposit.thisWeekAmount")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {isLoadingAnalytics
+                    ? "..."
+                    : formatCurrency(
+                        Number(depositAnalyticsData?.thisWeekDepositAmount || 0)
+                      )}
+                </p>
+                <p className="text-purple-100 dark:text-purple-200 text-xs mt-1">
+                  {t("analytics.deposit.currentWeek")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <Calendar className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* This Month Deposit Count */}
+          <div className="bg-gradient-to-br from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700 rounded-xl shadow-lg border border-amber-200 dark:border-amber-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-amber-100 dark:text-amber-200 text-sm font-medium">
+                  {t("analytics.deposit.thisMonthCount")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {isLoadingAnalytics
+                    ? "..."
+                    : depositAnalyticsData?.thisMonthDepositCount || 0}
+                </p>
+                <p className="text-amber-100 dark:text-amber-200 text-xs mt-1">
+                  {t("analytics.deposit.depositsThisMonth")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <FileText className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Total Deposit Amount */}
+          <div className="bg-gradient-to-br from-red-500 to-red-600 dark:from-red-600 dark:to-red-700 rounded-xl shadow-lg border border-red-200 dark:border-red-800 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-red-100 dark:text-red-200 text-sm font-medium">
+                  {t("analytics.deposit.totalAmount")}
+                </p>
+                <p className="text-3xl font-bold text-white">
+                  {isLoadingAnalytics
+                    ? "..."
+                    : formatCurrency(
+                        Number(depositAnalyticsData?.totalDepositAmount || 0)
+                      )}
+                </p>
+                <p className="text-red-100 dark:text-red-200 text-xs mt-1">
+                  {t("analytics.deposit.allTimeDeposits")}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+                <TrendingUp className="h-8 w-8 text-white" />
+              </div>
             </div>
           </div>
         </div>
