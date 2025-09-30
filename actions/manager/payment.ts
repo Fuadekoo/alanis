@@ -61,7 +61,25 @@ export async function getMonthsPayment(
     const payments = await prisma.payment.findMany({
       where,
       include: {
-        user: { select: { firstName: true, fatherName: true, lastName: true } },
+        user: {
+          select: {
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            phoneNumber: true,
+            roomStudent: {
+              select: {
+                teacher: {
+                  select: {
+                    firstName: true,
+                    fatherName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",

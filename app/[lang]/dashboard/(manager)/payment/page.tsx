@@ -39,7 +39,7 @@ function Page() {
   );
 
   // Data fetching
-  const [data, isLoading, ] = useData(
+  const [data, isLoading] = useData(
     getMonthsPayment,
     () => {},
     search,
@@ -57,7 +57,7 @@ function Page() {
   const yearOptions =
     Array.isArray(yearsData) && yearsData.length > 0
       ? yearsData
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .filter((y: any) => {
             // If yearsData is array of objects, check for year property
             if (typeof y === "object" && y !== null && "year" in y) {
@@ -97,6 +97,10 @@ function Page() {
     studentFullName: payment.user
       ? `${payment.user.firstName} ${payment.user.fatherName} ${payment.user.lastName}`
       : "N/A",
+    studentPhone: payment.user?.phoneNumber || "N/A",
+    teacherName: payment.user?.roomStudent?.[0]?.teacher
+      ? `${payment.user.roomStudent[0].teacher.firstName} ${payment.user.roomStudent[0].teacher.fatherName} ${payment.user.roomStudent[0].teacher.lastName}`
+      : "N/A",
     amount:
       payment.perMonthAmount != null ? String(payment.perMonthAmount) : "",
     year: payment.year,
@@ -110,6 +114,18 @@ function Page() {
       label: t("deposit.studentName"),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.studentFullName,
+    },
+    {
+      key: "studentPhone",
+      label: t("deposit.studentPhone"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => item.studentPhone,
+    },
+    {
+      key: "teacherName",
+      label: t("deposit.teacherName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => item.teacherName,
     },
     {
       key: "year",

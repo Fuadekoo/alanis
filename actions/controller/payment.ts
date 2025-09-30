@@ -119,6 +119,17 @@ export async function getPayment(
             fatherName: true,
             lastName: true,
             phoneNumber: true,
+            roomStudent: {
+              select: {
+                teacher: {
+                  select: {
+                    firstName: true,
+                    fatherName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            },
           },
         },
       },

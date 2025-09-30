@@ -37,6 +37,10 @@ function Page() {
     studentName: payment.user
       ? `${payment.user.firstName} ${payment.user.fatherName} ${payment.user.lastName}`
       : "N/A",
+    studentPhone: payment.user?.phoneNumber || "N/A",
+    teacherName: payment.user?.roomStudent?.[0]?.teacher
+      ? `${payment.user.roomStudent[0].teacher.firstName} ${payment.user.roomStudent[0].teacher.fatherName} ${payment.user.roomStudent[0].teacher.lastName}`
+      : "N/A",
     amount:
       payment.perMonthAmount != null ? String(payment.perMonthAmount) : "",
     year: payment.year,
@@ -50,6 +54,18 @@ function Page() {
       label: t("payment.studentName"),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.studentName,
+    },
+    {
+      key: "studentPhone",
+      label: t("payment.studentPhone"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => item.studentPhone,
+    },
+    {
+      key: "teacherName",
+      label: t("payment.teacherName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => item.teacherName,
     },
     {
       key: "amount",

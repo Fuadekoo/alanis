@@ -88,6 +88,10 @@ function Page() {
     studentFullName: deposit.depositedTo
       ? `${deposit.depositedTo.firstName} ${deposit.depositedTo.fatherName} ${deposit.depositedTo.lastName}`
       : "N/A",
+    studentPhone: deposit.depositedTo?.phoneNumber || "N/A",
+    teacherName: deposit.depositedTo?.roomStudent?.[0]?.teacher
+      ? `${deposit.depositedTo.roomStudent[0].teacher.firstName} ${deposit.depositedTo.roomStudent[0].teacher.fatherName} ${deposit.depositedTo.roomStudent[0].teacher.lastName}`
+      : "N/A",
     amount: deposit.amount != null ? String(deposit.amount) : "",
     photo: deposit.photo ?? "",
     status: deposit.status ?? "",
@@ -101,7 +105,18 @@ function Page() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.studentFullName,
     },
-
+    {
+      key: "studentPhone",
+      label: t("deposit.studentPhone"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => item.studentPhone,
+    },
+    {
+      key: "teacherName",
+      label: t("deposit.teacherName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => item.teacherName,
+    },
     {
       key: "amount",
       label: t("deposit.amount"),
