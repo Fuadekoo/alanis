@@ -9,7 +9,7 @@ export async function getDeposit(
   filterByPayment?: string,
   page?: number,
   pageSize?: number,
-  searchPhone?: string,
+  search?: string,
   startDate?: string,
   endDate?: string
 ) {
@@ -34,11 +34,30 @@ export async function getDeposit(
     // ...(controllerId && { controllerId }),
     ...(filterByPayment &&
       filterByPayment !== "all" && { status: filterByPayment }),
-    ...(searchPhone
+    ...(search && search.trim()
       ? {
-          depositedTo: {
-            phoneNumber: { contains: searchPhone },
-          },
+          OR: [
+            {
+              depositedTo: {
+                firstName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              depositedTo: {
+                fatherName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              depositedTo: {
+                lastName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              depositedTo: {
+                phoneNumber: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+          ],
         }
       : {}),
     ...(startDate && {

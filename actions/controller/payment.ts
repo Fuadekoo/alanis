@@ -74,12 +74,32 @@ export async function getPayment(
   pageSize = pageSize && pageSize > 0 ? pageSize : 50;
 
   const where: any = {
-    // ...(studentId && { studentId }),
+    ...(studentId && { studentId }),
     ...(search && search.trim()
       ? {
           OR: [
             { year: { equals: Number(search) } },
             { month: { equals: Number(search) } },
+            {
+              user: {
+                firstName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              user: {
+                fatherName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              user: {
+                lastName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              user: {
+                phoneNumber: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
           ],
         }
       : {}),
@@ -92,6 +112,16 @@ export async function getPayment(
     // Fetch the paginated data
     const payments = await prisma.payment.findMany({
       where,
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            phoneNumber: true,
+          },
+        },
+      },
       orderBy: {
         createdAt: "desc",
       },

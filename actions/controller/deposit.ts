@@ -121,7 +121,7 @@ export async function getDeposit(
   filterByPayment?: string,
   page?: number,
   pageSize?: number,
-  searchPhone?: string // <-- add this parameter
+  search?: string // Enhanced search parameter for student name, phone, etc.
 ) {
   // Set default pagination values
   page = page && page > 0 ? page : 1;
@@ -133,12 +133,32 @@ export async function getDeposit(
 
   const where: any = {
     ...(controllerId && { controllerId }),
-    // ...(filterByPayment && { status: filterByPayment }),
-    ...(searchPhone
+    ...(filterByPayment &&
+      filterByPayment !== "all" && { status: filterByPayment }),
+    ...(search && search.trim()
       ? {
-          depositedTo: {
-            phoneNumber: { contains: searchPhone },
-          },
+          OR: [
+            {
+              depositedTo: {
+                firstName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              depositedTo: {
+                fatherName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              depositedTo: {
+                lastName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              depositedTo: {
+                phoneNumber: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+          ],
         }
       : {}),
   };
