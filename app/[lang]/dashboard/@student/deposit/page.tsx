@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import Image from "next/image";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import { getDeposit } from "@/actions/student/deposit";
@@ -69,12 +70,12 @@ function Page() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) =>
         item.photo ? (
-          <img
+          <Image
             src={formatImageUrl(item.photo)}
             alt="Proof"
+            width={40}
+            height={40}
             style={{
-              width: 40,
-              height: 40,
               objectFit: "cover",
               borderRadius: 4,
             }}

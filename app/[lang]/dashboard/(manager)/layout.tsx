@@ -1,7 +1,6 @@
 import UserLayout from "@/components/layout/userLayout";
 import {
   BadgeDollarSignIcon,
-  BarChart3,
   Calendar,
   Megaphone,
   MessageCircle,
@@ -17,12 +16,6 @@ export default async function Layout({
 }) {
   const menu = [
     [
-      {
-        english: "dashboard",
-        amharic: "ዳሽቦርድ",
-        url: "dashboard",
-        Icon: <BarChart3 className="size-5" />,
-      },
       {
         english: "controller",
         amharic: "ተቆጣጣሪ",

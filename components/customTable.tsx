@@ -107,7 +107,6 @@ function CustomTable({
   };
 
   // Add a handler for showing image from actions
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // const handleShowImage = (item: any) => {
   //   if (item.photo) {
   //     setZoomedImageUrl(`/api/filedata/${item.photo}`);

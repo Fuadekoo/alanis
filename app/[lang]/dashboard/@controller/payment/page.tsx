@@ -4,7 +4,7 @@ import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import { getStudent, getPayment } from "@/actions/controller/payment";
 import { useLocalization } from "@/hooks/useLocalization";
-import { TrendingUp, CreditCard, Users, DollarSign } from "lucide-react";
+import { Users } from "lucide-react";
 
 function Page() {
   const { t, formatCurrency } = useLocalization();
@@ -14,15 +14,10 @@ function Page() {
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
 
   // Get students for dropdown
-  const [studentsData, isLoadingStudents] = useData(
-    getStudent,
-    () => {},
-    page,
-    pageSize
-  );
+  const [studentsData] = useData(getStudent, () => {}, page, pageSize);
 
   // Get payments for selected student
-  const [data, isLoading, refresh] = useData(
+  const [data, isLoading, ] = useData(
     getPayment,
     () => {},
     selectedStudentId,

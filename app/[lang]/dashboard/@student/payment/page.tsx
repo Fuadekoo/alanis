@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import Image from "next/image";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import { getPayment } from "@/actions/student/payment";
@@ -24,12 +25,7 @@ function Page() {
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   // Fetch payment data
-  const [data, isLoading, ] = useData(
-    getPayment,
-    () => {},
-    page,
-    pageSize
-  );
+  const [data, isLoading] = useData(getPayment, () => {}, page, pageSize);
 
   // Prepare payment data for table
   const rows = (data?.data || []).map((payment) => ({
@@ -390,9 +386,11 @@ function Page() {
             className="relative bg-white dark:bg-gray-800 p-4 rounded-xl shadow-2xl max-w-[95vw] max-h-[95vh] flex items-center justify-center border border-gray-200 dark:border-gray-600"
             onClick={(e) => e.stopPropagation()}
           >
-            <img
+            <Image
               src={zoomedImageUrl}
               alt="Zoomed payment proof"
+              width={800}
+              height={600}
               className="block max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
             />
             <button
