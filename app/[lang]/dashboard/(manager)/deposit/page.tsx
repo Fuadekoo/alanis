@@ -25,6 +25,11 @@ import {
   Calendar,
 } from "lucide-react";
 
+const formatImageUrl = (url: string | null | undefined): string => {
+  if (!url) return "/placeholder.png";
+  return `/api/filedata/${encodeURIComponent(url)}`;
+};
+
 function Page() {
   const { t, formatCurrency } = useLocalization();
   const [search, setSearch] = useState("");
@@ -140,7 +145,7 @@ function Page() {
       renderCell: (item: any) =>
         item.photo ? (
           <Image
-            src={item.photo}
+            src={formatImageUrl(item.photo)}
             alt="Proof"
             width={40}
             height={40}
