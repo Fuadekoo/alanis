@@ -195,7 +195,7 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
               <Skeleton className="h-6 w-32" />
             ) : (
               <span className="text-lg font-semibold text-green-700">
-                Balance: {balance?.toFixed(2)} ETB
+                Balance: {balance} ETB
               </span>
             )}
             <Button

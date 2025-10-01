@@ -72,6 +72,7 @@ const authConfig = {
           where: { username },
           select: { id: true, role: true, password: true },
         });
+        console.log("User >> ", user);
 
         if (!user) throw new CustomError("username is incorrect");
 
