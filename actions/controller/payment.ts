@@ -53,8 +53,9 @@ export async function getStudent(page?: number, pageSize?: number) {
         lastName: true,
         phoneNumber: true,
         balance: true,
+        
       },
-      orderBy: { createdAt: "desc" },
+      // orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
     });
