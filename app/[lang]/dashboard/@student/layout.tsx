@@ -13,13 +13,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       },
       {
         english: "Deposit",
-        amharic: "መቀላቀል",
+        amharic: "የከፈሉት ደረሰኝ",
         url: "deposit",
         Icon: <Home className="size-4" />,
       },
       {
         english: "Payment",
-        amharic: "ክፍያ",
+        amharic: "የከፈሉት ወር  ዝርዝር",
         url: "payment",
         Icon: <Home className="size-4" />,
       },
