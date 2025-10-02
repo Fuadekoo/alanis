@@ -11,15 +11,41 @@ export async function getStudent(page?: number, pageSize?: number) {
   page = page && page > 0 ? page : 1;
   pageSize = pageSize && pageSize > 0 ? pageSize : 50;
 
+  // Get current controller from session
+  const { auth } = await import("@/lib/auth");
+  const session = await auth();
+  const controllerId = session?.user?.id;
+
+  if (!controllerId) {
+    return {
+      error: "Unauthorized access",
+      data: [],
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        itemsPerPage: pageSize,
+        totalRecords: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    };
+  }
+
   try {
-    // Get the total count of students
+    // Get the total count of students assigned to this controller
     const totalRows = await prisma.user.count({
-      where: { role: "student" },
+      where: {
+        role: "student",
+        controllerId: controllerId,
+      },
     });
 
-    // Fetch paginated students
+    // Fetch paginated students assigned to this controller
     const students = await prisma.user.findMany({
-      where: { role: "student" },
+      where: {
+        role: "student",
+        controllerId: controllerId,
+      },
       select: {
         id: true,
         firstName: true,
@@ -28,7 +54,7 @@ export async function getStudent(page?: number, pageSize?: number) {
         phoneNumber: true,
         balance: true,
       },
-      // orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
     });
@@ -73,8 +99,32 @@ export async function getPayment(
   page = page && page > 0 ? page : 1;
   pageSize = pageSize && pageSize > 0 ? pageSize : 50;
 
+  // Get current controller from session
+  const { auth } = await import("@/lib/auth");
+  const session = await auth();
+  const controllerId = session?.user?.id;
+
+  if (!controllerId) {
+    return {
+      error: "Unauthorized access",
+      data: [],
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        itemsPerPage: pageSize,
+        totalRecords: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    };
+  }
+
   const where: any = {
     ...(studentId && { studentId }),
+    // Only show payments for students assigned to this controller
+    user: {
+      controllerId: controllerId,
+    },
     ...(search && search.trim()
       ? {
           OR: [
@@ -191,18 +241,46 @@ export async function createPayment({
       perMonthAmount,
       monthsToPay,
     });
+
+    // Get current controller from session
+    const { auth } = await import("@/lib/auth");
+    const session = await auth();
+    const controllerId = session?.user?.id;
+
+    if (!controllerId) {
+      return { status: false, message: "Unauthorized access" };
+    }
+
     // 1. Calculate total payment needed
     const totalPayment = perMonthAmount * monthsToPay.length;
 
-    // 2. Get student balance
+    // 2. Verify student belongs to this controller and get balance
     const student = await prisma.user.findUnique({
-      where: { id: studentId },
-      select: { balance: true },
+      where: {
+        id: studentId,
+        controllerId: controllerId, // Ensure student belongs to this controller
+      },
+      select: {
+        balance: true,
+        firstName: true,
+        lastName: true,
+      },
     });
-    if (!student) return { status: false, message: "Student not found" };
+
+    if (!student) {
+      return {
+        status: false,
+        message: "Student not found or not assigned to you",
+      };
+    }
 
     if (Number(student.balance) < totalPayment) {
-      return { status: false, message: "Insufficient balance" };
+      return {
+        status: false,
+        message: `Insufficient balance. Required: ${totalPayment.toLocaleString()} ETB, Available: ${Number(
+          student.balance
+        ).toLocaleString()} ETB`,
+      };
     }
 
     // 3. Prepare payment data
@@ -240,11 +318,24 @@ export async function rollbackPayment(
 ): Promise<MutationState> {
   try {
     console.log("Rolling back payments:", { paymentIds, studentId });
-    // 1. Get the payments to rollback
+
+    // Get current controller from session
+    const { auth } = await import("@/lib/auth");
+    const session = await auth();
+    const controllerId = session?.user?.id;
+
+    if (!controllerId) {
+      return { status: false, message: "Unauthorized access" };
+    }
+
+    // 1. Get the payments to rollback (only for students assigned to this controller)
     const payments = await prisma.payment.findMany({
       where: {
         id: { in: paymentIds },
         studentId,
+        user: {
+          controllerId: controllerId, // Ensure student belongs to this controller
+        },
       },
     });
 
@@ -294,13 +385,117 @@ export async function rollbackPayment(
 
 export async function getBalance(studentId: string): Promise<number | null> {
   try {
+    // Get current controller from session
+    const { auth } = await import("@/lib/auth");
+    const session = await auth();
+    const controllerId = session?.user?.id;
+
+    if (!controllerId) {
+      return null;
+    }
+
     const student = await prisma.user.findUnique({
-      where: { id: studentId },
+      where: {
+        id: studentId,
+        controllerId: controllerId, // Ensure student belongs to this controller
+      },
       select: { balance: true },
     });
     return student?.balance || null;
   } catch (error) {
     console.error("Failed to get balance:", error);
+    return null;
+  }
+}
+
+// Controller Payment Analytics Dashboard
+export async function controllerPaymentDashboard() {
+  try {
+    // Get current controller from session
+    const { auth } = await import("@/lib/auth");
+    const session = await auth();
+    const controllerId = session?.user?.id;
+
+    if (!controllerId) {
+      return null;
+    }
+
+    const controllerFilter = {
+      user: {
+        controllerId: controllerId,
+      },
+    };
+
+    // Get current month and year
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    // Total payments for this controller's students
+    const totalPayments = await prisma.payment.count({
+      where: controllerFilter,
+    });
+
+    // This month's payments
+    const thisMonthPayments = await prisma.payment.count({
+      where: {
+        ...controllerFilter,
+        year: currentYear,
+        month: currentMonth,
+      },
+    });
+
+    // Total amount paid by this controller's students
+    const totalAmountResult = await prisma.payment.aggregate({
+      where: controllerFilter,
+      _sum: {
+        perMonthAmount: true,
+      },
+    });
+
+    // This month's total amount
+    const thisMonthAmountResult = await prisma.payment.aggregate({
+      where: {
+        ...controllerFilter,
+        year: currentYear,
+        month: currentMonth,
+      },
+      _sum: {
+        perMonthAmount: true,
+      },
+    });
+
+    // Number of students with payments
+    const studentsWithPayments = await prisma.user.count({
+      where: {
+        role: "student",
+        controllerId: controllerId,
+        payment: {
+          some: {},
+        },
+      },
+    });
+
+    // Total number of students assigned to this controller
+    const totalStudents = await prisma.user.count({
+      where: {
+        role: "student",
+        controllerId: controllerId,
+      },
+    });
+
+    return {
+      totalPayments,
+      thisMonthPayments,
+      totalAmount: totalAmountResult._sum.perMonthAmount || 0,
+      thisMonthAmount: thisMonthAmountResult._sum.perMonthAmount || 0,
+      studentsWithPayments,
+      totalStudents,
+      paymentRate:
+        totalStudents > 0 ? (studentsWithPayments / totalStudents) * 100 : 0,
+    };
+  } catch (error) {
+    console.error("Failed to get payment dashboard data:", error);
     return null;
   }
 }

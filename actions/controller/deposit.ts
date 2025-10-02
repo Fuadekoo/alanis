@@ -293,7 +293,18 @@ export async function getDepositById(id: string) {
 
 export async function getStudent(search?: string) {
   try {
-    const where: any = { role: "student" };
+    // Get current controller from session
+    const session = await auth();
+    const controllerId = session?.user?.id;
+
+    if (!controllerId) {
+      return [];
+    }
+
+    const where: any = {
+      role: "student",
+      controllerId: controllerId, // Only show students assigned to this controller
+    };
     if (search) {
       where.OR = [
         { firstName: { contains: search, mode: "insensitive" } },
@@ -309,6 +320,7 @@ export async function getStudent(search?: string) {
         fatherName: true,
         lastName: true,
         phoneNumber: true,
+        balance: true, // Include balance for better UX
       },
     });
     return students;
@@ -320,18 +332,41 @@ export async function getStudent(search?: string) {
 // HELP ME PLASE I N this i went to total deposits,aprove deposit, reject deposit, this month deposit ,this month reject and so on
 export async function controllerDepositDashboard() {
   try {
-    const totalDeposits = await prisma.deposit.count();
+    // Get current controller from session
+    const session = await auth();
+    const controllerId = session?.user?.id;
+
+    if (!controllerId) {
+      return null;
+    }
+
+    // Filter all queries to only include deposits created by this controller
+    const controllerFilter = { controllerId };
+
+    const totalDeposits = await prisma.deposit.count({
+      where: controllerFilter,
+    });
     const approvedDeposits = await prisma.deposit.count({
-      where: { status: "approved" },
+      where: {
+        status: "approved",
+        ...controllerFilter,
+      },
     });
     const rejectedDeposits = await prisma.deposit.count({
-      where: { status: "rejected" },
+      where: {
+        status: "rejected",
+        ...controllerFilter,
+      },
     });
     const pendingDeposits = await prisma.deposit.count({
-      where: { status: "pending" },
+      where: {
+        status: "pending",
+        ...controllerFilter,
+      },
     });
     const thisMonthDeposits = await prisma.deposit.count({
       where: {
+        ...controllerFilter,
         createdAt: {
           gte: startOfMonth(new Date()),
           lt: endOfMonth(new Date()),
@@ -340,6 +375,7 @@ export async function controllerDepositDashboard() {
     });
     const thisMonthRejected = await prisma.deposit.count({
       where: {
+        ...controllerFilter,
         status: "rejected",
         createdAt: {
           gte: startOfMonth(new Date()),
@@ -349,6 +385,7 @@ export async function controllerDepositDashboard() {
     });
     const thisMonthPending = await prisma.deposit.count({
       where: {
+        ...controllerFilter,
         status: "pending",
         createdAt: {
           gte: startOfMonth(new Date()),

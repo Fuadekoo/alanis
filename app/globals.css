@@ -4,10 +4,26 @@
 :root {
   --background: #ffffff;
   --foreground: #000000;
+  /* React Select Light Mode Variables */
+  --select-bg: #ffffff;
+  --select-border: #d1d5db;
+  --select-text: #374151;
+  --select-menu-bg: #ffffff;
+  --select-option-hover: #f3f4f6;
+  --select-multi-value-bg: #dbeafe;
+  --select-multi-value-text: #1e40af;
 }
 .dark {
   --background: #000000;
   --foreground: #ffffff;
+  /* React Select Dark Mode Variables */
+  --select-bg: #1f2937;
+  --select-border: #374151;
+  --select-text: #f9fafb;
+  --select-menu-bg: #1f2937;
+  --select-option-hover: #374151;
+  --select-multi-value-bg: #1e40af;
+  --select-multi-value-text: #dbeafe;
 }
 
 @theme inline {

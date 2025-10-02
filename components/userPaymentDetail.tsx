@@ -119,6 +119,7 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
 
   // Add Payment Modal state
   const [amount, setAmount] = useState("");
+  const [balanceWarning, setBalanceWarning] = useState<string | null>(null);
   // Instead of a single year and months, allow multiple year-month pairs
   const [selectedYearMonths, setSelectedYearMonths] = useState<
     { year: number; month: number }[]
@@ -158,6 +159,30 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
     setTempMonths([]);
   };
 
+  // Check balance when amount or selected months change
+  const checkBalance = async () => {
+    if (!amount || selectedYearMonths.length === 0) {
+      setBalanceWarning(null);
+      return;
+    }
+
+    const totalRequired = Number(amount) * selectedYearMonths.length;
+    const currentBalance = await getBalance(studentId);
+
+    if (currentBalance !== null && currentBalance < totalRequired) {
+      setBalanceWarning(
+        `Insufficient balance! Required: ${totalRequired.toLocaleString()} ETB, Available: ${currentBalance.toLocaleString()} ETB`
+      );
+    } else {
+      setBalanceWarning(null);
+    }
+  };
+
+  // Check balance whenever amount or selected months change
+  React.useEffect(() => {
+    checkBalance();
+  }, [amount, selectedYearMonths]);
+
   // Remove a selected year-month pair
   const handleRemoveYearMonth = (year: number, month: number) => {
     setSelectedYearMonths(
@@ -173,16 +198,23 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || monthsToPayString.length === 0) return;
-    await createPayment({
+
+    const result = await createPayment({
       studentId,
       perMonthAmount: Number(amount),
       monthsToPay: monthsToPayString,
     });
-    setShowAddModal(false);
-    setAmount("");
-    setSelectedYearMonths([]);
-    setTempMonths([]);
-    refresh();
+
+    if (result.status) {
+      setShowAddModal(false);
+      setAmount("");
+      setSelectedYearMonths([]);
+      setTempMonths([]);
+      refresh();
+    } else {
+      // Show error message to user
+      alert(result.message || "Failed to create payment");
+    }
   };
 
   return (
@@ -249,68 +281,204 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
                     onChange={(e) => setAmount(e.target.value)}
                     required
                   />
+                  {/* Balance Warning */}
+                  {balanceWarning && (
+                    <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">
+                            !
+                          </span>
+                        </div>
+                        <p className="text-red-800 dark:text-red-300 text-sm font-medium">
+                          {balanceWarning}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   {/* Year/Month Picker */}
-                  <div className="mt-4 flex gap-2 items-end">
-                    <div className="flex-1">
-                      <label className="block mb-1 text-sm font-medium">
-                        Year
-                      </label>
-                      <Select
-                        options={yearOptions}
-                        value={yearOptions.find((y) => y.value === tempYear)}
-                        onChange={(val) =>
-                          setTempYear(val?.value || new Date().getFullYear())
-                        }
-                        isSearchable={false}
-                        className="react-select-container"
-                        classNamePrefix="react-select"
-                      />
+                  <div className="mt-4 space-y-4">
+                    {/* Responsive grid layout */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                      <div className="sm:col-span-1">
+                        <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Year
+                        </label>
+                        <Select
+                          options={yearOptions}
+                          value={yearOptions.find((y) => y.value === tempYear)}
+                          onChange={(val) =>
+                            setTempYear(val?.value || new Date().getFullYear())
+                          }
+                          isSearchable={false}
+                          className="react-select-container"
+                          classNamePrefix="react-select"
+                          styles={{
+                            control: (base, state) => ({
+                              ...base,
+                              backgroundColor: "var(--select-bg)",
+                              borderColor: state.isFocused
+                                ? "#3b82f6"
+                                : "var(--select-border)",
+                              boxShadow: state.isFocused
+                                ? "0 0 0 1px #3b82f6"
+                                : "none",
+                              "&:hover": {
+                                borderColor: "#3b82f6",
+                              },
+                            }),
+                            menu: (base) => ({
+                              ...base,
+                              backgroundColor: "var(--select-menu-bg)",
+                              border: "1px solid var(--select-border)",
+                            }),
+                            option: (base, state) => ({
+                              ...base,
+                              backgroundColor: state.isSelected
+                                ? "#3b82f6"
+                                : state.isFocused
+                                ? "var(--select-option-hover)"
+                                : "transparent",
+                              color: state.isSelected
+                                ? "white"
+                                : "var(--select-text)",
+                              "&:hover": {
+                                backgroundColor: state.isSelected
+                                  ? "#3b82f6"
+                                  : "var(--select-option-hover)",
+                              },
+                            }),
+                            multiValue: (base) => ({
+                              ...base,
+                              backgroundColor: "var(--select-multi-value-bg)",
+                            }),
+                            multiValueLabel: (base) => ({
+                              ...base,
+                              color: "var(--select-multi-value-text)",
+                            }),
+                            multiValueRemove: (base) => ({
+                              ...base,
+                              color: "var(--select-multi-value-text)",
+                              "&:hover": {
+                                backgroundColor: "#ef4444",
+                                color: "white",
+                              },
+                            }),
+                          }}
+                        />
+                      </div>
+                      <div className="sm:col-span-1">
+                        <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Months
+                        </label>
+                        <Select
+                          isMulti
+                          options={monthOptions}
+                          value={tempMonths}
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          onChange={(val) => setTempMonths(val as any)}
+                          placeholder="Select months..."
+                          className="react-select-container"
+                          classNamePrefix="react-select"
+                          styles={{
+                            control: (base, state) => ({
+                              ...base,
+                              backgroundColor: "var(--select-bg)",
+                              borderColor: state.isFocused
+                                ? "#3b82f6"
+                                : "var(--select-border)",
+                              boxShadow: state.isFocused
+                                ? "0 0 0 1px #3b82f6"
+                                : "none",
+                              "&:hover": {
+                                borderColor: "#3b82f6",
+                              },
+                            }),
+                            menu: (base) => ({
+                              ...base,
+                              backgroundColor: "var(--select-menu-bg)",
+                              border: "1px solid var(--select-border)",
+                            }),
+                            option: (base, state) => ({
+                              ...base,
+                              backgroundColor: state.isSelected
+                                ? "#3b82f6"
+                                : state.isFocused
+                                ? "var(--select-option-hover)"
+                                : "transparent",
+                              color: state.isSelected
+                                ? "white"
+                                : "var(--select-text)",
+                              "&:hover": {
+                                backgroundColor: state.isSelected
+                                  ? "#3b82f6"
+                                  : "var(--select-option-hover)",
+                              },
+                            }),
+                            multiValue: (base) => ({
+                              ...base,
+                              backgroundColor: "var(--select-multi-value-bg)",
+                            }),
+                            multiValueLabel: (base) => ({
+                              ...base,
+                              color: "var(--select-multi-value-text)",
+                            }),
+                            multiValueRemove: (base) => ({
+                              ...base,
+                              color: "var(--select-multi-value-text)",
+                              "&:hover": {
+                                backgroundColor: "#ef4444",
+                                color: "white",
+                              },
+                            }),
+                          }}
+                        />
+                      </div>
+                      <div className="sm:col-span-1">
+                        <Button
+                          className="w-full h-10"
+                          color="primary"
+                          type="button"
+                          onClick={handleAddYearMonths}
+                          disabled={tempMonths.length === 0}
+                        >
+                          Add Selection
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex-[2]">
-                      <label className="block mb-1 text-sm font-medium">
-                        Months
-                      </label>
-                      <Select
-                        isMulti
-                        options={monthOptions}
-                        value={tempMonths}
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        onChange={(val) => setTempMonths(val as any)}
-                        placeholder="Select months..."
-                        className="react-select-container"
-                        classNamePrefix="react-select"
-                      />
-                    </div>
-                    <Button
-                      className="h-10"
-                      color="primary"
-                      type="button"
-                      onClick={handleAddYearMonths}
-                      disabled={tempMonths.length === 0}
-                    >
-                      Add
-                    </Button>
                   </div>
                   {/* Display selected year-months as chips */}
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {selectedYearMonths.map((pair) => (
-                      <span
-                        key={`${pair.year}-${pair.month}`}
-                        className="inline-flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium"
-                      >
-                        {pair.year} - {monthOptions[pair.month].label}
-                        <button
-                          type="button"
-                          className="ml-2 text-blue-600 hover:text-red-600"
-                          onClick={() =>
-                            handleRemoveYearMonth(pair.year, pair.month)
-                          }
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
+                  {selectedYearMonths.length > 0 && (
+                    <div className="mt-4">
+                      <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Selected Year-Months:
+                      </label>
+                      <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        {selectedYearMonths.map((pair) => (
+                          <span
+                            key={`${pair.year}-${pair.month}`}
+                            className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-3 py-1.5 rounded-full text-xs font-medium border border-blue-200 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                          >
+                            <span className="text-xs">
+                              {pair.year} - {monthOptions[pair.month].label}
+                            </span>
+                            <button
+                              type="button"
+                              className="ml-1 text-blue-600 dark:text-blue-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30"
+                              onClick={() =>
+                                handleRemoveYearMonth(pair.year, pair.month)
+                              }
+                              aria-label={`Remove ${pair.year} - ${
+                                monthOptions[pair.month].label
+                              }`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </ModalBody>
                 <ModalFooter>
                   <Button variant="flat" onPress={onClose}>
@@ -319,7 +487,11 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
                   <Button
                     color="primary"
                     type="submit"
-                    disabled={!amount || selectedYearMonths.length === 0}
+                    disabled={
+                      !amount ||
+                      selectedYearMonths.length === 0 ||
+                      balanceWarning !== null
+                    }
                   >
                     Submit
                   </Button>
