@@ -208,61 +208,6 @@ function Page() {
             </div>
           </div>
 
-          {/* Total Amount Card */}
-          <div className="bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-xl shadow-lg border border-green-200 dark:border-green-800 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 dark:text-green-200 text-sm font-medium">
-                  {t("payment.totalAmount")}
-                </p>
-                <p className="text-3xl font-bold text-white">
-                  {formatCurrency(
-                    data?.data?.reduce(
-                      (sum, payment) => sum + (payment.perMonthAmount || 0),
-                      0
-                    ) || 0
-                  )}
-                </p>
-                <p className="text-green-100 dark:text-green-200 text-xs mt-1">
-                  {t("payment.totalPaidAmount")}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
-                <DollarSign className="h-8 w-8 text-white" />
-              </div>
-            </div>
-          </div>
-
-          {/* Average Payment Card */}
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-xl shadow-lg border border-purple-200 dark:border-purple-800 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 dark:text-purple-200 text-sm font-medium">
-                  {t("payment.averagePayment")}
-                </p>
-                <p className="text-3xl font-bold text-white">
-                  {formatCurrency(
-                    data?.data && data.data.length > 0
-                      ? Math.round(
-                          data.data.reduce(
-                            (sum, payment) =>
-                              sum + (payment.perMonthAmount || 0),
-                            0
-                          ) / data.data.length
-                        )
-                      : 0
-                  )}
-                </p>
-                <p className="text-purple-100 dark:text-purple-200 text-xs mt-1">
-                  {t("payment.perMonthAverage")}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
-                <TrendingUp className="h-8 w-8 text-white" />
-              </div>
-            </div>
-          </div>
-
           {/* Current Month Status Card */}
           <div
             className={`rounded-xl shadow-lg border p-6 ${
@@ -363,14 +308,6 @@ function Page() {
                 setPage(1);
               }}
               isLoading={isLoading}
-              enableDateFilter={true}
-              startDate={startDate}
-              endDate={endDate}
-              onDateChange={({ startDate, endDate }) => {
-                setStartDate(startDate || undefined);
-                setEndDate(endDate || undefined);
-                setPage(1);
-              }}
             />
           </div>
         </div>
