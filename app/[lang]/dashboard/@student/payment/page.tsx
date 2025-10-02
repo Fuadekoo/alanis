@@ -33,10 +33,6 @@ function Page() {
     id: String(payment.id),
     year: payment.year,
     month: payment.month,
-    amount:
-      payment.perMonthAmount != null ? String(payment.perMonthAmount) : "",
-    photo: "", // Payment records don't have photos, only deposits do
-    createdAt: payment.createdAt ?? "",
   }));
 
   // Get current month and year for display
@@ -139,33 +135,6 @@ function Page() {
           </div>
         );
       },
-    },
-    {
-      key: "amount",
-      label: t("payment.amount"),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      renderCell: (item: any) => (
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-green-700 dark:text-green-400">
-            {formatCurrency(Number(item.amount))}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: "createdAt",
-      label: t("payment.paymentDate"),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      renderCell: (item: any) => (
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-          <span className="text-gray-700 dark:text-gray-300">
-            {item.createdAt
-              ? new Date(item.createdAt).toLocaleDateString()
-              : ""}
-          </span>
-        </div>
-      ),
     },
   ];
 
