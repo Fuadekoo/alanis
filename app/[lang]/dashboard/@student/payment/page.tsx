@@ -6,22 +6,17 @@ import useData from "@/hooks/useData";
 import { getPayment } from "@/actions/student/payment";
 import { useLocalization } from "@/hooks/useLocalization";
 import {
-  DollarSign,
-  Calendar,
   Clock,
   CheckCircle,
   AlertCircle,
   CreditCard,
-  TrendingUp,
 } from "lucide-react";
 
 function Page() {
-  const { t, getMonthName, formatCurrency } = useLocalization();
+  const { t, getMonthName } = useLocalization();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [startDate, setStartDate] = useState<string | undefined>(undefined);
-  const [endDate, setEndDate] = useState<string | undefined>(undefined);
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   // Fetch payment data
