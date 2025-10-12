@@ -4,12 +4,20 @@ import Image from "next/image";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
-import { Button } from "@heroui/react";
+import {
+  Button,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/react";
 import {
   getDeposit,
   approveDeposit,
   rejectDeposit,
   depositAnalytics,
+  rollbackDeposit,
 } from "@/actions/manager/deposit";
 import { controllerDepositDashboard } from "@/actions/controller/deposit";
 import { addToast } from "@heroui/toast";
@@ -23,6 +31,7 @@ import {
   FileText,
   DollarSign,
   Calendar,
+  Trash2,
 } from "lucide-react";
 
 const formatImageUrl = (url: string | null | undefined): string => {
@@ -50,6 +59,14 @@ function Page() {
   const [processingRejectId, setProcessingRejectId] = useState<string | null>(
     null
   );
+  const [processingDeleteId, setProcessingDeleteId] = useState<string | null>(
+    null
+  );
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [depositToDelete, setDepositToDelete] = useState<{
+    id: string;
+    status: string;
+  } | null>(null);
 
   const [controllerData] = useData(controllerDepositDashboard, () => {});
   const [depositAnalyticsData, isLoadingAnalytics] = useData(
@@ -94,6 +111,39 @@ function Page() {
       });
     }
   );
+
+  // Delete/Rollback mutation
+  const [deleteAction, isLoadingDelete] = useMutation(
+    rollbackDeposit,
+    (state) => {
+      setProcessingDeleteId(null);
+      setDeleteModalOpen(false);
+      setDepositToDelete(null);
+      refresh();
+      addToast({
+        title: "Delete Deposit",
+        description: state?.message || "Deposit deleted successfully.",
+      });
+    }
+  );
+
+  // Handle delete confirmation
+  const handleDeleteClick = (id: string, status: string) => {
+    setDepositToDelete({ id, status });
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (depositToDelete) {
+      setProcessingDeleteId(depositToDelete.id);
+      deleteAction(depositToDelete.id);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModalOpen(false);
+    setDepositToDelete(null);
+  };
 
   const rows = (data?.data || []).map((deposit) => ({
     key: String(deposit.id),
@@ -207,6 +257,17 @@ function Page() {
               </Button>
             </>
           )}
+          {/* Delete button for all statuses */}
+          <Button
+            size="sm"
+            color="danger"
+            variant="bordered"
+            startContent={<Trash2 className="h-4 w-4" />}
+            onClick={() => handleDeleteClick(item.id, item.status)}
+            isLoading={isLoadingDelete && processingDeleteId === item.id}
+          >
+            {t("common.delete")}
+          </Button>
         </div>
       ),
     },
@@ -577,6 +638,76 @@ function Page() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={handleCancelDelete}
+        placement="center"
+        backdrop="blur"
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <span className="text-red-600 dark:text-red-400">
+                {t("deposit.confirmDelete")}
+              </span>
+            </div>
+          </ModalHeader>
+          <ModalBody>
+            <div className="space-y-3">
+              {depositToDelete?.status === "approved" ? (
+                <>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    {t("deposit.deleteApprovedWarning")}
+                  </p>
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                      <XCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                      <div className="text-sm text-amber-800 dark:text-amber-200">
+                        <p className="font-semibold">
+                          {t("deposit.balanceWarning")}
+                        </p>
+                        <p className="mt-1">
+                          {t("deposit.balanceWarningDetail")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-700 dark:text-gray-300">
+                  {t("deposit.deleteConfirmMessage")}
+                </p>
+              )}
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {t("deposit.cannotUndo")}
+              </p>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              color="default"
+              variant="flat"
+              onPress={handleCancelDelete}
+              isDisabled={isLoadingDelete}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              color="danger"
+              onPress={handleConfirmDelete}
+              isLoading={isLoadingDelete}
+              startContent={!isLoadingDelete && <Trash2 className="h-4 w-4" />}
+            >
+              {t("common.delete")}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

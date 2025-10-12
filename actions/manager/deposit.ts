@@ -341,3 +341,74 @@ export async function depositAnalytics() {
     };
   }
 }
+
+// Unified rollback/delete deposit function
+// - Pending/Rejected: Just delete (no balance change)
+// - Approved: Delete and reduce balance
+export async function rollbackDeposit(
+  depositId: string
+): Promise<MutationState> {
+  const session = await auth();
+  if (session?.user?.role !== "manager") {
+    return {
+      status: false,
+      message: "Access denied.",
+    };
+  }
+
+  try {
+    // Find the deposit first
+    const deposit = await prisma.deposit.findUnique({
+      where: { id: depositId },
+      select: { id: true, amount: true, studentId: true, status: true },
+    });
+
+    if (!deposit) {
+      return {
+        status: false,
+        message: "Deposit not found.",
+      };
+    }
+
+    // Handle based on status
+    if (deposit.status === "pending" || deposit.status === "rejected") {
+      // Just delete, no balance change needed (balance was never added)
+      await prisma.deposit.delete({
+        where: { id: depositId },
+      });
+
+      return {
+        status: true,
+        message: "Successfully deleted deposit.",
+      };
+    } else if (deposit.status === "approved") {
+      // Delete and reduce balance using transaction
+      // Balance can go negative if already spent
+      await prisma.$transaction([
+        prisma.deposit.delete({
+          where: { id: depositId },
+        }),
+        prisma.user.update({
+          where: { id: deposit.studentId },
+          data: { balance: { decrement: deposit.amount } },
+        }),
+      ]);
+
+      return {
+        status: true,
+        message: "Successfully rolled back deposit.",
+      };
+    } else {
+      return {
+        status: false,
+        message: "Invalid deposit status.",
+      };
+    }
+  } catch (error) {
+    console.error("Failed to rollback deposit:", error);
+    return {
+      status: false,
+      message: "Failed to rollback deposit.",
+    };
+  }
+}

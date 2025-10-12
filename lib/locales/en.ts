@@ -57,6 +57,14 @@ export const en = {
     minPayment: "Min Payment",
     highestAmount: "Highest amount",
     lowestAmount: "Lowest amount",
+    confirmDelete: "Confirm Delete Payment",
+    deleteWarning:
+      "You are about to delete this payment record. This action will refund the payment amount back to the student's balance.",
+    balanceRefund: "Balance Refund",
+    balanceRefundDetail:
+      "The payment amount will be added back to the student's balance, reversing the deduction that was made during payment.",
+    refundAmount: "Refund Amount",
+    cannotUndo: "This action cannot be undone.",
   },
 
   // Deposit related
@@ -71,6 +79,8 @@ export const en = {
     thisMonthRejected: "This Month Rejected",
     thisMonthPending: "This Month Pending",
     studentName: "Student Name",
+    studentPhone: "Phone Number",
+    teacherName: "Teacher Name",
     amount: "Amount",
     photo: "Photo",
     status: "Status",
@@ -93,6 +103,15 @@ export const en = {
     depositHistory: "Deposit History",
     viewAllDeposits: "View all deposits",
     currentPhoto: "Current Photo",
+    noImage: "No Image",
+    confirmDelete: "Confirm Delete",
+    deleteApprovedWarning:
+      "You are about to delete an approved deposit. This action will remove the deposit and reduce the student's balance.",
+    deleteConfirmMessage: "Are you sure you want to delete this deposit?",
+    balanceWarning: "Balance Impact Warning",
+    balanceWarningDetail:
+      "The deposit amount will be deducted from the student's current balance. This may result in a negative balance if the funds have already been spent.",
+    cannotUndo: "This action cannot be undone.",
   },
 
   // Dashboard

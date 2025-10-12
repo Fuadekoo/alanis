@@ -275,7 +275,9 @@ export async function depositUpdate(
 
 export async function deleteDeposit(id: string): Promise<MutationState> {
   try {
-    await prisma.deposit.delete({ where: { id, status: "pending" } });
+    await prisma.deposit.delete({
+      where: { id, status: { in: ["pending", "rejected"] } },
+    });
     return { status: true, message: "successfully delete deposit" };
   } catch (error) {
     return { status: false, message: "failed to delete deposit" };

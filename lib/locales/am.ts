@@ -57,6 +57,14 @@ export const am = {
     minPayment: "ዝቅተኛ ክፍያ",
     highestAmount: "ከፍተኛ መጠን",
     lowestAmount: "ዝቅተኛ መጠን",
+    confirmDelete: "የክፍያ መሰረዝን ያረጋግጡ",
+    deleteWarning:
+      "ይህን የክፍያ መዝገብ ለመሰረዝ ነው። ይህ እርምጃ የክፍያ መጠኑን ወደ ተማሪው ሂሳብ ይመልሳል።",
+    balanceRefund: "የሂሳብ መመለሻ",
+    balanceRefundDetail:
+      "የክፍያ መጠኑ ወደ ተማሪው ሂሳብ ተመልሶ ይጨመራል፣ ክፍያ በተደረገበት ጊዜ የተደረገውን ቅናሽ በመቀልበስ።",
+    refundAmount: "የሚመለስ መጠን",
+    cannotUndo: "ይህ ድርጊት መልሶ ሊቀለበስ አይችልም።",
   },
 
   // Deposit related
@@ -71,6 +79,8 @@ export const am = {
     thisMonthRejected: "ይህ ወር የተቀበለ",
     thisMonthPending: "ይህ ወር በመጠባበቅ ላይ",
     studentName: "የተማሪ ስም",
+    studentPhone: "ስልክ ቁጥር",
+    teacherName: "የአስተማሪ ስም",
     amount: "መጠን",
     photo: "ፎቶ",
     status: "ሁኔታ",
@@ -93,6 +103,15 @@ export const am = {
     depositHistory: "የተቀማጭ ክፍያ ታሪክ",
     viewAllDeposits: "ሁሉንም ተቀማጭ ክፍያዎች ይመልከቱ",
     currentPhoto: "አሁኑ ፎቶ",
+    noImage: "ምስል የለም",
+    confirmDelete: "መሰረዝን ያረጋግጡ",
+    deleteApprovedWarning:
+      "የተፀደቀ ተቀማጭ ክፍያ ለመሰረዝ ነው። ይህ እርምጃ ተቀማጭ ክፍያውን ያስወግዳል እና የተማሪውን ሂሳብ ይቀንሳል።",
+    deleteConfirmMessage: "እርግጠኛ ነዎት ይህን ተቀማጭ ክፍያ መሰረዝ ይፈልጋሉ?",
+    balanceWarning: "የሂሳብ ተፅእኖ ማስጠንቀቂያ",
+    balanceWarningDetail:
+      "የተቀማጭ መጠኑ ከተማሪው አሁን ባለው ሂሳብ ይቀነሳል። ገንዘቡ ቀድሞውኑ ጥቅም ላይ ከዋለ አሉታዊ ሂሳብ ሊያስከትል ይችላል።",
+    cannotUndo: "ይህ ድርጊት መልሶ ሊቀለበስ አይችልም።",
   },
 
   // Dashboard

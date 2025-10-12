@@ -2,18 +2,22 @@
 import React, { useState } from "react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
-// import useMutation from "@/hooks/useMutation";
-// import { Button, Input, Modal } from "@heroui/react";
+import useMutation from "@/hooks/useMutation";
+import {
+  Button,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/react";
 import {
   getMonthsPayment,
   getYearsPayment,
   paymentDashboard,
+  rollbackMonthlyPayment,
 } from "@/actions/manager/payment";
-// import { controllerDepositDashboard } from "@/actions/controller/deposit";
-// import { addToast } from "@heroui/toast";
-// import { Calendar } from "@heroui/react";
-// import { X } from "lucide-react";
-// import { parseDate, DateValue } from "@internationalized/date";
+import { addToast } from "@heroui/toast";
 import { useLocalization } from "@/hooks/useLocalization";
 import {
   TrendingUp,
@@ -22,6 +26,8 @@ import {
   BarChart3,
   Users,
   DollarSign,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
 
 function Page() {
@@ -32,8 +38,15 @@ function Page() {
   const [year, setYear] = useState<string | undefined>(undefined);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  // const [showDateFilter, setShowDateFilter] = useState(false);
   const [pageSize, setPageSize] = useState(10);
+  const [processingDeleteId, setProcessingDeleteId] = useState<string | null>(
+    null
+  );
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<{
+    id: string;
+    amount: string;
+  } | null>(null);
 
   const [dashboardData, isLoadingDashboard] = useData(
     paymentDashboard,
@@ -41,7 +54,7 @@ function Page() {
   );
 
   // Data fetching
-  const [data, isLoading] = useData(
+  const [data, isLoading, refresh] = useData(
     getMonthsPayment,
     () => {},
     search,
@@ -54,6 +67,39 @@ function Page() {
   );
 
   const [yearsData, isLoadingYears] = useData(getYearsPayment, () => {});
+
+  // Delete/Rollback payment mutation
+  const [deleteAction, isLoadingDelete] = useMutation(
+    rollbackMonthlyPayment,
+    (state) => {
+      setProcessingDeleteId(null);
+      setDeleteModalOpen(false);
+      setPaymentToDelete(null);
+      refresh();
+      addToast({
+        title: "Delete Payment",
+        description: state?.message || "Payment deleted successfully.",
+      });
+    }
+  );
+
+  // Handle delete confirmation
+  const handleDeleteClick = (id: string, amount: string) => {
+    setPaymentToDelete({ id, amount });
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (paymentToDelete) {
+      setProcessingDeleteId(paymentToDelete.id);
+      deleteAction(paymentToDelete.id);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModalOpen(false);
+    setPaymentToDelete(null);
+  };
 
   // Prepare year and month options
   const yearOptions =
@@ -157,6 +203,23 @@ function Page() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) =>
         item.createdAt ? new Date(item.createdAt).toLocaleString() : "",
+    },
+    {
+      key: "actions",
+      label: t("common.actions"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => (
+        <Button
+          size="sm"
+          color="danger"
+          variant="bordered"
+          startContent={<Trash2 className="h-4 w-4" />}
+          onClick={() => handleDeleteClick(item.id, item.amount)}
+          isLoading={isLoadingDelete && processingDeleteId === item.id}
+        >
+          {t("common.delete")}
+        </Button>
+      ),
     },
   ];
 
@@ -472,6 +535,72 @@ function Page() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={handleCancelDelete}
+        placement="center"
+        backdrop="blur"
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <span className="text-red-600 dark:text-red-400">
+                {t("payment.confirmDelete")}
+              </span>
+            </div>
+          </ModalHeader>
+          <ModalBody>
+            <div className="space-y-3">
+              <p className="text-gray-700 dark:text-gray-300">
+                {t("payment.deleteWarning")}
+              </p>
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <p className="font-semibold">
+                      {t("payment.balanceRefund")}
+                    </p>
+                    <p className="mt-1">{t("payment.balanceRefundDetail")}</p>
+                    {paymentToDelete && (
+                      <p className="mt-2 font-semibold">
+                        {t("payment.refundAmount")}:{" "}
+                        {formatCurrency(Number(paymentToDelete.amount))}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {t("payment.cannotUndo")}
+              </p>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              color="default"
+              variant="flat"
+              onPress={handleCancelDelete}
+              isDisabled={isLoadingDelete}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              color="danger"
+              onPress={handleConfirmDelete}
+              isLoading={isLoadingDelete}
+              startContent={!isLoadingDelete && <Trash2 className="h-4 w-4" />}
+            >
+              {t("common.delete")}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

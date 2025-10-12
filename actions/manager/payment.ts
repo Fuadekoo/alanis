@@ -233,3 +233,55 @@ export async function paymentDashboard() {
     };
   }
 }
+
+// Delete payment and add the amount back to student balance
+export async function rollbackMonthlyPayment(
+  paymentId: string
+): Promise<MutationState> {
+  try {
+    // Check if user is authorized (manager)
+    const authorized = await isAuthorized("manager");
+    if (!authorized) {
+      return {
+        status: false,
+        message: "Access denied.",
+      };
+    }
+
+    // Find the payment first
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      select: { id: true, perMonthAmount: true, studentId: true },
+    });
+
+    if (!payment) {
+      return {
+        status: false,
+        message: "Payment not found.",
+      };
+    }
+
+    // Use transaction to delete payment and return balance to student
+    // Add the payment amount back since it was deducted during payment
+    await prisma.$transaction([
+      prisma.payment.delete({
+        where: { id: paymentId },
+      }),
+      prisma.user.update({
+        where: { id: payment.studentId },
+        data: { balance: { increment: payment.perMonthAmount } },
+      }),
+    ]);
+
+    return {
+      status: true,
+      message: "Successfully rolled back payment.",
+    };
+  } catch (error) {
+    console.error("Failed to rollback payment:", error);
+    return {
+      status: false,
+      message: "Failed to rollback payment.",
+    };
+  }
+}
