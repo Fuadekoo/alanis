@@ -21,8 +21,8 @@ export default function DetailTab({
       >
         <ChevronLeft className="size-4" />
       </Button>
-      <div className="flex-1 p-1 bg-default-50/30 rounded-xl grid gap-1 grid-cols-3">
-        {["profile", "room", "attendance"].map((v, i) => (
+      <div className="flex-1 p-1 bg-default-50/30 rounded-xl grid gap-1 grid-cols-4">
+        {["profile", "room", "report", "attendance"].map((v, i) => (
           <Button
             key={i + ""}
             color="primary"

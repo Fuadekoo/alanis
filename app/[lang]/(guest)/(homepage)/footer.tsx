@@ -71,12 +71,12 @@ export function Footer() {
           <Copyright className="size-4" />
           <span className="">Al Anis</span>
         </p>
-        <Link
+        {/* <Link
           href="https://at-abdelkerim.vercel.app"
           className="w-full grid place-content-center font-semibold text-indigo-900  "
         >
-          Abdelkerim Ahmed
-        </Link>
+          developer by 
+        </Link> */}
       </div>
     </div>
   );

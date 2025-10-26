@@ -46,6 +46,12 @@ export default async function Layout({
         Icon: <MessageCircle className="size-6" />,
       },
       {
+        english: "daily report",
+        amharic: "የቀንበሩ መመሪያ",
+        url: "dailyReport",
+        Icon: <Calendar className="size-6" />,
+      },
+      {
         english: "attendance",
         amharic: "አቴንዳንስ",
         url: "attendance",
