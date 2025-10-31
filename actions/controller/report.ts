@@ -630,3 +630,293 @@ export async function changeSampleTeacher() {
 // export async function getSampleTeacherReports() {
 //   return await getReportByTeacher("teacher456");
 // }
+
+// ===========================================
+// TEACHER SALARY FUNCTIONS
+// ===========================================
+
+/**
+ * Calculate and create teacher salary for a specific month/year
+ * This function aggregates learning counts from both current TeacherProgress
+ * and historical ShiftTeacherData records for the given period
+ */
+export async function calculateTeacherSalary(
+  teacherId: string,
+  month: number,
+  year: number,
+  amountPerLearning: number = 100 // Default amount per learning session
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    // Validate input
+    if (!teacherId || !month || !year) {
+      throw new Error("Teacher ID, month, and year are required");
+    }
+
+    if (month < 1 || month > 12) {
+      throw new Error("Month must be between 1 and 12");
+    }
+
+    // Check if salary already exists for this month/year
+    const existingSalary = await prisma.teacherSalary.findFirst({
+      where: {
+        teacherId,
+        month,
+        year,
+      },
+    });
+
+    if (existingSalary) {
+      return {
+        success: false,
+        error: "Salary already calculated for this month and year",
+        data: existingSalary,
+      };
+    }
+
+    // Use transaction to ensure data consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // Get all ShiftTeacherData records that were closed during this period
+      // These represent historical data that the teacher taught before shifting
+      const shiftedData = await tx.shiftTeacherData.findMany({
+        where: {
+          teacherId,
+          progressStatus: "closed",
+          createdAt: {
+            gte: new Date(year, month - 1, 1), // Start of the month
+            lte: new Date(year, month, 0), // End of the month
+          },
+        },
+      });
+
+      // Get all TeacherProgress records that existed during this period
+      // But we need to only count the learning from DailyReports within this month
+      const currentProgress = await tx.teacherProgress.findMany({
+        where: {
+          teacherId,
+          dailyReports: {
+            some: {
+              date: {
+                gte: new Date(year, month - 1, 1), // Start of the month
+                lte: new Date(year, month, 0), // End of the month
+              },
+            },
+          },
+        },
+        include: {
+          dailyReports: {
+            where: {
+              date: {
+                gte: new Date(year, month - 1, 1), // Start of the month
+                lte: new Date(year, month, 0), // End of the month
+              },
+            },
+          },
+        },
+      });
+
+      // Calculate total learning count from DailyReports within this month
+      // Count only "present" and "permission" as learning sessions
+      const currentLearningCount = currentProgress.reduce((sum, progress) => {
+        const monthReports = progress.dailyReports.filter(
+          (report) =>
+            report.learningProgress === "present" ||
+            report.learningProgress === "permission"
+        ).length;
+        return sum + monthReports;
+      }, 0);
+
+      // For shifted data, get the monthly reports count
+      const shiftedReports = await tx.dailyReport.findMany({
+        where: {
+          shiftTeacherDataId: {
+            in: shiftedData.map((s) => s.id),
+          },
+          date: {
+            gte: new Date(year, month - 1, 1),
+            lte: new Date(year, month, 0),
+          },
+        },
+      });
+
+      const shiftedLearningCount = shiftedReports.filter(
+        (report) =>
+          report.learningProgress === "present" ||
+          report.learningProgress === "permission"
+      ).length;
+
+      const totalLearningCount = currentLearningCount + shiftedLearningCount;
+
+      // Calculate total amount
+      const amount = totalLearningCount * amountPerLearning;
+
+      // Create the salary record
+      const salary = await tx.teacherSalary.create({
+        data: {
+          teacherId,
+          month,
+          year,
+          amount,
+          status: "pending",
+        },
+      });
+
+      // Link the TeacherProgress records to this salary
+      if (currentProgress.length > 0) {
+        await tx.teacherProgress.updateMany({
+          where: {
+            id: {
+              in: currentProgress.map((p) => p.id),
+            },
+          },
+          data: {
+            teacherSalaryId: salary.id,
+          },
+        });
+      }
+
+      // Link the ShiftTeacherData records to this salary
+      if (shiftedData.length > 0) {
+        await tx.shiftTeacherData.updateMany({
+          where: {
+            id: {
+              in: shiftedData.map((s) => s.id),
+            },
+          },
+          data: {
+            teacherSalaryId: salary.id,
+          },
+        });
+      }
+
+      return {
+        salary,
+        totalLearningCount,
+        currentLearningCount,
+        shiftedLearningCount,
+        currentProgressCount: currentProgress.length,
+        shiftedDataCount: shiftedData.length,
+      };
+    });
+
+    return {
+      success: true,
+      data: result,
+      message: "Salary calculated successfully",
+    };
+  } catch (error) {
+    console.error("Error calculating teacher salary:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to calculate salary",
+    };
+  }
+}
+
+/**
+ * Get all salaries for a specific teacher
+ */
+export async function getTeacherSalaries(teacherId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const salaries = await prisma.teacherSalary.findMany({
+      where: {
+        teacherId,
+      },
+      include: {
+        teacher: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+        teacherProgresses: {
+          select: {
+            id: true,
+            learningCount: true,
+            missingCount: true,
+            student: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+        shiftTeacherData: {
+          select: {
+            id: true,
+            learningCount: true,
+            missingCount: true,
+            student: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+    });
+
+    return {
+      success: true,
+      data: salaries,
+      message: "Salaries retrieved successfully",
+    };
+  } catch (error) {
+    console.error("Error getting teacher salaries:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get salaries",
+    };
+  }
+}
+
+/**
+ * Update salary status (approve or reject)
+ */
+export async function updateSalaryStatus(
+  salaryId: string,
+  status: "approved" | "rejected"
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const salary = await prisma.teacherSalary.update({
+      where: {
+        id: salaryId,
+      },
+      data: {
+        status,
+      },
+    });
+
+    return {
+      success: true,
+      data: salary,
+      message: `Salary ${status} successfully`,
+    };
+  } catch (error) {
+    console.error("Error updating salary status:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update salary",
+    };
+  }
+}

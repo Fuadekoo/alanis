@@ -67,6 +67,7 @@ model user {
   teacherProgressAsStudent TeacherProgress[]  @relation("TeacherProgressStudent")
   shiftDataAsTeacher       ShiftTeacherData[] @relation("ShiftTeacherTeacher")
   shiftDataAsStudent       ShiftTeacherData[] @relation("ShiftTeacherStudent")
+  teacherSalaryAsTeacher   teacherSalary[]    @relation("TeacherSalaryTeacher")
 }
 
 model room {
@@ -297,6 +298,7 @@ model DailyReport {
   date               DateTime @default(now())
   learningSlot       String
   learningProgress   String
+  studentApproved    Boolean?
 
   // RELATIONS
   student          user              @relation("DailyReportStudent", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -307,21 +309,24 @@ model DailyReport {
 
 // ===========================================
 model TeacherProgress {
-  id             String         @id @default(uuid())
-  teacherId      String
-  studentId      String
-  learningCount  Int            @default(0)
-  missingCount   Int            @default(0)
-  progressStatus progressStatus @default(open)
-  paymentStatus  paymentStatus  @default(pending)
-  learningSlot   String?
-  createdAt      DateTime       @default(now())
+  id              String         @id @default(uuid())
+  teacherId       String
+  studentId       String
+  learningCount   Int            @default(0)
+  missingCount    Int            @default(0)
+  totalCount      Int            @default(0)
+  progressStatus  progressStatus @default(open)
+  paymentStatus   paymentStatus  @default(pending)
+  learningSlot    String?
+  createdAt       DateTime       @default(now())
+  teacherSalaryId String?
 
   // RELATIONS
-  teacher      user              @relation("TeacherProgressTeacher", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  student      user              @relation("TeacherProgressStudent", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  shiftData    ShiftTeacherData?
-  dailyReports DailyReport[]
+  teacher       user              @relation("TeacherProgressTeacher", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  student       user              @relation("TeacherProgressStudent", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  teacherSalary teacherSalary?    @relation(fields: [teacherSalaryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  shiftData     ShiftTeacherData?
+  dailyReports  DailyReport[]
 }
 
 // ===========================================
@@ -331,15 +336,37 @@ model ShiftTeacherData {
   studentId          String
   learningCount      Int
   missingCount       Int
+  totalCount         Int
   progressStatus     progressStatus @default(closed)
   paymentStatus      paymentStatus  @default(pending)
   learningSlot       String?
   createdAt          DateTime       @default(now())
   originalProgressId String?        @unique
+  teacherSalaryId    String?
 
   // RELATIONS
   teacher          user             @relation("ShiftTeacherTeacher", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   student          user             @relation("ShiftTeacherStudent", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  teacherSalary    teacherSalary?   @relation(fields: [teacherSalaryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   originalProgress TeacherProgress? @relation(fields: [originalProgressId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   dailyReports     DailyReport[]
+}
+
+model teacherSalary {
+  id                  String        @id @default(uuid())
+  teacherId           String
+  month               Int
+  year                Int
+  unitPrice           Int
+  totalDayForLearning Int
+  amount              Int
+  date                DateTime      @default(now())
+  status              paymentStatus @default(pending)
+
+  createdAt DateTime @default(now())
+
+  // RELATIONS
+  teacher           user               @relation("TeacherSalaryTeacher", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  teacherProgresses TeacherProgress[]
+  shiftTeacherData  ShiftTeacherData[]
 }
