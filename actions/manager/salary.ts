@@ -18,7 +18,59 @@ const createSalaryInputSchema = z.object({
 export async function getSalary() {
   // return a list of salaries (include relations as needed)
   return prisma.teacherSalary.findMany({
-    // ...adjust include as your schema requires...
+    include: {
+      teacher: {
+        select: {
+          id: true,
+          firstName: true,
+          fatherName: true,
+          lastName: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getTeacherProgressForSalary(teacherId: string) {
+  // Get TeacherProgress records that are open and pending payment
+  return prisma.teacherProgress.findMany({
+    where: {
+      teacherId,
+      progressStatus: "open",
+      paymentStatus: "pending",
+    },
+    include: {
+      student: {
+        select: {
+          id: true,
+          firstName: true,
+          fatherName: true,
+          lastName: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getShiftTeacherDataForSalary(teacherId: string) {
+  // Get ShiftTeacherData records that are pending payment
+  return prisma.shiftTeacherData.findMany({
+    where: {
+      teacherId,
+      paymentStatus: "pending",
+    },
+    include: {
+      student: {
+        select: {
+          id: true,
+          firstName: true,
+          fatherName: true,
+          lastName: true,
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -96,31 +148,28 @@ export async function createSalary(
         amount,
         // default status - adjust field name if your schema differs
         status: paymentStatus.pending,
-        // optionally link source ids if you keep relation tables; adjust fields as needed:
-        // teacherProgress: { connect: teacherProgressIds.map(id => ({ id })) },
-        // shiftTeacherData: { connect: shiftTeacherDataIds.map(id => ({ id })) },
       },
     });
 
-    // update ShiftTeacherData: set paymentStatus = APPROVED and progressStatus = "CLOSE"
+    // update ShiftTeacherData: set paymentStatus = APPROVED, progressStatus = "CLOSE", and link to salary
     if (shiftTeacherDataIds && shiftTeacherDataIds.length > 0) {
       await tx.shiftTeacherData.updateMany({
         where: { id: { in: shiftTeacherDataIds } },
         data: {
           paymentStatus: paymentStatus.approved,
-          // progressStatus enum name/value may differ in your schema; adjust if necessary
           progressStatus: progressStatus.closed,
+          teacherSalaryId: teacherSalary.id,
         },
       });
     }
 
-    // update TeacherProgress: set progressStatus = "CLOSE"
+    // update TeacherProgress: set progressStatus = "CLOSE" and link to salary
     if (teacherProgressIds && teacherProgressIds.length > 0) {
       await tx.teacherProgress.updateMany({
         where: { id: { in: teacherProgressIds } },
         data: {
-          // progressStatus enum name/value may differ in your schema; adjust if necessary
           progressStatus: progressStatus.closed,
+          teacherSalaryId: teacherSalary.id,
         },
       });
     }
