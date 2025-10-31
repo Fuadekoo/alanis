@@ -60,6 +60,13 @@ model user {
   depositedBy         deposit[]             @relation("depositedBy")
   depositedTo         deposit[]             @relation("depositedTo")
   payment             payment[]
+
+  dailyReportsAsStudent    DailyReport[]      @relation("DailyReportStudent")
+  dailyReportsAsTeacher    DailyReport[]      @relation("DailyReportTeacher")
+  teacherProgressAsTeacher TeacherProgress[]  @relation("TeacherProgressTeacher")
+  teacherProgressAsStudent TeacherProgress[]  @relation("TeacherProgressStudent")
+  shiftDataAsTeacher       ShiftTeacherData[] @relation("ShiftTeacherTeacher")
+  shiftDataAsStudent       ShiftTeacherData[] @relation("ShiftTeacherStudent")
 }
 
 model room {
@@ -262,4 +269,77 @@ model announcementStudent {
   studentId      String
   announcement   announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   announcementId String
+}
+
+// ===========================================
+// ENUMS
+// ===========================================
+enum progressStatus {
+  open
+  closed
+}
+
+// enum paymentStatus {
+//   pending
+//   paid
+// }
+
+// ===========================================
+// MODELS
+// ===========================================
+
+model DailyReport {
+  id                 String   @id @default(uuid())
+  studentId          String
+  activeTeacherId    String
+  teacherProgressId  String?
+  shiftTeacherDataId String?
+  date               DateTime @default(now())
+  learningSlot       String
+  learningProgress   String
+
+  // RELATIONS
+  student          user              @relation("DailyReportStudent", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  activeTeacher    user              @relation("DailyReportTeacher", fields: [activeTeacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  teacherProgress  TeacherProgress?  @relation(fields: [teacherProgressId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  shiftTeacherData ShiftTeacherData? @relation(fields: [shiftTeacherDataId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+}
+
+// ===========================================
+model TeacherProgress {
+  id             String         @id @default(uuid())
+  teacherId      String
+  studentId      String
+  learningCount  Int            @default(0)
+  missingCount   Int            @default(0)
+  progressStatus progressStatus @default(open)
+  paymentStatus  paymentStatus  @default(pending)
+  learningSlot   String?
+  createdAt      DateTime       @default(now())
+
+  // RELATIONS
+  teacher      user              @relation("TeacherProgressTeacher", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  student      user              @relation("TeacherProgressStudent", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  shiftData    ShiftTeacherData?
+  dailyReports DailyReport[]
+}
+
+// ===========================================
+model ShiftTeacherData {
+  id                 String         @id @default(uuid())
+  teacherId          String
+  studentId          String
+  learningCount      Int
+  missingCount       Int
+  progressStatus     progressStatus @default(closed)
+  paymentStatus      paymentStatus  @default(pending)
+  learningSlot       String?
+  createdAt          DateTime       @default(now())
+  originalProgressId String?        @unique
+
+  // RELATIONS
+  teacher          user             @relation("ShiftTeacherTeacher", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  student          user             @relation("ShiftTeacherStudent", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  originalProgress TeacherProgress? @relation(fields: [originalProgressId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  dailyReports     DailyReport[]
 }

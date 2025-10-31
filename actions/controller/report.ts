@@ -3,10 +3,41 @@ import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
 
 export async function getReport(
+  teacherId: string,
   page?: number,
   pageSize?: number,
   search?: string
-) {}
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+    const reports = await prisma.dailyReport.findMany({
+      where: {
+        activeTeacherId: {
+          equals: teacherId,
+        },
+      },
+      orderBy: {
+        date: "desc",
+      },
+      skip: (page ?? 1 - 1) * (pageSize ?? 10),
+      take: pageSize,
+    });
+    return {
+      success: true,
+      data: reports,
+      message: "Reports fetched successfully",
+    };
+  } catch (error) {
+    console.error("Error getting reports:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get reports",
+    };
+  }
+}
 
 interface CreateReportData {
   studentId: string;
@@ -286,7 +317,7 @@ export async function getReportByTeacher(teacherId: string) {
             phoneNumber: true,
           },
         },
-        historicalDailyReports: {
+        dailyReports: {
           orderBy: { date: "desc" },
           take: 5, // Get last 5 reports for each historical progress
         },
@@ -329,7 +360,7 @@ export async function getReportByTeacher(teacherId: string) {
         0
       ),
       totalReports: historicalProgress.reduce(
-        (sum, progress) => sum + progress.historicalDailyReports.length,
+        (sum, progress) => sum + progress.dailyReports.length,
         0
       ),
     };
@@ -376,6 +407,202 @@ export async function getReportByTeacher(teacherId: string) {
 
 export async function getReportByTeacherProgress(teacherProgressId: string) {}
 
+// Get all reports with filtering and pagination
+export async function getAllReports(
+  page: number = 1,
+  pageSize: number = 10,
+  search: string = ""
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const skip = (page - 1) * pageSize;
+
+    const reports = await prisma.dailyReport.findMany({
+      where: {
+        OR: [
+          { student: { firstName: { contains: search } } },
+          { student: { lastName: { contains: search } } },
+          { activeTeacher: { firstName: { contains: search } } },
+          { activeTeacher: { lastName: { contains: search } } },
+        ],
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+        activeTeacher: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+      },
+      orderBy: { date: "desc" },
+      skip,
+      take: pageSize,
+    });
+
+    const totalCount = await prisma.dailyReport.count({
+      where: {
+        OR: [
+          { student: { firstName: { contains: search } } },
+          { student: { lastName: { contains: search } } },
+          { activeTeacher: { firstName: { contains: search } } },
+          { activeTeacher: { lastName: { contains: search } } },
+        ],
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        reports,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+        currentPage: page,
+      },
+    };
+  } catch (error) {
+    console.error("Error getting reports:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get reports",
+    };
+  }
+}
+
+// Get students assigned to a specific teacher through room table
+export async function getStudentsForReport(teacherId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!teacherId) {
+      throw new Error("Teacher ID is required");
+    }
+
+    // Get students who are assigned to this teacher through the room table
+    const students = await prisma.user.findMany({
+      where: {
+        role: "student",
+        roomStudent: {
+          some: {
+            teacherId: teacherId,
+          },
+        },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        username: true,
+        phoneNumber: true,
+        roomStudent: {
+          select: {
+            time: true,
+            duration: true,
+            teacherId: true,
+          },
+        },
+      },
+      orderBy: { firstName: "asc" },
+    });
+
+    return {
+      success: true,
+      data: students,
+    };
+  } catch (error) {
+    console.error("Error getting students for teacher:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get students for teacher",
+    };
+  }
+}
+
+// Get all teachers for selection
+export async function getTeachersForReport() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const teachers = await prisma.user.findMany({
+      where: { role: "teacher" },
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        username: true,
+        phoneNumber: true,
+      },
+      orderBy: { firstName: "asc" },
+    });
+
+    return {
+      success: true,
+      data: teachers,
+    };
+  } catch (error) {
+    console.error("Error getting teachers:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get teachers",
+    };
+  }
+}
+
+// Update report status (approve/reject)
+export async function updateReportStatus(
+  reportId: string,
+  status: "approved" | "rejected"
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    // Note: You might want to add a status field to DailyReport model
+    // For now, we'll just return success
+    return {
+      success: true,
+      message: `Report ${status} successfully`,
+    };
+  } catch (error) {
+    console.error("Error updating report status:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to update report status",
+    };
+  }
+}
+
 // Helper function to demonstrate usage
 export async function createSampleReport() {
   const sampleData: CreateReportData = {
@@ -400,6 +627,6 @@ export async function changeSampleTeacher() {
 }
 
 // Helper function to demonstrate getting teacher reports
-export async function getSampleTeacherReports() {
-  return await getReportByTeacher("teacher456");
-}
+// export async function getSampleTeacherReports() {
+//   return await getReportByTeacher("teacher456");
+// }

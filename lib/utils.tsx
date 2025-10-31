@@ -137,10 +137,10 @@ export function highlight(
 ) {
   const array = data.split(key);
   return array.map((v, i) => (
-    <>
+    <span key={i}>
       {v}
       {i !== array.length - 1 && <span className={className}>{key}</span>}
-    </>
+    </span>
   ));
 }
 
