@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
 import { paymentStatus } from "@prisma/client";
+import { progressStatus } from "@prisma/client";
 
 // Validate inputs (simple runtime checks)
 const createSalaryInputSchema = z.object({
@@ -94,7 +95,7 @@ export async function createSalary(
         unitPrice,
         amount,
         // default status - adjust field name if your schema differs
-        status: paymentStatus.PENDING,
+        status: paymentStatus.pending,
         // optionally link source ids if you keep relation tables; adjust fields as needed:
         // teacherProgress: { connect: teacherProgressIds.map(id => ({ id })) },
         // shiftTeacherData: { connect: shiftTeacherDataIds.map(id => ({ id })) },
@@ -106,9 +107,9 @@ export async function createSalary(
       await tx.shiftTeacherData.updateMany({
         where: { id: { in: shiftTeacherDataIds } },
         data: {
-          paymentStatus: paymentStatus.APPROVED,
+          paymentStatus: paymentStatus.approved,
           // progressStatus enum name/value may differ in your schema; adjust if necessary
-          progressStatus: "CLOSE" as any,
+          progressStatus: progressStatus.closed,
         },
       });
     }
@@ -119,7 +120,7 @@ export async function createSalary(
         where: { id: { in: teacherProgressIds } },
         data: {
           // progressStatus enum name/value may differ in your schema; adjust if necessary
-          progressStatus: "CLOSE" as any,
+          progressStatus: progressStatus.closed,
         },
       });
     }
