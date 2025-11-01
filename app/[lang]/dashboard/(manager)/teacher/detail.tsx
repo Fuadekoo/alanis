@@ -8,6 +8,7 @@ import AssignedRoom from "./assignedRoom";
 import { UserStatus } from "@/components/userStatus";
 import UserDetailCard from "@/components/userDetailCard";
 import { Attendance } from "./attendance";
+import { Report } from "./report";
 import DetailTab from "@/components/detailTab";
 
 export default function Detail() {
@@ -62,6 +63,8 @@ export default function Detail() {
               />
             ) : tab == "room" ? (
               <AssignedRoom />
+            ) : tab == "report" ? (
+              <Report />
             ) : tab == "attendance" ? (
               <Attendance />
             ) : (
