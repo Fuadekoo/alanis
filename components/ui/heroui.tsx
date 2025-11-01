@@ -37,6 +37,7 @@ import {
   DropdownItem as HDropdownItem,
   DropdownTrigger as HDropdownTrigger,
 } from "@heroui/dropdown";
+import { Tabs as HTabs, Tab as HTab } from "@heroui/tabs";
 
 declare module "@react-types/shared" {
   interface RouterConfig {
@@ -114,3 +115,5 @@ export const DropdownSection = HDropdownSection;
 export const DropdownMenu = HDropdownMenu;
 export const DropdownItem = HDropdownItem;
 export const DropdownTrigger = HDropdownTrigger;
+export const Tabs = HTabs;
+export const Tab = HTab;

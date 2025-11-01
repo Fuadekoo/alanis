@@ -24,6 +24,8 @@ import useData from "@/hooks/useData";
 import { highlight } from "@/lib/utils";
 import PaginationPlace from "@/components/paginationPlace";
 import useAmharic from "@/hooks/useAmharic";
+import useAlert from "@/hooks/useAlert";
+import CustomAlert from "@/components/customAlert";
 
 export default function Page() {
   const [step, setStep] = useState(1); // 1: Select Teacher, 2: Select Student, 3: Fill Details
@@ -38,6 +40,7 @@ export default function Page() {
   const [isCreating, setIsCreating] = useState(false);
 
   const isAm = useAmharic();
+  const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
 
   // Get reports data
   const [reportsData, isLoadingReports] = useData(
@@ -63,7 +66,13 @@ export default function Page() {
 
   const handleCreateReport = async () => {
     if (!selectedStudent || !selectedTeacher || !learningSlot) {
-      alert("Please fill in all required fields");
+      showAlert({
+        message: isAm
+          ? "እባክዎ ሁሉንም መስኮች ይሙሉ"
+          : "Please fill in all required fields",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Warning",
+      });
       return;
     }
 
@@ -77,7 +86,13 @@ export default function Page() {
       });
 
       if (result.success) {
-        alert("Report created successfully!");
+        showAlert({
+          message: isAm
+            ? "ሪፖርት በተሳካ ሁኔታ ተፈጥሯል!"
+            : "Report created successfully!",
+          type: "success",
+          title: isAm ? "ተሳክቷል" : "Success",
+        });
         setStep(0);
         setSelectedStudent("");
         setSelectedTeacher("");
@@ -86,10 +101,20 @@ export default function Page() {
         // Refresh reports data
         window.location.reload();
       } else {
-        alert(`Error: ${result.error}`);
+        showAlert({
+          message:
+            result.error ||
+            (isAm ? "ሪፖርት መፍጠር አልተሳካም" : "Failed to create report"),
+          type: "error",
+          title: isAm ? "ስህተት" : "Error",
+        });
       }
     } catch (error) {
-      alert("Failed to create report");
+      showAlert({
+        message: isAm ? "ሪፖርት መፍጠር አልተሳካም" : "Failed to create report",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
     } finally {
       setIsCreating(false);
     }
@@ -99,13 +124,29 @@ export default function Page() {
     try {
       const result = await updateReportStatus(reportId, "approved");
       if (result.success) {
-        alert("Report approved successfully!");
+        showAlert({
+          message: isAm
+            ? "ሪፖርት በተሳካ ሁኔታ ጸድቋል!"
+            : "Report approved successfully!",
+          type: "success",
+          title: isAm ? "ተሳክቷል" : "Success",
+        });
         window.location.reload();
       } else {
-        alert(`Error: ${result.error}`);
+        showAlert({
+          message:
+            result.error ||
+            (isAm ? "ሪፖርት ማጽደቅ አልተሳካም" : "Failed to approve report"),
+          type: "error",
+          title: isAm ? "ስህተት" : "Error",
+        });
       }
     } catch (error) {
-      alert("Failed to approve report");
+      showAlert({
+        message: isAm ? "ሪፖርት ማጽደቅ አልተሳካም" : "Failed to approve report",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
     }
   };
 
@@ -113,13 +154,29 @@ export default function Page() {
     try {
       const result = await updateReportStatus(reportId, "rejected");
       if (result.success) {
-        alert("Report rejected successfully!");
+        showAlert({
+          message: isAm
+            ? "ሪፖርት በተሳካ ሁኔታ ተቀባይነት አላገኘም!"
+            : "Report rejected successfully!",
+          type: "success",
+          title: isAm ? "ተሳክቷል" : "Success",
+        });
         window.location.reload();
       } else {
-        alert(`Error: ${result.error}`);
+        showAlert({
+          message:
+            result.error ||
+            (isAm ? "ሪፖርት መቃወም አልተሳካም" : "Failed to reject report"),
+          type: "error",
+          title: isAm ? "ስህተት" : "Error",
+        });
       }
     } catch (error) {
-      alert("Failed to reject report");
+      showAlert({
+        message: isAm ? "ሪፖርት መቃወም አልተሳካም" : "Failed to reject report",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
     }
   };
 
@@ -474,6 +531,19 @@ export default function Page() {
             </div>
           )}
       </div>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        isOpen={isAlertOpen}
+        onClose={closeAlert}
+        title={alertOptions.title}
+        message={alertOptions.message}
+        type={alertOptions.type}
+        confirmText={alertOptions.confirmText || (isAm ? "እሺ" : "OK")}
+        cancelText={alertOptions.cancelText}
+        onConfirm={alertOptions.onConfirm}
+        showCancel={alertOptions.showCancel}
+      />
     </div>
   );
 }

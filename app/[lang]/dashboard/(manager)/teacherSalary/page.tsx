@@ -28,9 +28,12 @@ import {
 } from "@/actions/manager/salary";
 import { getTeacherList } from "@/actions/controller/teacher";
 import { paymentStatus } from "@prisma/client";
+import useAlert from "@/hooks/useAlert";
+import CustomAlert from "@/components/customAlert";
 
 function Page() {
   const isAm = useAmharic();
+  const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -122,7 +125,11 @@ function Page() {
   // Handle form submission
   const handleSubmit = async () => {
     if (!selectedTeacher) {
-      alert(isAm ? "እባክዎ መምህር ይምረጡ" : "Please select a teacher");
+      showAlert({
+        message: isAm ? "እባክዎ መምህር ይምረጡ" : "Please select a teacher",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Warning",
+      });
       return;
     }
 
@@ -130,28 +137,42 @@ function Page() {
       selectedTeacherProgress.size === 0 &&
       selectedShiftTeacherData.size === 0
     ) {
-      alert(
-        isAm
+      showAlert({
+        message: isAm
           ? "እባክዎ ቢያንስ አንድ TeacherProgress ወይም ShiftTeacherData ይምረጡ"
-          : "Please select at least one TeacherProgress or ShiftTeacherData"
-      );
+          : "Please select at least one TeacherProgress or ShiftTeacherData",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Warning",
+      });
       return;
     }
 
     if (unitPrice <= 0) {
-      alert(isAm ? "እባክዎ የምክንያት ዋጋ ያስገቡ" : "Please enter unit price");
+      showAlert({
+        message: isAm ? "እባክዎ የምክንያት ዋጋ ያስገቡ" : "Please enter unit price",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Warning",
+      });
       return;
     }
 
     if (month < 1 || month > 12) {
-      alert(
-        isAm ? "እባክዎ ልክ ያለ ወር ያስገቡ (1-12)" : "Please enter valid month (1-12)"
-      );
+      showAlert({
+        message: isAm
+          ? "እባክዎ ልክ ያለ ወር ያስገቡ (1-12)"
+          : "Please enter valid month (1-12)",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Warning",
+      });
       return;
     }
 
     if (year < 2000) {
-      alert(isAm ? "እባክዎ ልክ ያለ ዓመት ያስገቡ" : "Please enter valid year");
+      showAlert({
+        message: isAm ? "እባክዎ ልክ ያለ ዓመት ያስገቡ" : "Please enter valid year",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Warning",
+      });
       return;
     }
 
@@ -679,6 +700,19 @@ function Page() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        isOpen={isAlertOpen}
+        onClose={closeAlert}
+        title={alertOptions.title}
+        message={alertOptions.message}
+        type={alertOptions.type}
+        confirmText={alertOptions.confirmText || (isAm ? "እሺ" : "OK")}
+        cancelText={alertOptions.cancelText}
+        onConfirm={alertOptions.onConfirm}
+        showCancel={alertOptions.showCancel}
+      />
     </div>
   );
 }
