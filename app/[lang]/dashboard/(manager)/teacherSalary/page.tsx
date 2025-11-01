@@ -261,41 +261,45 @@ function Page() {
   ];
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {isAm ? "መምህር ደሞዝ" : "Teacher Salary"}
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {isAm
-              ? "መምህሮችን ደሞዝ ይፈጥሩ ያስተዳድሩ"
-              : "Create and manage teacher salaries"}
-          </p>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 p-4 sm:p-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {isAm ? "መምህር ደሞዝ" : "Teacher Salary"}
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {isAm
+                ? "መምህሮችን ደሞዝ ይፈጥሩ ያስተዳድሩ"
+                : "Create and manage teacher salaries"}
+            </p>
+          </div>
+          <Button
+            color="primary"
+            startContent={<Plus className="h-4 w-4" />}
+            onPress={() => setIsModalOpen(true)}
+          >
+            {isAm ? "አዲስ ደሞዝ ይፍጠሩ" : "Create Salary"}
+          </Button>
         </div>
-        <Button
-          color="primary"
-          startContent={<Plus className="h-4 w-4" />}
-          onPress={() => setIsModalOpen(true)}
-        >
-          {isAm ? "አዲስ ደሞዝ ይፍጠሩ" : "Create Salary"}
-        </Button>
       </div>
 
-      {/* Salary Table */}
-      <CustomTable
-        rows={paginatedSalaries}
-        columns={columns}
-        totalRows={filteredSalaries.length}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        searchValue={search}
-        onSearch={setSearch}
-        isLoading={salariesLoading}
-      />
+      {/* Salary Table - Scrollable */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <CustomTable
+          rows={paginatedSalaries}
+          columns={columns}
+          totalRows={filteredSalaries.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          searchValue={search}
+          onSearch={setSearch}
+          isLoading={salariesLoading}
+        />
+      </div>
 
       {/* Create Salary Modal */}
       <Modal
@@ -452,6 +456,12 @@ function Page() {
                               {formattedDate}
                             </span>
                           </div>
+                          {tp.learningSlot && (
+                            <div className="text-xs text-purple-600 dark:text-purple-400 mb-1">
+                              {isAm ? "የመማሪያ ሰዓት" : "Learning Slot"}:{" "}
+                              {tp.learningSlot}
+                            </div>
+                          )}
                           <div className="flex items-center gap-4 text-xs">
                             <span className="text-green-600 dark:text-green-400">
                               {isAm ? "የመማሪያ" : "Learning"}: {tp.learningCount}
@@ -558,6 +568,12 @@ function Page() {
                               {formattedDate}
                             </span>
                           </div>
+                          {std.learningSlot && (
+                            <div className="text-xs text-purple-600 dark:text-purple-400 mb-1">
+                              {isAm ? "የመማሪያ ሰዓት" : "Learning Slot"}:{" "}
+                              {std.learningSlot}
+                            </div>
+                          )}
                           <div className="flex items-center gap-4 text-xs">
                             <span className="text-green-600 dark:text-green-400">
                               {isAm ? "የመማሪያ" : "Learning"}: {std.learningCount}
