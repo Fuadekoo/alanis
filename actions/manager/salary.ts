@@ -151,7 +151,7 @@ export async function createSalary(
       },
     });
 
-    // update ShiftTeacherData: set paymentStatus = APPROVED, progressStatus = "CLOSE", and link to salary
+    // update ShiftTeacherData: set paymentStatus = APPROVED, progressStatus = "CLOSED", and link to salary
     if (shiftTeacherDataIds && shiftTeacherDataIds.length > 0) {
       await tx.shiftTeacherData.updateMany({
         where: { id: { in: shiftTeacherDataIds } },
@@ -163,11 +163,12 @@ export async function createSalary(
       });
     }
 
-    // update TeacherProgress: set progressStatus = "CLOSE" and link to salary
+    // update TeacherProgress: set paymentStatus = APPROVED, progressStatus = "CLOSED" and link to salary
     if (teacherProgressIds && teacherProgressIds.length > 0) {
       await tx.teacherProgress.updateMany({
         where: { id: { in: teacherProgressIds } },
         data: {
+          paymentStatus: paymentStatus.approved,
           progressStatus: progressStatus.closed,
           teacherSalaryId: teacherSalary.id,
         },

@@ -33,7 +33,7 @@ const authConfig = {
     signIn: "/am/login",
     signOut: "/am/logout",
   },
-  // trustHost: true,
+  trustHost: true,
   callbacks: {
     authorized: async ({ auth, request: { nextUrl } }) => {
       // console.log("AK >> ", !!auth, nextUrl.pathname);

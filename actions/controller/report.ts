@@ -156,6 +156,8 @@ interface ChangeTeacherData {
   currentTeacherProgressId: string;
   newTeacherId: string;
   newLearningSlot?: string;
+  newDuration?: number;
+  newLink?: string;
 }
 
 export async function changeTeacher(data: ChangeTeacherData) {
@@ -165,7 +167,13 @@ export async function changeTeacher(data: ChangeTeacherData) {
       throw new Error("Unauthorized");
     }
 
-    const { currentTeacherProgressId, newTeacherId, newLearningSlot } = data;
+    const {
+      currentTeacherProgressId,
+      newTeacherId,
+      newLearningSlot,
+      newDuration,
+      newLink,
+    } = data;
 
     // Validate input
     if (!currentTeacherProgressId || !newTeacherId) {
@@ -201,6 +209,9 @@ export async function changeTeacher(data: ChangeTeacherData) {
           studentId: currentProgress.studentId,
           learningCount: currentProgress.learningCount,
           missingCount: currentProgress.missingCount,
+          totalCount:
+            currentProgress.totalCount ||
+            currentProgress.learningCount + currentProgress.missingCount,
           progressStatus: "closed",
           paymentStatus: currentProgress.paymentStatus,
           learningSlot: currentProgress.learningSlot,
@@ -219,15 +230,38 @@ export async function changeTeacher(data: ChangeTeacherData) {
         });
       }
 
-      // 4. Close the current TeacherProgress
-      await tx.teacherProgress.update({
-        where: { id: currentTeacherProgressId },
-        data: {
-          progressStatus: "closed",
+      // 4. Get the student's current room assignment with the old teacher
+      const oldRoomAssignment = await tx.room.findFirst({
+        where: {
+          studentId: currentProgress.studentId,
+          teacherId: currentProgress.teacherId,
         },
       });
 
-      // 5. Create new TeacherProgress for new teacher
+      // 5. Delete the old TeacherProgress to prevent duplication
+      await tx.teacherProgress.delete({
+        where: { id: currentTeacherProgressId },
+      });
+
+      // 6. Delete old room assignment if it exists
+      if (oldRoomAssignment) {
+        await tx.room.delete({
+          where: { id: oldRoomAssignment.id },
+        });
+      }
+
+      // 7. Create new room assignment with the new teacher
+      const newRoomAssignment = await tx.room.create({
+        data: {
+          teacherId: newTeacherId,
+          studentId: currentProgress.studentId,
+          time: newLearningSlot || oldRoomAssignment?.time || "Not specified",
+          duration: newDuration || oldRoomAssignment?.duration || 60,
+          link: newLink || oldRoomAssignment?.link || "",
+        },
+      });
+
+      // 8. Create new TeacherProgress for new teacher
       const newProgress = await tx.teacherProgress.create({
         data: {
           teacherId: newTeacherId,
@@ -244,6 +278,8 @@ export async function changeTeacher(data: ChangeTeacherData) {
         shiftData,
         newProgress,
         previousProgress: currentProgress,
+        oldRoomAssignment,
+        newRoomAssignment,
       };
     });
 
@@ -626,6 +662,184 @@ export async function changeSampleTeacher() {
   return await changeTeacher(changeData);
 }
 
+// Get all active TeacherProgress for shifting
+export async function getAllTeacherProgress(
+  page: number = 1,
+  pageSize: number = 10,
+  search: string = ""
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const skip = (page - 1) * pageSize;
+
+    const teacherProgress = await prisma.teacherProgress.findMany({
+      where: {
+        progressStatus: "open",
+        OR: [
+          { student: { firstName: { contains: search } } },
+          { student: { lastName: { contains: search } } },
+          { teacher: { firstName: { contains: search } } },
+          { teacher: { lastName: { contains: search } } },
+        ],
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+            phoneNumber: true,
+          },
+        },
+        teacher: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+        dailyReports: {
+          orderBy: { date: "desc" },
+          take: 5,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    });
+
+    const totalCount = await prisma.teacherProgress.count({
+      where: {
+        progressStatus: "open",
+        OR: [
+          { student: { firstName: { contains: search } } },
+          { student: { lastName: { contains: search } } },
+          { teacher: { firstName: { contains: search } } },
+          { teacher: { lastName: { contains: search } } },
+        ],
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        teacherProgress,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+        currentPage: page,
+      },
+    };
+  } catch (error) {
+    console.error("Error getting teacher progress:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get teacher progress",
+    };
+  }
+}
+
+// Get all ShiftTeacherData records
+export async function getAllShiftTeacherData(
+  page: number = 1,
+  pageSize: number = 10,
+  search: string = ""
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const skip = (page - 1) * pageSize;
+
+    const shiftData = await prisma.shiftTeacherData.findMany({
+      where: {
+        OR: [
+          { student: { firstName: { contains: search } } },
+          { student: { lastName: { contains: search } } },
+          { teacher: { firstName: { contains: search } } },
+          { teacher: { lastName: { contains: search } } },
+        ],
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+            phoneNumber: true,
+          },
+        },
+        teacher: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+        dailyReports: {
+          orderBy: { date: "desc" },
+          take: 5,
+        },
+        originalProgress: {
+          select: {
+            id: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    });
+
+    const totalCount = await prisma.shiftTeacherData.count({
+      where: {
+        OR: [
+          { student: { firstName: { contains: search } } },
+          { student: { lastName: { contains: search } } },
+          { teacher: { firstName: { contains: search } } },
+          { teacher: { lastName: { contains: search } } },
+        ],
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        shiftData,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+        currentPage: page,
+      },
+    };
+  } catch (error) {
+    console.error("Error getting shift teacher data:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get shift teacher data",
+    };
+  }
+}
+
 // Helper function to demonstrate getting teacher reports
 // export async function getSampleTeacherReports() {
 //   return await getReportByTeacher("teacher456");
@@ -760,12 +974,14 @@ export async function calculateTeacherSalary(
           teacherId,
           month,
           year,
+          totalDayForLearning: totalLearningCount,
+          unitPrice: amountPerLearning,
           amount,
           status: "pending",
         },
       });
 
-      // Link the TeacherProgress records to this salary
+      // Link the TeacherProgress records to this salary and set payment status to approved
       if (currentProgress.length > 0) {
         await tx.teacherProgress.updateMany({
           where: {
@@ -774,12 +990,14 @@ export async function calculateTeacherSalary(
             },
           },
           data: {
+            paymentStatus: "approved",
+            progressStatus: "closed",
             teacherSalaryId: salary.id,
           },
         });
       }
 
-      // Link the ShiftTeacherData records to this salary
+      // Link the ShiftTeacherData records to this salary and set payment status to approved
       if (shiftedData.length > 0) {
         await tx.shiftTeacherData.updateMany({
           where: {
@@ -788,6 +1006,7 @@ export async function calculateTeacherSalary(
             },
           },
           data: {
+            paymentStatus: "approved",
             teacherSalaryId: salary.id,
           },
         });
