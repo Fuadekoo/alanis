@@ -2,71 +2,20 @@
 import { useState } from "react";
 import { useTeacher } from "./provider";
 import useData from "@/hooks/useData";
-import useMutation from "@/hooks/useMutation";
-import {
-  createReport,
-  getReportByTeacher,
-  getStudentsForReport,
-} from "@/actions/controller/report";
-import {
-  Button,
-  Skeleton,
-  Card,
-  CardBody,
-  CardHeader,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Input,
-  Select,
-  SelectItem,
-  Tabs,
-  Tab,
-} from "@/components/ui/heroui";
-import {
-  Plus,
-  BookOpen,
-  UserCheck,
-  UserX,
-  FileText,
-  Calendar,
-  TrendingUp,
-  Users,
-  BarChart3,
-  History,
-} from "lucide-react";
+import { getReportByTeacher } from "@/actions/controller/report";
+import { Skeleton, Card, CardBody, Tabs, Tab } from "@/components/ui/heroui";
+import { BookOpen, FileText, TrendingUp, Users, History } from "lucide-react";
 import { Chip } from "@heroui/react";
 import CustomTable from "@/components/customTable";
 import useAmharic from "@/hooks/useAmharic";
-import useAlert from "@/hooks/useAlert";
-import CustomAlert from "@/components/customAlert";
 
 export function Report() {
   const [activeTab, setActiveTab] = useState<string>("current");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [selectedStudent, setSelectedStudent] = useState("");
-  const [learningSlot, setLearningSlot] = useState("");
-  const [learningProgress, setLearningProgress] = useState<
-    "present" | "absent" | "permission"
-  >("present");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [selectedStudentData, setSelectedStudentData] = useState<any>(null);
 
-  const [isOpen, setIsOpen] = useState(false);
-  const onOpen = () => {
-    console.log("Opening modal...");
-    setIsOpen(true);
-  };
-  const onClose = () => {
-    console.log("Closing modal...");
-    setIsOpen(false);
-  };
   const isAm = useAmharic();
-  const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
 
   const {
     teacher: { selected },
@@ -75,103 +24,55 @@ export function Report() {
   // Get teacher report data
   const [data, isLoading] = useData(getReportByTeacher, () => {}, selected);
 
-  // Get students for the modal
-  const [studentsData, isLoadingStudents] = useData(
-    getStudentsForReport,
-    () => {},
-    selected
-  );
-
-  // Create report mutation
-  const [createReportMutation, isCreating] = useMutation(createReport, () => {
-    onClose();
-    setSelectedStudent("");
-    setLearningSlot("");
-    setLearningProgress("present");
-    setDate(new Date().toISOString().split("T")[0]);
-    setSelectedStudentData(null);
-  });
-
-  // Handle student selection and auto-fill data
-  const handleStudentSelection = (studentId: string) => {
-    setSelectedStudent(studentId);
-
-    // Find the selected student data
-    const studentData = studentsData?.data?.find(
-      (student) => student.id === studentId
-    );
-    if (
-      studentData &&
-      (studentData as any).roomStudent &&
-      (studentData as any).roomStudent.length > 0
-    ) {
-      setSelectedStudentData(studentData);
-      // Auto-fill learning slot from roomStudent.time
-      setLearningSlot((studentData as any).roomStudent[0].time || "");
-    } else {
-      setSelectedStudentData(null);
-      setLearningSlot("");
-    }
-  };
-
-  // Handle create report
-  const handleCreateReport = async () => {
-    if (!selected || !selectedStudent || !learningSlot) {
-      showAlert({
-        message: isAm ? "እባክዎ ሁሉንም መስኮች ይሙሉ" : "Please fill all fields",
-        type: "warning",
-        title: isAm ? "ማስጠንቀቂያ" : "Warning",
-      });
-      return;
-    }
-
-    await createReportMutation({
-      studentId: selectedStudent,
-      activeTeacherId: selected,
-      learningSlot,
-      learningProgress,
-      date: new Date(date),
-    });
-  };
-
-  // Prepare table data
+  // Prepare table data - Display TeacherProgress records
   const currentReports =
-    data?.data?.currentProgress?.flatMap((progress) =>
-      progress.dailyReports.map((report) => ({
-        key: `${progress.id}-${report.id}`,
-        id: report.id,
-        studentName: `${progress.student.firstName} ${progress.student.lastName}`,
-        studentPhone: progress.student.phoneNumber,
-        learningSlot: progress.learningSlot,
-        learningProgress: report.learningProgress,
-        date: new Date(report.date).toLocaleDateString(),
-        learningCount: progress.learningCount,
-        missingCount: progress.missingCount,
-      }))
-    ) || [];
+    data?.data?.currentProgress?.map((progress) => ({
+      key: progress.id,
+      id: progress.id,
+      studentName: `${progress.student.firstName} ${progress.student.lastName}`,
+      studentPhone: progress.student.phoneNumber,
+      studentUsername: progress.student.username,
+      learningSlot: progress.learningSlot || "N/A",
+      learningCount: progress.learningCount,
+      missingCount: progress.missingCount,
+      totalCount:
+        progress.totalCount || progress.learningCount + progress.missingCount,
+      progressStatus: progress.progressStatus,
+      paymentStatus: progress.paymentStatus,
+      createdAt: new Date(progress.createdAt).toLocaleDateString(),
+      dailyReportsCount: progress.dailyReports?.length || 0,
+    })) || [];
 
   const historicalReports =
-    data?.data?.historicalProgress?.flatMap((progress) =>
-      progress.dailyReports.map((report) => ({
-        key: `hist-${progress.id}-${report.id}`,
-        id: report.id,
-        studentName: `${progress.student.firstName} ${progress.student.lastName}`,
-        studentPhone: progress.student.phoneNumber,
-        learningSlot: progress.learningSlot,
-        learningProgress: report.learningProgress,
-        date: new Date(report.date).toLocaleDateString(),
-        learningCount: progress.learningCount,
-        missingCount: progress.missingCount,
-        status: "Historical",
-      }))
-    ) || [];
-
-  const allReports = [...currentReports, ...historicalReports];
+    data?.data?.historicalProgress?.map((progress) => ({
+      key: progress.id,
+      id: progress.id,
+      studentName: `${progress.student.firstName} ${progress.student.lastName}`,
+      studentPhone: progress.student.phoneNumber,
+      studentUsername: progress.student.username,
+      learningSlot: progress.learningSlot || "N/A",
+      learningCount: progress.learningCount,
+      missingCount: progress.missingCount,
+      totalCount:
+        progress.totalCount || progress.learningCount + progress.missingCount,
+      progressStatus: progress.progressStatus,
+      paymentStatus: progress.paymentStatus,
+      createdAt: new Date(progress.createdAt).toLocaleDateString(),
+      dailyReportsCount: progress.dailyReports?.length || 0,
+    })) || [];
 
   const columns = [
     {
       key: "studentName",
-      label: isAm ? "ተማሪ" : "Student",
+      label: isAm ? "ተማሪ ስም" : "Student Name",
+      renderCell: (item: any) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{item.studentName}</span>
+          <span className="text-xs text-default-400">
+            @{item.studentUsername}
+          </span>
+        </div>
+      ),
     },
     {
       key: "studentPhone",
@@ -179,48 +80,95 @@ export function Report() {
     },
     {
       key: "learningSlot",
-      label: isAm ? "የትምህርት ሰላት" : "Learning Slot",
+      label: isAm ? "የትምህርት ሰዓት" : "Learning Slot",
     },
     {
-      key: "learningProgress",
-      label: isAm ? "ሁኔታ" : "Status",
+      key: "learningCount",
+      label: isAm ? "የመማሪያ ቀናት" : "Learning Days",
+      renderCell: (item: any) => (
+        <Chip color="success" size="sm" variant="flat">
+          {item.learningCount}
+        </Chip>
+      ),
+    },
+    {
+      key: "missingCount",
+      label: isAm ? "የጠፋ ቀናት" : "Missing Days",
+      renderCell: (item: any) => (
+        <Chip color="danger" size="sm" variant="flat">
+          {item.missingCount}
+        </Chip>
+      ),
+    },
+    {
+      key: "totalCount",
+      label: isAm ? "ጠቅላላ" : "Total",
+      renderCell: (item: any) => (
+        <Chip color="primary" size="sm" variant="flat">
+          {item.totalCount}
+        </Chip>
+      ),
+    },
+    {
+      key: "dailyReportsCount",
+      label: isAm ? "ሪፖርቶች" : "Reports",
+      renderCell: (item: any) => (
+        <Chip color="secondary" size="sm" variant="flat">
+          {item.dailyReportsCount}
+        </Chip>
+      ),
+    },
+    {
+      key: "progressStatus",
+      label: isAm ? "የሂደት ሁኔታ" : "Progress Status",
+      renderCell: (item: any) => (
+        <Chip
+          color={item.progressStatus === "open" ? "success" : "default"}
+          size="sm"
+          variant="dot"
+        >
+          {item.progressStatus === "open"
+            ? isAm
+              ? "ክፍት"
+              : "Open"
+            : isAm
+            ? "ዝግ"
+            : "Closed"}
+        </Chip>
+      ),
+    },
+    {
+      key: "paymentStatus",
+      label: isAm ? "የክፍያ ሁኔታ" : "Payment Status",
       renderCell: (item: any) => (
         <Chip
           color={
-            item.learningProgress === "present"
+            item.paymentStatus === "approved"
               ? "success"
-              : item.learningProgress === "permission"
+              : item.paymentStatus === "pending"
               ? "warning"
               : "danger"
           }
           size="sm"
           variant="flat"
         >
-          {item.learningProgress === "present"
+          {item.paymentStatus === "approved"
             ? isAm
-              ? "ተገኝቷል"
-              : "Present"
-            : item.learningProgress === "permission"
+              ? "ጸድቋል"
+              : "Approved"
+            : item.paymentStatus === "pending"
             ? isAm
-              ? "ፈቃድ"
-              : "Permission"
+              ? "በመጠባበቅ ላይ"
+              : "Pending"
             : isAm
-            ? "ጠፍቷል"
-            : "Absent"}
+            ? "ተቀባይነት አላገኘም"
+            : "Rejected"}
         </Chip>
       ),
     },
     {
-      key: "date",
-      label: isAm ? "ቀን" : "Date",
-    },
-    {
-      key: "learningCount",
-      label: isAm ? "ተማሪ" : "Learning",
-    },
-    {
-      key: "missingCount",
-      label: isAm ? "ጠፍቷል" : "Missing",
+      key: "createdAt",
+      label: isAm ? "የተፈጠረበት ቀን" : "Created Date",
     },
   ];
 
@@ -246,21 +194,7 @@ export function Report() {
           <h1 className="text-xl sm:text-2xl font-bold">
             {isAm ? "መምህር ሪፖርት" : "Teacher Report"}
           </h1>
-          <p className="text-sm sm:text-base text-default-500">
-            {isAm
-              ? "የተማሪዎች የትምህርት ሁኔታ ሪፖርት"
-              : "Student learning progress reports"}
-          </p>
         </div>
-        <Button
-          color="primary"
-          startContent={<Plus className="size-4" />}
-          onPress={onOpen}
-          className="w-full sm:w-auto bg-primary text-white hover:bg-primary-600"
-          size="md"
-        >
-          {isAm ? "አዲስ ሪፖርት" : "New Report"}
-        </Button>
       </div>
 
       {/* Statistics Cards */}
@@ -386,12 +320,12 @@ export function Report() {
                   <div className="flex flex-col items-center justify-center py-12 text-center">
                     <BookOpen className="size-16 text-default-300 mb-4" />
                     <h3 className="text-lg font-semibold text-default-600 mb-2">
-                      {isAm ? "ንቁ ሪፖርቶች የሉም" : "No Current Reports"}
+                      {isAm ? "ንቁ የመማሪያ ሂደት የለም" : "No Current Progress"}
                     </h3>
                     <p className="text-sm text-default-400 max-w-md">
                       {isAm
-                        ? "ለዚህ መምህር ንቁ የሆኑ የተማሪ ሪፖርቶች የሉም። አዲስ ሪፖርት ለመፍጠር ከላይ ያለውን አዲስ ሪፖርት ቁልፍ ይጫኑ።"
-                        : "There are no current student reports for this teacher. Click the New Report button above to create one."}
+                        ? "ለዚህ መምህር ንቁ የሆኑ የተማሪ መማሪያ ሂደቶች የሉም። ተማሪዎች ለዚህ መምህር ሲመደቡ እዚህ ይታያሉ።"
+                        : "There are no active student learning progress records for this teacher. When students are assigned to this teacher, they will appear here."}
                     </p>
                   </div>
                 )}
@@ -430,12 +364,12 @@ export function Report() {
                   <div className="flex flex-col items-center justify-center py-12 text-center">
                     <History className="size-16 text-default-300 mb-4" />
                     <h3 className="text-lg font-semibold text-default-600 mb-2">
-                      {isAm ? "ታሪካዊ ሪፖርቶች የሉም" : "No Historical Reports"}
+                      {isAm ? "ታሪካዊ መረጃ የለም" : "No Historical Data"}
                     </h3>
                     <p className="text-sm text-default-400 max-w-md">
                       {isAm
-                        ? "ለዚህ መምህር ታሪካዊ የተማሪ ሪፖርቶች የሉም። ታሪካዊ መረጃ የተማሪዎች ወደ ሌላ መምህር ሲዘዋወሩ ይፈጠራል።"
-                        : "There are no historical student reports for this teacher. Historical data is created when students are shifted to another teacher."}
+                        ? "ለዚህ መምህር ታሪካዊ የተማሪ ሂደት መረጃ የለም። ታሪካዊ መረጃ ተማሪዎች ወደ ሌላ መምህር ሲዘዋወሩ ይፈጠራል።"
+                        : "There are no historical student progress records for this teacher. Historical data is created when students are shifted to another teacher."}
                     </p>
                   </div>
                 )}
@@ -444,195 +378,6 @@ export function Report() {
           </Tabs>
         </CardBody>
       </Card>
-
-      {/* Create Report Modal */}
-      <Modal isOpen={isOpen} onClose={onClose} size="md" className="mx-4">
-        <ModalContent>
-          <ModalHeader>
-            <h2 className="text-lg font-semibold">
-              {isAm ? "አዲስ ሪፖርት ይፍጠሩ" : "Create New Report"}
-            </h2>
-          </ModalHeader>
-          <ModalBody className="space-y-3 max-h-[70vh] overflow-y-auto">
-            <div>
-              <label className="text-sm font-medium text-default-700 mb-2 block">
-                {isAm ? "ተማሪ" : "Student"}
-              </label>
-              <Select
-                placeholder={
-                  studentsData?.data?.length === 0
-                    ? isAm
-                      ? "ለዚህ መምህር ተማሪዎች አልተገኙም"
-                      : "No students found for this teacher"
-                    : isAm
-                    ? "ተማሪ ይምረጡ"
-                    : "Select Student"
-                }
-                selectedKeys={selectedStudent ? [selectedStudent] : []}
-                onSelectionChange={(keys) => {
-                  const selected = Array.from(keys)[0] as string;
-                  handleStudentSelection(selected);
-                }}
-                isLoading={isLoadingStudents}
-                isDisabled={studentsData?.data?.length === 0}
-              >
-                {studentsData?.data?.map((student) => (
-                  <SelectItem key={student.id}>
-                    {student.firstName} {student.lastName} (@{student.username})
-                  </SelectItem>
-                )) || []}
-              </Select>
-              {studentsData?.data?.length === 0 && (
-                <p className="text-sm text-warning mt-2">
-                  {isAm
-                    ? "እባክዎ በመጀመሪያ ተማሪዎችን ለዚህ መምህር ይመድቡ"
-                    : "Please assign students to this teacher first"}
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-default-700 mb-2 block">
-                  {isAm ? "የትምህርት ሰላት" : "Learning Slot"}
-                  <span className="text-xs text-primary ml-1">
-                    {isAm ? "(በራስ-ሰር ይመረጣል)" : "(Auto-filled)"}
-                  </span>
-                </label>
-                <Input
-                  placeholder={isAm ? "የትምህርት ሰላት" : "Learning Slot"}
-                  value={learningSlot}
-                  onChange={(e) => setLearningSlot(e.target.value)}
-                  isReadOnly={
-                    (selectedStudentData as any)?.roomStudent?.[0]?.time
-                  }
-                  className={
-                    (selectedStudentData as any)?.roomStudent?.[0]?.time
-                      ? "bg-default-100"
-                      : ""
-                  }
-                />
-                {(selectedStudentData as any)?.roomStudent?.[0]?.time && (
-                  <p className="text-xs text-success mt-1">
-                    {isAm
-                      ? "የተማሪው የትምህርት ሰላት በራስ-ሰር ተመርጧል"
-                      : "Student's learning slot auto-filled from room assignment"}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-default-700 mb-2 block">
-                  {isAm ? "የትምህርት ሁኔታ" : "Learning Status"}
-                </label>
-                <Select
-                  placeholder={isAm ? "የትምህርት ሁኔታ" : "Learning Status"}
-                  selectedKeys={[learningProgress]}
-                  onSelectionChange={(keys) => {
-                    const selected = Array.from(keys)[0] as
-                      | "present"
-                      | "absent"
-                      | "permission";
-                    setLearningProgress(selected);
-                  }}
-                >
-                  <SelectItem key="present">
-                    {isAm ? "ተገኝቷል" : "Present"}
-                  </SelectItem>
-                  <SelectItem key="absent">
-                    {isAm ? "ጠፍቷል" : "Absent"}
-                  </SelectItem>
-                  <SelectItem key="permission">
-                    {isAm ? "ፈቃድ" : "Permission"}
-                  </SelectItem>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-default-700 mb-2 block">
-                  {isAm ? "ቀን" : "Date"}
-                </label>
-                <Input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="p-3 bg-primary/10 rounded-lg space-y-2">
-              <p className="text-sm text-primary">
-                <strong>
-                  {isAm ? "በራስ-ሰር የተመረጡ ዝርዝሮች:" : "Auto-filled Information:"}
-                </strong>
-              </p>
-              <div className="space-y-1 text-xs">
-                <p>
-                  <strong>{isAm ? "መምህር ID:" : "Teacher ID:"}</strong>{" "}
-                  {selected}
-                </p>
-                {selectedStudentData && (
-                  <>
-                    <p>
-                      <strong>{isAm ? "ተማሪ ID:" : "Student ID:"}</strong>{" "}
-                      {selectedStudentData.id}
-                    </p>
-                    <p>
-                      <strong>{isAm ? "ተማሪ ስም:" : "Student Name:"}</strong>{" "}
-                      {selectedStudentData.firstName}{" "}
-                      {selectedStudentData.lastName}
-                    </p>
-                    {(selectedStudentData as any).roomStudent?.[0]?.time && (
-                      <p>
-                        <strong>
-                          {isAm ? "የትምህርት ሰላት:" : "Learning Slot:"}
-                        </strong>{" "}
-                        {(selectedStudentData as any).roomStudent[0].time}
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </ModalBody>
-          <ModalFooter className="flex flex-col sm:flex-row gap-2">
-            <Button
-              variant="light"
-              onPress={onClose}
-              className="w-full sm:w-auto order-2 sm:order-1"
-            >
-              {isAm ? "ይቅር" : "Cancel"}
-            </Button>
-            <Button
-              color="primary"
-              onPress={handleCreateReport}
-              isLoading={isCreating}
-              isDisabled={
-                !selectedStudent ||
-                !learningSlot ||
-                studentsData?.data?.length === 0
-              }
-              startContent={<FileText className="size-4" />}
-              className="w-full sm:w-auto order-1 sm:order-2"
-            >
-              {isAm ? "ሪፖርት ይፍጠሩ" : "Create Report"}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Custom Alert */}
-      <CustomAlert
-        isOpen={isAlertOpen}
-        onClose={closeAlert}
-        title={alertOptions.title}
-        message={alertOptions.message}
-        type={alertOptions.type}
-        confirmText={alertOptions.confirmText || (isAm ? "እሺ" : "OK")}
-        cancelText={alertOptions.cancelText}
-        onConfirm={alertOptions.onConfirm}
-        showCancel={alertOptions.showCancel}
-      />
     </div>
   );
 }
