@@ -1,4 +1,5 @@
 import UserLayout from "@/components/layout/userLayout";
+import { url } from "inspector";
 import {
   BadgeDollarSignIcon,
   Calendar,
@@ -6,6 +7,7 @@ import {
   MessageCircle,
   User,
   Users,
+  Database,
   DollarSign
 } from "lucide-react";
 import React from "react";
@@ -68,10 +70,16 @@ export default async function Layout({
     ],
     [
       {
-        english:"teacher Salary",
-        amharic:"teacher Salary",
-        url:"teacherSalary",
-        Icon:<DollarSign className="size-5"/>
+        english: "daily report",
+        amharic: "ረፖርት",
+        url: "dailyReportView",
+        Iconn: <Database className="size-5" />,
+      },
+      {
+        english: "teacher Salary",
+        amharic: "teacher Salary",
+        url: "teacherSalary",
+        Icon: <DollarSign className="size-5" />,
       },
       {
         english: "announcement",
