@@ -16,15 +16,15 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  ScrollShadow,
 } from "@/components/ui/heroui";
 import {
   getAllReports,
   getStudentsForReport,
   getTeachersForReport,
   createReport,
-  updateReportStatus,
 } from "@/actions/controller/report";
-import { Search, Plus, Check, X, Calendar, User, BookOpen } from "lucide-react";
+import { Search, Plus, Calendar, User, BookOpen } from "lucide-react";
 import useData from "@/hooks/useData";
 import { highlight } from "@/lib/utils";
 import PaginationPlace from "@/components/paginationPlace";
@@ -50,7 +50,7 @@ export default function Page() {
   const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
 
   // Get reports data
-  const [reportsData, isLoadingReports] = useData(
+  const [reportsData, isLoadingReports, refreshReports] = useData(
     getAllReports,
     () => {},
     currentPage,
@@ -168,96 +168,10 @@ export default function Page() {
     }
   };
 
-  const handleApproveReport = async (reportId: string) => {
-    try {
-      const result = await updateReportStatus(reportId, "approved");
-      if (result.success) {
-        showAlert({
-          message: isAm
-            ? "ሪፖርት በተሳካ ሁኔታ ጸድቋል!"
-            : "Report approved successfully!",
-          type: "success",
-          title: isAm ? "ተሳክቷል" : "Success",
-        });
-        window.location.reload();
-      } else {
-        showAlert({
-          message:
-            result.error ||
-            (isAm ? "ሪፖርት ማጽደቅ አልተሳካም" : "Failed to approve report"),
-          type: "error",
-          title: isAm ? "ስህተት" : "Error",
-        });
-      }
-    } catch (error) {
-      showAlert({
-        message: isAm ? "ሪፖርት ማጽደቅ አልተሳካም" : "Failed to approve report",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-    }
-  };
-
-  const handleRejectReport = async (reportId: string) => {
-    try {
-      const result = await updateReportStatus(reportId, "rejected");
-      if (result.success) {
-        showAlert({
-          message: isAm
-            ? "ሪፖርት በተሳካ ሁኔታ ተቀባይነት አላገኘም!"
-            : "Report rejected successfully!",
-          type: "success",
-          title: isAm ? "ተሳክቷል" : "Success",
-        });
-        window.location.reload();
-      } else {
-        showAlert({
-          message:
-            result.error ||
-            (isAm ? "ሪፖርት መቃወም አልተሳካም" : "Failed to reject report"),
-          type: "error",
-          title: isAm ? "ስህተት" : "Error",
-        });
-      }
-    } catch (error) {
-      showAlert({
-        message: isAm ? "ሪፖርት መቃወም አልተሳካም" : "Failed to reject report",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-    }
-  };
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header - Fixed */}
-      <div className="flex-shrink-0 p-4 sm:p-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {isAm ? "ዕለታዊ ሪፖርት" : "Daily Reports"}
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {isAm
-                ? "ዕለታዊ ሪፖርቶችን ይፍጠሩ እና ያስተዳድሩ"
-                : "Create and manage daily reports"}
-            </p>
-          </div>
-          <Button
-            color="primary"
-            startContent={<Plus className="size-4" />}
-            onPress={() => {
-              setIsModalOpen(true);
-              resetForm();
-            }}
-          >
-            {isAm ? "አዲስ ሪፖርት" : "New Report"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+      {/* Content */}
+      <div className="p-2 lg:p-5 grid grid-rows-[auto_1fr_auto] gap-5 overflow-hidden">
         {/* Search */}
         <div className="flex gap-2">
           <Input
@@ -267,125 +181,152 @@ export default function Page() {
             startContent={<Search className="size-4" />}
             className="flex-1"
           />
+          <Button
+            color="primary"
+            startContent={<Plus className="size-4" />}
+            onPress={() => {
+              setIsModalOpen(true);
+              resetForm();
+            }}
+            className="shrink-0"
+          >
+            {isAm ? "አዲስ ሪፖርት" : "New Report"}
+          </Button>
+          <div className="px-3 py-2 bg-default-50/50 rounded-lg text-center content-center font-semibold">
+            {reportsData?.data?.totalCount ?? 0}
+          </div>
         </div>
 
         {/* Reports List */}
-        <div>
-          {isLoadingReports ? (
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full" />
-              ))}
-            </div>
-          ) : reportsData?.success && reportsData.data ? (
-            <div className="space-y-2">
-              {reportsData.data.reports.map((report) => (
-                <Card key={report.id}>
-                  <CardBody className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <User className="size-4 text-primary" />
-                          <span className="font-semibold">
-                            {highlight(
-                              `${report.student.firstName} ${report.student.lastName}`,
-                              search
-                            )}
-                          </span>
-                          <span className="text-sm text-default-500">
-                            (@{report.student.username})
-                          </span>
-                        </div>
+        {isLoadingReports ? (
+          <Skeleton className="w-full h-full rounded-xl" />
+        ) : (
+          <ScrollShadow className="p-2 pb-20 bg-default-50/50 border border-default-100/20 rounded-xl grid gap-2 auto-rows-min xl:grid-cols-2">
+            {reportsData?.success &&
+            reportsData.data &&
+            reportsData.data.reports &&
+            reportsData.data.reports.length > 0 ? (
+              reportsData.data.reports.map((report, i) => (
+                <Card
+                  key={report.id}
+                  className="h-fit bg-default-50/30 backdrop-blur-sm border-2 border-default-400 hover:border-primary-400 transition-all"
+                >
+                  <CardBody className="p-2">
+                    {/* Line 1: Student & Teacher */}
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                        {i + 1 + (currentPage - 1) * 10}
+                      </div>
+                      <User className="size-3 text-primary shrink-0" />
+                      <span className="font-semibold text-sm">
+                        {highlight(
+                          `${report.student.firstName} ${report.student.lastName}`,
+                          search
+                        )}
+                      </span>
+                      <BookOpen className="size-3 text-secondary shrink-0 ml-auto" />
+                      <span className="text-xs text-default-600">
+                        {highlight(
+                          `${report.activeTeacher.firstName} ${report.activeTeacher.lastName}`,
+                          search
+                        )}
+                      </span>
+                    </div>
 
-                        <div className="flex items-center gap-2 mb-2">
-                          <BookOpen className="size-4 text-secondary" />
-                          <span className="text-sm">
-                            {highlight(
-                              `${report.activeTeacher.firstName} ${report.activeTeacher.lastName}`,
-                              search
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-4 text-sm text-default-500">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="size-3" />
-                            {new Date(report.date).toLocaleDateString()}
-                          </div>
-                          <span>Slot: {report.learningSlot}</span>
+                    {/* Line 2: Date, Slot, Status & Student Approval */}
+                    <div className="flex items-center gap-2 text-xs">
+                      <Calendar className="size-3 text-secondary shrink-0" />
+                      <span className="text-default-500">
+                        {new Date(report.date).toLocaleDateString()}
+                      </span>
+                      <span className="text-default-400">•</span>
+                      <span className="text-default-600">
+                        {report.learningSlot}
+                      </span>
+                      <Chip
+                        color={
+                          report.learningProgress === "present"
+                            ? "success"
+                            : report.learningProgress === "permission"
+                            ? "primary"
+                            : "warning"
+                        }
+                        size="sm"
+                        variant="dot"
+                        className="h-5"
+                      >
+                        {report.learningProgress === "present"
+                          ? isAm
+                            ? "ተገኝቷል"
+                            : "Present"
+                          : report.learningProgress === "permission"
+                          ? isAm
+                            ? "ፈቃድ"
+                            : "Permission"
+                          : isAm
+                          ? "ጠፍቷል"
+                          : "Absent"}
+                      </Chip>
+                      {report.studentApproved !== null &&
+                        report.studentApproved !== undefined && (
                           <Chip
-                            color={
-                              report.learningProgress === "present"
-                                ? "success"
-                                : report.learningProgress === "permission"
-                                ? "primary"
-                                : "warning"
-                            }
                             size="sm"
+                            color={
+                              report.studentApproved ? "success" : "danger"
+                            }
+                            variant="flat"
+                            className="h-5 ml-auto"
                           >
-                            {report.learningProgress}
+                            {report.studentApproved
+                              ? isAm
+                                ? "ተማሪ ጸድቋል"
+                                : "Student ✓"
+                              : isAm
+                              ? "ተማሪ አልተቀበለም"
+                              : "Student ✗"}
                           </Chip>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
+                        )}
+                      {(report.studentApproved === null ||
+                        report.studentApproved === undefined) && (
+                        <Chip
                           size="sm"
-                          color="success"
+                          color="warning"
                           variant="flat"
-                          startContent={<Check className="size-3" />}
-                          onPress={() => handleApproveReport(report.id)}
+                          className="h-5 ml-auto"
                         >
-                          {isAm ? "ይፀድቅ" : "Approve"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          color="danger"
-                          variant="flat"
-                          startContent={<X className="size-3" />}
-                          onPress={() => handleRejectReport(report.id)}
-                        >
-                          {isAm ? "ይተው" : "Reject"}
-                        </Button>
-                      </div>
+                          {isAm ? "በመጠባበቅ ላይ" : "Pending"}
+                        </Chip>
+                      )}
                     </div>
                   </CardBody>
                 </Card>
-              ))}
-
-              {reportsData.data?.reports.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-default-500">
-                    {isAm ? "ምንም ሪፖርት አልተገኘም" : "No reports found"}
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-danger">
-                {isAm ? "ሪፖርቶችን ማግኘት አልተቻለም" : "Failed to load reports"}
-              </p>
-            </div>
-          )}
-
-          {/* Pagination */}
-          {reportsData?.success &&
-            reportsData.data &&
-            reportsData.data.totalPages > 1 && (
-              <div className="mt-4">
-                <PaginationPlace
-                  currentPage={currentPage}
-                  totalPage={reportsData.data.totalPages}
-                  onPageChange={setCurrentPage}
-                  sort={false}
-                  onSortChange={() => {}}
-                  row={10}
-                  onRowChange={() => {}}
-                />
+              ))
+            ) : (
+              <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center">
+                <BookOpen className="size-20 text-default-300 mb-4" />
+                <h3 className="text-xl font-semibold text-default-600 mb-2">
+                  {isAm ? "ምንም ሪፖርት አልተገኘም" : "No Reports Found"}
+                </h3>
+                <p className="text-sm text-default-400 max-w-md">
+                  {isAm
+                    ? "ገና ምንም ዕለታዊ ሪፖርት አልተፈጠረም። አዲስ ሪፖርት ለመፍጠር ከላይ ያለውን ቁልፍ ይጫኑ።"
+                    : "No daily reports have been created yet. Click the New Report button above to create one."}
+                </p>
               </div>
             )}
-        </div>
+          </ScrollShadow>
+        )}
+
+        {/* Pagination */}
+        <PaginationPlace
+          currentPage={currentPage}
+          totalPage={Math.ceil((reportsData?.data?.totalCount ?? 0) / 10) || 1}
+          onPageChange={setCurrentPage}
+          sort={false}
+          onSortChange={() => {}}
+          row={10}
+          onRowChange={() => {}}
+        />
       </div>
 
       {/* Create Report Modal */}

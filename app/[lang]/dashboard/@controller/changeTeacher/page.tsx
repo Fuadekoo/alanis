@@ -15,6 +15,7 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  ScrollShadow,
 } from "@/components/ui/heroui";
 import {
   getAllShiftTeacherData,
@@ -144,34 +145,8 @@ export default function Page() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header - Fixed */}
-      <div className="flex-shrink-0 p-4 sm:p-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {isAm ? "መምህር ማዛወሪያ ታሪክ" : "Teacher Shift History"}
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {isAm
-                ? "የተማሪ መምህር ለውጦችን ይመልከቱ እና አዲስ ይፍጠሩ"
-                : "View student teacher changes and create new shifts"}
-            </p>
-          </div>
-          <Button
-            color="primary"
-            startContent={<RefreshCw className="size-4" />}
-            onPress={() => {
-              setIsModalOpen(true);
-              resetForm();
-            }}
-          >
-            {isAm ? "መምህር ቀይር" : "Shift Teacher"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+      {/* Content */}
+      <div className="p-2 lg:p-5 grid grid-rows-[auto_1fr_auto] gap-5 overflow-hidden">
         {/* Search */}
         <div className="flex gap-2">
           <Input
@@ -181,145 +156,152 @@ export default function Page() {
             startContent={<Search className="size-4" />}
             className="flex-1"
           />
+          <Button
+            color="primary"
+            startContent={<RefreshCw className="size-4" />}
+            onPress={() => {
+              setIsModalOpen(true);
+              resetForm();
+            }}
+            className="shrink-0"
+          >
+            {isAm ? "መምህር ቀይር" : "Shift Teacher"}
+          </Button>
+          <div className="px-3 py-2 bg-default-50/50 rounded-lg text-center content-center font-semibold">
+            {shiftData?.data?.totalCount ?? 0}
+          </div>
         </div>
 
-        {/* Shift History List */}
-        <div>
-          {isLoadingShifts ? (
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-32 w-full" />
-              ))}
-            </div>
-          ) : shiftData?.success && shiftData.data ? (
-            <div className="space-y-2">
-              {shiftData.data.shiftData.map((shift) => (
-                <Card key={shift.id}>
-                  <CardBody className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <User className="size-4 text-primary" />
-                          <span className="font-semibold">
-                            {highlight(
-                              `${shift.student.firstName} ${shift.student.lastName}`,
-                              search
-                            )}
-                          </span>
-                          <span className="text-sm text-default-500">
-                            (@{shift.student.username})
-                          </span>
-                          <Chip size="sm" color="warning" variant="flat">
-                            <History className="size-3 mr-1" />
-                            {isAm ? "ታሪካዊ" : "Historical"}
-                          </Chip>
-                        </div>
-
-                        <div className="flex items-center gap-2 mb-2">
-                          <BookOpen className="size-4 text-secondary" />
-                          <span className="text-sm">
-                            {isAm ? "የድሮ መምህር:" : "Previous Teacher:"}{" "}
-                            {highlight(
-                              `${shift.teacher.firstName} ${shift.teacher.lastName}`,
-                              search
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-4 text-sm text-default-500">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="size-3" />
-                            {new Date(shift.createdAt).toLocaleDateString()}
-                          </div>
-                          {shift.learningSlot && (
-                            <div className="flex items-center gap-1">
-                              <Clock className="size-3" />
-                              {isAm ? "ሰዓት:" : "Slot:"} {shift.learningSlot}
-                            </div>
-                          )}
-                          <Chip color="success" size="sm" variant="flat">
-                            {isAm ? "መማር:" : "Learning:"} {shift.learningCount}
-                          </Chip>
-                          <Chip color="danger" size="sm" variant="flat">
-                            {isAm ? "ጎደለ:" : "Missing:"} {shift.missingCount}
-                          </Chip>
-                          <Chip color="primary" size="sm" variant="flat">
-                            {isAm ? "ጠቅላላ:" : "Total:"} {shift.totalCount}
-                          </Chip>
-                        </div>
-
-                        {shift.paymentStatus && (
-                          <div className="mt-2">
-                            <Chip
-                              size="sm"
-                              color={
-                                shift.paymentStatus === "approved"
-                                  ? "success"
-                                  : shift.paymentStatus === "pending"
-                                  ? "warning"
-                                  : "danger"
-                              }
-                            >
-                              {isAm ? "ክፍያ:" : "Payment:"}{" "}
-                              {shift.paymentStatus === "approved"
-                                ? isAm
-                                  ? "ጸድቋል"
-                                  : "Approved"
-                                : shift.paymentStatus === "pending"
-                                ? isAm
-                                  ? "በመጠባበቅ ላይ"
-                                  : "Pending"
-                                : isAm
-                                ? "ተቀባይነት አላገኘም"
-                                : "Rejected"}
-                            </Chip>
-                          </div>
-                        )}
+        {/* Shift History Cards Grid */}
+        {isLoadingShifts ? (
+          <Skeleton className="w-full h-full rounded-xl" />
+        ) : (
+          <ScrollShadow className="p-2 pb-20 bg-default-50/50 border border-default-100/20 rounded-xl grid gap-2 auto-rows-min xl:grid-cols-2">
+            {shiftData?.success &&
+            shiftData.data &&
+            shiftData.data.shiftData &&
+            shiftData.data.shiftData.length > 0 ? (
+              shiftData.data.shiftData.map((shift, i) => (
+                <Card
+                  key={shift.id}
+                  className="h-fit bg-default-50/30 backdrop-blur-sm border-2 border-default-400 hover:border-primary-400 transition-all"
+                >
+                  <CardBody className="p-2">
+                    {/* Line 1: Student & Teacher */}
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                        {i + 1 + (currentPage - 1) * 10}
                       </div>
+                      <User className="size-3 text-primary shrink-0" />
+                      <span className="font-semibold text-sm">
+                        {highlight(
+                          `${shift.student.firstName} ${shift.student.lastName}`,
+                          search
+                        )}
+                      </span>
+                      <BookOpen className="size-3 text-secondary shrink-0 ml-auto" />
+                      <span className="text-xs text-default-600">
+                        {highlight(
+                          `${shift.teacher.firstName} ${shift.teacher.lastName}`,
+                          search
+                        )}
+                      </span>
+                      <Chip
+                        size="sm"
+                        color="warning"
+                        variant="dot"
+                        className="ml-1"
+                      >
+                        {isAm ? "ታሪክ" : "Hist"}
+                      </Chip>
+                    </div>
+
+                    {/* Line 2: Stats & Details */}
+                    <div className="flex items-center gap-2 text-xs">
+                      {shift.learningSlot && (
+                        <>
+                          <Clock className="size-3 text-primary shrink-0" />
+                          <span className="text-default-600">
+                            {shift.learningSlot}
+                          </span>
+                        </>
+                      )}
+                      <Calendar className="size-3 text-secondary shrink-0 ml-auto" />
+                      <span className="text-default-500">
+                        {new Date(shift.createdAt).toLocaleDateString()}
+                      </span>
+                      <Chip
+                        color="success"
+                        size="sm"
+                        variant="flat"
+                        className="h-5"
+                      >
+                        {shift.learningCount}
+                      </Chip>
+                      <Chip
+                        color="danger"
+                        size="sm"
+                        variant="flat"
+                        className="h-5"
+                      >
+                        {shift.missingCount}
+                      </Chip>
+                      {shift.paymentStatus && (
+                        <Chip
+                          size="sm"
+                          color={
+                            shift.paymentStatus === "approved"
+                              ? "success"
+                              : shift.paymentStatus === "pending"
+                              ? "warning"
+                              : "danger"
+                          }
+                          variant="dot"
+                          className="h-5"
+                        >
+                          {shift.paymentStatus === "approved"
+                            ? isAm
+                              ? "ጸድቋል"
+                              : "Paid"
+                            : shift.paymentStatus === "pending"
+                            ? isAm
+                              ? "ይጠብቃል"
+                              : "Pending"
+                            : isAm
+                            ? "ተቀባይነት አላገኘም"
+                            : "Rejected"}
+                        </Chip>
+                      )}
                     </div>
                   </CardBody>
                 </Card>
-              ))}
-
-              {shiftData.data?.shiftData.length === 0 && (
-                <div className="text-center py-12">
-                  <History className="size-16 text-default-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-default-600 mb-2">
-                    {isAm ? "የመምህር ለውጥ ታሪክ የለም" : "No Shift History"}
-                  </h3>
-                  <p className="text-sm text-default-400">
-                    {isAm
-                      ? "ገና ምንም መምህር አልተቀየረም። ከላይ ያለውን መምህር ቀይር ቁልፍ ይጫኑ።"
-                      : "No teachers have been shifted yet. Click the Shift Teacher button above to create one."}
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-danger">
-                {isAm ? "መረጃ ማግኘት አልተቻለም" : "Failed to load data"}
-              </p>
-            </div>
-          )}
-
-          {/* Pagination */}
-          {shiftData?.success &&
-            shiftData.data &&
-            shiftData.data.totalPages > 1 && (
-              <div className="mt-4">
-                <PaginationPlace
-                  currentPage={currentPage}
-                  totalPage={shiftData.data.totalPages}
-                  onPageChange={setCurrentPage}
-                  sort={false}
-                  onSortChange={() => {}}
-                  row={10}
-                  onRowChange={() => {}}
-                />
+              ))
+            ) : (
+              <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center">
+                <History className="size-20 text-default-300 mb-4" />
+                <h3 className="text-xl font-semibold text-default-600 mb-2">
+                  {isAm ? "የመምህር ለውጥ ታሪክ የለም" : "No Shift History"}
+                </h3>
+                <p className="text-sm text-default-400 max-w-md">
+                  {isAm
+                    ? "ገና ምንም መምህር አልተቀየረም። ከላይ ያለውን መምህር ቀይር ቁልፍ ይጫኑ።"
+                    : "No teachers have been shifted yet. Click the Shift Teacher button above to create one."}
+                </p>
               </div>
             )}
-        </div>
+          </ScrollShadow>
+        )}
+
+        {/* Pagination */}
+        <PaginationPlace
+          currentPage={currentPage}
+          totalPage={Math.ceil((shiftData?.data?.totalCount ?? 0) / 10) || 1}
+          onPageChange={setCurrentPage}
+          sort={false}
+          onSortChange={() => {}}
+          row={10}
+          onRowChange={() => {}}
+        />
       </div>
 
       {/* Shift Teacher Modal */}
@@ -441,11 +423,21 @@ export default function Page() {
                     : "Select the new teacher for this student"
                 }
               >
-                {(teachersData?.data || []).map((teacher) => (
-                  <SelectItem key={teacher.id}>
-                    {teacher.firstName} {teacher.lastName} (@{teacher.username})
-                  </SelectItem>
-                ))}
+                {(teachersData?.data || [])
+                  .filter((teacher) => {
+                    // Exclude the current teacher from the list
+                    const selectedProgress =
+                      teacherProgressData?.data?.teacherProgress.find(
+                        (p) => p.id === selectedProgressId
+                      );
+                    return teacher.id !== selectedProgress?.teacherId;
+                  })
+                  .map((teacher) => (
+                    <SelectItem key={teacher.id}>
+                      {teacher.firstName} {teacher.lastName} (@
+                      {teacher.username})
+                    </SelectItem>
+                  ))}
               </Select>
             </div>
 

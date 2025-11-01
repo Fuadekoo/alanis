@@ -298,7 +298,93 @@ export async function changeTeacher(data: ChangeTeacherData) {
   }
 }
 
-export async function getReportByStudent(studentId: string) {}
+export async function getReportByStudent(
+  studentId: string,
+  page: number = 1,
+  pageSize: number = 10,
+  search: string = ""
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    // Validate that the user is requesting their own reports (security)
+    if (session.user.id !== studentId) {
+      throw new Error("You can only view your own reports");
+    }
+
+    const skip = (page - 1) * pageSize;
+
+    const reports = await prisma.dailyReport.findMany({
+      where: {
+        studentId: studentId,
+        activeTeacher: search
+          ? {
+              OR: [
+                { firstName: { contains: search } },
+                { lastName: { contains: search } },
+              ],
+            }
+          : undefined,
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+        activeTeacher: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+      },
+      orderBy: { date: "desc" },
+      skip,
+      take: pageSize,
+    });
+
+    const totalCount = await prisma.dailyReport.count({
+      where: {
+        studentId: studentId,
+        activeTeacher: search
+          ? {
+              OR: [
+                { firstName: { contains: search } },
+                { lastName: { contains: search } },
+              ],
+            }
+          : undefined,
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        reports,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+        currentPage: page,
+      },
+    };
+  } catch (error) {
+    console.error("Error getting student reports:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get reports",
+    };
+  }
+}
 
 export async function getReportByTeacher(teacherId: string) {
   try {
@@ -437,6 +523,59 @@ export async function getReportByTeacher(teacherId: string) {
         error instanceof Error
           ? error.message
           : "Failed to get teacher progress",
+    };
+  }
+}
+
+// Student approves their own report
+export async function studentApproveReport(
+  reportId: string,
+  approved: boolean
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    // Get the report to verify it belongs to the student
+    const report = await prisma.dailyReport.findUnique({
+      where: { id: reportId },
+      select: { studentId: true },
+    });
+
+    if (!report) {
+      throw new Error("Report not found");
+    }
+
+    // Verify the student is approving their own report
+    if (report.studentId !== session.user.id) {
+      throw new Error("You can only approve/reject your own reports");
+    }
+
+    // Update the report
+    const updatedReport = await prisma.dailyReport.update({
+      where: { id: reportId },
+      data: {
+        studentApproved: approved,
+      },
+    });
+
+    return {
+      success: true,
+      data: updatedReport,
+      message: approved
+        ? "Report approved successfully"
+        : "Report rejected successfully",
+    };
+  } catch (error) {
+    console.error("Error approving/rejecting report:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to approve/reject report",
     };
   }
 }

@@ -15,7 +15,7 @@ import {
   SelectItem,
   Skeleton,
 } from "@/components/ui/heroui";
-import { Plus, Calculator } from "lucide-react";
+import { Plus, Calculator, Check, X, AlertTriangle } from "lucide-react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
@@ -25,6 +25,7 @@ import {
   createSalary,
   getTeacherProgressForSalary,
   getShiftTeacherDataForSalary,
+  updateSalary,
 } from "@/actions/manager/salary";
 import { getTeacherList } from "@/actions/controller/teacher";
 import { paymentStatus } from "@prisma/client";
@@ -35,6 +36,13 @@ function Page() {
   const isAm = useAmharic();
   const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<
+    "approve" | "reject" | null
+  >(null);
+  const [selectedSalaryId, setSelectedSalaryId] = useState<string>("");
+  const [selectedSalaryData, setSelectedSalaryData] = useState<any>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -186,6 +194,68 @@ function Page() {
     );
   };
 
+  // Open confirmation modal
+  const openConfirmModal = (
+    salaryId: string,
+    salary: any,
+    action: "approve" | "reject"
+  ) => {
+    setSelectedSalaryId(salaryId);
+    setSelectedSalaryData(salary);
+    setConfirmAction(action);
+    setIsConfirmModalOpen(true);
+  };
+
+  // Handle approve/reject salary
+  const handleConfirmAction = async () => {
+    if (!selectedSalaryId || !confirmAction) return;
+
+    setIsUpdating(true);
+    try {
+      const newStatus =
+        confirmAction === "approve"
+          ? paymentStatus.approved
+          : paymentStatus.rejected;
+      const result = await updateSalary(selectedSalaryId, newStatus);
+
+      if (result) {
+        setIsConfirmModalOpen(false);
+        setSelectedSalaryId("");
+        setSelectedSalaryData(null);
+        setConfirmAction(null);
+        if (refreshSalaries) {
+          refreshSalaries();
+        }
+        showAlert({
+          message:
+            confirmAction === "approve"
+              ? isAm
+                ? "ደሞዝ በተሳካ ሁኔታ ጸድቋል!"
+                : "Salary approved successfully!"
+              : isAm
+              ? "ደሞዝ በተሳካ ሁኔታ ተቀባይነት አላገኘም!"
+              : "Salary rejected successfully!",
+          type: "success",
+          title: isAm ? "ተሳክቷል" : "Success",
+        });
+      } else {
+        showAlert({
+          message: isAm ? "ደሞዝ ማዘመን አልተሳካም" : "Failed to update salary",
+          type: "error",
+          title: isAm ? "ስህተት" : "Error",
+        });
+      }
+    } catch (error) {
+      showAlert({
+        message: isAm ? "ደሞዝ ማዘመን አልተሳካም" : "Failed to update salary",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   // Prepare table data
   const filteredSalaries = useMemo(() => {
     if (!salaries) return [];
@@ -277,6 +347,46 @@ function Page() {
       label: isAm ? "የተፈጠረበት ቀን" : "Created At",
       renderCell: (item: any) => (
         <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+      ),
+    },
+    {
+      key: "actions",
+      label: isAm ? "ድርጊቶች" : "Actions",
+      renderCell: (item: any) => (
+        <div className="flex gap-2">
+          {item.status === paymentStatus.pending && (
+            <>
+              <Button
+                size="sm"
+                color="success"
+                variant="flat"
+                startContent={<Check className="size-3" />}
+                onPress={() => openConfirmModal(item.id, item, "approve")}
+              >
+                {isAm ? "ጸድቅ" : "Approve"}
+              </Button>
+              <Button
+                size="sm"
+                color="danger"
+                variant="flat"
+                startContent={<X className="size-3" />}
+                onPress={() => openConfirmModal(item.id, item, "reject")}
+              >
+                {isAm ? "አትቀበል" : "Reject"}
+              </Button>
+            </>
+          )}
+          {item.status === paymentStatus.approved && (
+            <span className="text-xs text-success font-medium">
+              {isAm ? "ጸድቋል" : "Approved"}
+            </span>
+          )}
+          {item.status === paymentStatus.rejected && (
+            <span className="text-xs text-danger font-medium">
+              {isAm ? "ተቀባይነት አላገኘም" : "Rejected"}
+            </span>
+          )}
+        </div>
       ),
     },
   ];
@@ -696,6 +806,171 @@ function Page() {
               }
             >
               {isAm ? "ይፍጠሩ" : "Create"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={isConfirmModalOpen}
+        onClose={() => {
+          setIsConfirmModalOpen(false);
+          setSelectedSalaryId("");
+          setSelectedSalaryData(null);
+          setConfirmAction(null);
+        }}
+        size="md"
+        backdrop="blur"
+        classNames={{
+          backdrop: "bg-black/50 backdrop-blur-md",
+        }}
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-2 rounded-lg ${
+                  confirmAction === "approve"
+                    ? "bg-success/10 border-2 border-success/20"
+                    : "bg-danger/10 border-2 border-danger/20"
+                }`}
+              >
+                <AlertTriangle
+                  className={`size-6 ${
+                    confirmAction === "approve" ? "text-success" : "text-danger"
+                  }`}
+                />
+              </div>
+              <h3 className="text-xl font-bold">
+                {confirmAction === "approve"
+                  ? isAm
+                    ? "ደሞዝ ያጽድቁ"
+                    : "Approve Salary"
+                  : isAm
+                  ? "ደሞዝ ይቃወሙ"
+                  : "Reject Salary"}
+              </h3>
+            </div>
+          </ModalHeader>
+          <ModalBody>
+            <div className="space-y-4">
+              <p className="text-default-700">
+                {confirmAction === "approve"
+                  ? isAm
+                    ? "እርግጠኛ ነዎት ይህን ደሞዝ ማጽደቅ ይፈልጋሉ?"
+                    : "Are you sure you want to approve this salary?"
+                  : isAm
+                  ? "እርግጠኛ ነዎት ይህን ደሞዝ መቃወም ይፈልጋሉ?"
+                  : "Are you sure you want to reject this salary?"}
+              </p>
+
+              {/* Salary Details */}
+              {selectedSalaryData && (
+                <div className="p-4 bg-default-100 rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-default-600">
+                      {isAm ? "መምህር:" : "Teacher:"}
+                    </span>
+                    <span className="font-semibold">
+                      {selectedSalaryData.teacher.firstName}{" "}
+                      {selectedSalaryData.teacher.fatherName}{" "}
+                      {selectedSalaryData.teacher.lastName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-default-600">
+                      {isAm ? "ወር/ዓመት:" : "Month/Year:"}
+                    </span>
+                    <span className="font-semibold">
+                      {selectedSalaryData.month}/{selectedSalaryData.year}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-default-600">
+                      {isAm ? "የመማሪያ ቀናት:" : "Learning Days:"}
+                    </span>
+                    <span className="font-semibold">
+                      {selectedSalaryData.totalDayForLearning}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-default-600">
+                      {isAm ? "የአሃድ ዋጋ:" : "Unit Price:"}
+                    </span>
+                    <span className="font-semibold">
+                      {selectedSalaryData.unitPrice?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-2 border-t border-default-200">
+                    <span className="font-bold">
+                      {isAm ? "ጠቅላላ መጠን:" : "Total Amount:"}
+                    </span>
+                    <span className="font-bold text-lg text-primary">
+                      {selectedSalaryData.amount?.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Warning Message */}
+              <div
+                className={`p-3 rounded-lg ${
+                  confirmAction === "approve"
+                    ? "bg-success/10 border border-success/20"
+                    : "bg-danger/10 border border-danger/20"
+                }`}
+              >
+                <p
+                  className={`text-sm ${
+                    confirmAction === "approve"
+                      ? "text-success-700 dark:text-success-400"
+                      : "text-danger-700 dark:text-danger-400"
+                  }`}
+                >
+                  {confirmAction === "approve"
+                    ? isAm
+                      ? "ይህ ድርጊት የደሞዝ ሁኔታን ወደ 'ጸድቋል' ይቀይራል። ይህ ተግባር መመለስ አይቻልም።"
+                      : "This action will change the salary status to 'Approved'. This action cannot be undone."
+                    : isAm
+                    ? "ይህ ድርጊት የደሞዝ ሁኔታን ወደ 'ተቀባይነት አላገኘም' ይቀይራል። ይህ ተግባር መመለስ አይቻልም።"
+                    : "This action will change the salary status to 'Rejected'. This action cannot be undone."}
+                </p>
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="light"
+              onPress={() => {
+                setIsConfirmModalOpen(false);
+                setSelectedSalaryId("");
+                setSelectedSalaryData(null);
+                setConfirmAction(null);
+              }}
+              isDisabled={isUpdating}
+            >
+              {isAm ? "ይቅር" : "Cancel"}
+            </Button>
+            <Button
+              color={confirmAction === "approve" ? "success" : "danger"}
+              onPress={handleConfirmAction}
+              isLoading={isUpdating}
+              startContent={
+                confirmAction === "approve" ? (
+                  <Check className="size-4" />
+                ) : (
+                  <X className="size-4" />
+                )
+              }
+            >
+              {confirmAction === "approve"
+                ? isAm
+                  ? "አዎ, ጸድቅ"
+                  : "Yes, Approve"
+                : isAm
+                ? "አዎ, ቃወም"
+                : "Yes, Reject"}
             </Button>
           </ModalFooter>
         </ModalContent>
