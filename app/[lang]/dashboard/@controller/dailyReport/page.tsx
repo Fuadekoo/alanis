@@ -22,8 +22,9 @@ import {
   getStudentsForReport,
   getTeachersForReport,
   createReport,
+  deleteReport,
 } from "@/actions/controller/report";
-import { Search, Plus, Calendar, User, BookOpen } from "lucide-react";
+import { Search, Plus, Calendar, User, BookOpen, Trash2 } from "lucide-react";
 import useData from "@/hooks/useData";
 import { highlight } from "@/lib/utils";
 import PaginationPlace from "@/components/paginationPlace";
@@ -44,12 +45,20 @@ export default function Page() {
   >("");
   const [reportDate, setReportDate] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<{
+    id: string;
+    studentName: string;
+    teacherName: string;
+    date: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isAm = useAmharic();
   const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
 
   // Get reports data
-  const [reportsData, isLoadingReports] = useData(
+  const [reportsData, isLoadingReports, refreshReports] = useData(
     getAllReports,
     () => {},
     currentPage,
@@ -184,6 +193,87 @@ export default function Page() {
     }
   };
 
+  const handleDeleteClick = (report: {
+    id: string;
+    student: { firstName: string; lastName: string };
+    activeTeacher: { firstName: string; lastName: string };
+    date: string | Date;
+    teacherProgress: { progressStatus: string } | null;
+  }) => {
+    // Check if teacherProgress exists
+    if (!report.teacherProgress) {
+      showAlert({
+        message: isAm
+          ? "የዚህ ሪፖርት የመምህር ሂደት አልተገኘም።"
+          : "Teacher progress not found for this report.",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+      return;
+    }
+
+    // Check if progress is closed
+    if (report.teacherProgress.progressStatus !== "open") {
+      showAlert({
+        message: isAm
+          ? "የዚህ ሪፖርት የመምህር ሂደት ተዘግቷል። የተዘጉ ሂደቶችን ሪፖርቶች መሰረዝ አይችሉም።"
+          : "This report's teacher progress is closed. You cannot delete reports from closed progress records.",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+      return;
+    }
+
+    setReportToDelete({
+      id: report.id,
+      studentName: `${report.student.firstName} ${report.student.lastName}`,
+      teacherName: `${report.activeTeacher.firstName} ${report.activeTeacher.lastName}`,
+      date: new Date(report.date).toLocaleDateString(),
+    });
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!reportToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteReport(reportToDelete.id);
+
+      if (result.success) {
+        showAlert({
+          message: isAm
+            ? "ሪፖርት በተሳካ ሁኔታ ተሰርዟል!"
+            : "Report deleted successfully!",
+          type: "success",
+          title: isAm ? "ተሳክቷል" : "Success",
+        });
+        setIsDeleteModalOpen(false);
+        setReportToDelete(null);
+        // Refresh the reports list
+        if (refreshReports) {
+          refreshReports();
+        }
+      } else {
+        showAlert({
+          message:
+            result.error ||
+            (isAm ? "ሪፖርት መሰረዝ አልተሳካም" : "Failed to delete report"),
+          type: "error",
+          title: isAm ? "ስህተት" : "Error",
+        });
+      }
+    } catch {
+      showAlert({
+        message: isAm ? "ሪፖርት መሰረዝ አልተሳካም" : "Failed to delete report",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Content */}
@@ -247,6 +337,19 @@ export default function Page() {
                           search
                         )}
                       </span>
+                      {/* Delete Button - Only show if progress is open */}
+                      {report.teacherProgress?.progressStatus === "open" && (
+                        <Button
+                          isIconOnly
+                          size="sm"
+                          color="danger"
+                          variant="light"
+                          onPress={() => handleDeleteClick(report)}
+                          className="min-w-unit-6 w-6 h-6"
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      )}
                     </div>
 
                     {/* Line 2: Date, Slot, Status & Student Approval */}
@@ -679,6 +782,78 @@ export default function Page() {
                 {isAm ? "ሪፖርት ይፍጠሩ" : "Create Report"}
               </Button>
             )}
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          if (!isDeleting) {
+            setIsDeleteModalOpen(false);
+            setReportToDelete(null);
+          }
+        }}
+        size="md"
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <Trash2 className="size-5 text-danger" />
+              <span>{isAm ? "ሪፖርት ይሰረዝ?" : "Delete Report?"}</span>
+            </div>
+          </ModalHeader>
+          <ModalBody>
+            {reportToDelete && (
+              <div className="space-y-3">
+                <p className="text-default-600">
+                  {isAm
+                    ? "ይህን ሪፖርት መሰረዝ እርግጠኛ ኖት? ይህ ድርጊት መልሰው ማዋቀር አይቻልም።"
+                    : "Are you sure you want to delete this report? This action cannot be undone."}
+                </p>
+                <div className="p-3 bg-danger-50 dark:bg-danger-900/20 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="size-4 text-danger" />
+                    <span className="font-semibold">
+                      {reportToDelete.studentName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <BookOpen className="size-4 text-danger" />
+                    <span>{reportToDelete.teacherName}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar className="size-4 text-danger" />
+                    <span>{reportToDelete.date}</span>
+                  </div>
+                </div>
+                <p className="text-sm text-warning-600">
+                  {isAm
+                    ? "⚠️ የመማሪያ/የጎደለ ቁጥር በራስ-ሰር ይቀንሳል።"
+                    : "⚠️ Learning/missing count will be automatically decremented."}
+                </p>
+              </div>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="light"
+              onPress={() => {
+                setIsDeleteModalOpen(false);
+                setReportToDelete(null);
+              }}
+              isDisabled={isDeleting}
+            >
+              {isAm ? "ይቅር" : "Cancel"}
+            </Button>
+            <Button
+              color="danger"
+              onPress={handleDeleteConfirm}
+              isLoading={isDeleting}
+            >
+              {isAm ? "ሰርዝ" : "Delete"}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
