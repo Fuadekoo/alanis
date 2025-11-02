@@ -24,6 +24,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         Icon: <Home className="size-4" />,
       },
       {
+        english: "Report",
+        amharic: "ሪፖርት",
+        url: "report",
+        Icon: <Home className="size-4" />,
+      },
+      {
         english: "Chat",
         amharic: "ቻት",
         url: "chat",

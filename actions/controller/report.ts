@@ -180,7 +180,115 @@ export async function createReport(data: CreateReportData) {
   }
 }
 
-export async function deleteReport() {}
+export async function deleteReport(reportId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    // Get the report with its associated teacher progress
+    const report = await prisma.dailyReport.findUnique({
+      where: { id: reportId },
+      include: {
+        teacherProgress: {
+          include: {
+            student: true,
+            teacher: true,
+          },
+        },
+        student: true,
+        activeTeacher: true,
+      },
+    });
+
+    if (!report) {
+      throw new Error("Report not found");
+    }
+
+    // Check if the teacher progress exists and is open (not closed)
+    if (!report.teacherProgress) {
+      throw new Error("Teacher progress not found for this report");
+    }
+
+    if (report.teacherProgress.progressStatus !== "open") {
+      throw new Error(
+        "Cannot delete report. This progress is already closed. Reports can only be deleted from open progress records."
+      );
+    }
+
+    // Authorization: Only controllers can delete reports for their assigned students
+    if (session.user.role === "controller") {
+      const student = await prisma.user.findFirst({
+        where: {
+          id: report.studentId,
+          role: "student",
+          controllerId: session.user.id,
+        },
+      });
+
+      if (!student) {
+        throw new Error(
+          "You can only delete reports for students assigned to you"
+        );
+      }
+    } else if (session.user.role !== "manager") {
+      throw new Error("You do not have permission to delete reports");
+    }
+
+    // Use transaction to ensure data consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // Delete the daily report
+      await tx.dailyReport.delete({
+        where: { id: reportId },
+      });
+
+      // Update TeacherProgress counts based on learning progress
+      const updateData: {
+        learningCount?: { decrement: number };
+        missingCount?: { decrement: number };
+      } = {};
+
+      if (
+        report.learningProgress === "present" ||
+        report.learningProgress === "permission"
+      ) {
+        // Present and permission count as learning - decrement learningCount
+        updateData.learningCount = {
+          decrement: 1,
+        };
+      } else if (report.learningProgress === "absent") {
+        // Absent counts as missing - decrement missingCount
+        updateData.missingCount = {
+          decrement: 1,
+        };
+      }
+
+      // Update the TeacherProgress with new counts
+      const updatedTeacherProgress = await tx.teacherProgress.update({
+        where: { id: report.teacherProgressId! },
+        data: updateData,
+      });
+
+      return {
+        deletedReport: report,
+        updatedTeacherProgress,
+      };
+    });
+
+    return {
+      success: true,
+      data: result,
+      message: "Report deleted successfully",
+    };
+  } catch (error) {
+    console.error("Error deleting report:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to delete report",
+    };
+  }
+}
 
 interface ChangeTeacherData {
   currentTeacherProgressId: string;
@@ -652,6 +760,12 @@ export async function getAllReports(
             fatherName: true,
             lastName: true,
             username: true,
+          },
+        },
+        teacherProgress: {
+          select: {
+            id: true,
+            progressStatus: true,
           },
         },
       },

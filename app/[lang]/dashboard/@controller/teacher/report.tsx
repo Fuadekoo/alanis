@@ -197,71 +197,63 @@ export function Report() {
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="bg-gradient-to-br from-success-50 to-success-100 dark:from-success-900/20 dark:to-success-800/20">
+      {/* Statistics Cards - Horizontal Scroll on Mobile */}
+      <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide">
+        <Card className="bg-gradient-to-br from-success-50 to-success-100 dark:from-success-900/20 dark:to-success-800/20 flex-shrink-0 w-[140px] sm:w-[180px] lg:flex-1 snap-start">
           <CardBody className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-default-600">
-                  {isAm ? "ንቁ ተማሪዎች" : "Current Students"}
-                </p>
-                <p className="text-2xl font-bold text-success-700 dark:text-success-400">
-                  {data?.data?.currentProgress?.length || 0}
-                </p>
-              </div>
-              <Users className="size-8 text-success-600 dark:text-success-400 opacity-50" />
+            <div className="flex flex-col gap-1">
+              <Users className="size-5 sm:size-6 text-success-600 dark:text-success-400 opacity-50" />
+              <p className="text-[10px] sm:text-xs text-default-600 line-clamp-1">
+                {isAm ? "ንቁ ተማሪዎች" : "Current Students"}
+              </p>
+              <p className="text-xl sm:text-2xl font-bold text-success-700 dark:text-success-400">
+                {data?.data?.currentProgress?.length || 0}
+              </p>
             </div>
           </CardBody>
         </Card>
 
-        <Card className="bg-gradient-to-br from-warning-50 to-warning-100 dark:from-warning-900/20 dark:to-warning-800/20">
+        <Card className="bg-gradient-to-br from-warning-50 to-warning-100 dark:from-warning-900/20 dark:to-warning-800/20 flex-shrink-0 w-[140px] sm:w-[180px] lg:flex-1 snap-start">
           <CardBody className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-default-600">
-                  {isAm ? "ታሪካዊ ተማሪዎች" : "Historical Students"}
-                </p>
-                <p className="text-2xl font-bold text-warning-700 dark:text-warning-400">
-                  {data?.data?.historicalProgress?.length || 0}
-                </p>
-              </div>
-              <History className="size-8 text-warning-600 dark:text-warning-400 opacity-50" />
+            <div className="flex flex-col gap-1">
+              <History className="size-5 sm:size-6 text-warning-600 dark:text-warning-400 opacity-50" />
+              <p className="text-[10px] sm:text-xs text-default-600 line-clamp-1">
+                {isAm ? "ታሪካዊ ተማሪዎች" : "Historical Students"}
+              </p>
+              <p className="text-xl sm:text-2xl font-bold text-warning-700 dark:text-warning-400">
+                {data?.data?.historicalProgress?.length || 0}
+              </p>
             </div>
           </CardBody>
         </Card>
 
-        <Card className="bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20">
+        <Card className="bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 flex-shrink-0 w-[140px] sm:w-[180px] lg:flex-1 snap-start">
           <CardBody className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-default-600">
-                  {isAm ? "ጠቅላላ ሪፖርቶች" : "Total Reports"}
-                </p>
-                <p className="text-2xl font-bold text-primary-700 dark:text-primary-400">
-                  {currentReports.length + historicalReports.length}
-                </p>
-              </div>
-              <FileText className="size-8 text-primary-600 dark:text-primary-400 opacity-50" />
+            <div className="flex flex-col gap-1">
+              <FileText className="size-5 sm:size-6 text-primary-600 dark:text-primary-400 opacity-50" />
+              <p className="text-[10px] sm:text-xs text-default-600 line-clamp-1">
+                {isAm ? "ጠቅላላ ሪፖርቶች" : "Total Reports"}
+              </p>
+              <p className="text-xl sm:text-2xl font-bold text-primary-700 dark:text-primary-400">
+                {currentReports.length + historicalReports.length}
+              </p>
             </div>
           </CardBody>
         </Card>
 
-        <Card className="bg-gradient-to-br from-secondary-50 to-secondary-100 dark:from-secondary-900/20 dark:to-secondary-800/20">
+        <Card className="bg-gradient-to-br from-secondary-50 to-secondary-100 dark:from-secondary-900/20 dark:to-secondary-800/20 flex-shrink-0 w-[140px] sm:w-[180px] lg:flex-1 snap-start">
           <CardBody className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-default-600">
-                  {isAm ? "የመማሪያ ቀናት" : "Learning Days"}
-                </p>
-                <p className="text-2xl font-bold text-secondary-700 dark:text-secondary-400">
-                  {data?.data?.currentProgress?.reduce(
-                    (sum, p) => sum + p.learningCount,
-                    0
-                  ) || 0}
-                </p>
-              </div>
-              <TrendingUp className="size-8 text-secondary-600 dark:text-secondary-400 opacity-50" />
+            <div className="flex flex-col gap-1">
+              <TrendingUp className="size-5 sm:size-6 text-secondary-600 dark:text-secondary-400 opacity-50" />
+              <p className="text-[10px] sm:text-xs text-default-600 line-clamp-1">
+                {isAm ? "የመማሪያ ቀናት" : "Learning Days"}
+              </p>
+              <p className="text-xl sm:text-2xl font-bold text-secondary-700 dark:text-secondary-400">
+                {data?.data?.currentProgress?.reduce(
+                  (sum, p) => sum + p.learningCount,
+                  0
+                ) || 0}
+              </p>
             </div>
           </CardBody>
         </Card>
