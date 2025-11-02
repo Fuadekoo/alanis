@@ -123,9 +123,7 @@ function CustomTable({
                 alt={`Photo for ${item.id || item.key}`}
                 fill
                 className="object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() =>
-                  setZoomedImageUrl(`/api/filedata/${item.photo}`)
-                }
+                onClick={() => setZoomedImageUrl(`/api/filedata/${item.photo}`)}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = "none";
@@ -364,10 +362,7 @@ function CustomTable({
           <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
             {isLoading ? (
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-6 py-12 text-center"
-                >
+                <td colSpan={columns.length} className="px-6 py-12 text-center">
                   <div className="flex justify-center items-center gap-3 text-gray-500 dark:text-gray-400">
                     <Loader2 className="h-5 w-5 animate-spin" />
                     <span>Loading data...</span>
@@ -376,10 +371,7 @@ function CustomTable({
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-6 py-12 text-center"
-                >
+                <td colSpan={columns.length} className="px-6 py-12 text-center">
                   <div className="text-gray-500 dark:text-gray-400 text-lg font-medium">
                     No data to display
                   </div>
