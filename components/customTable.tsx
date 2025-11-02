@@ -83,6 +83,7 @@ function CustomTable({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tanstackColumns = useMemo<ColumnDef<Record<string, any>>[]>(() => {
     // Add row number column as the first column
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const numberColumn: ColumnDef<Record<string, any>> = {
       id: "#",
       header: "#",
