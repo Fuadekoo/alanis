@@ -125,7 +125,7 @@ export default function Page() {
           title: isAm ? "ስህተት" : "Error",
         });
       }
-    } catch (error) {
+    } catch {
       showAlert({
         message: isAm ? "ሪፖርት መሰረዝ አልተሳካም" : "Failed to delete report",
         type: "error",
