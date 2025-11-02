@@ -285,3 +285,80 @@ export async function rollbackMonthlyPayment(
     };
   }
 }
+
+// Get unpaid students for a specific month and year
+export async function getUnpaidStudents(month: number, year: number) {
+  try {
+    if (!month || !year) {
+      throw new Error("Month and year are required");
+    }
+
+    // Get all active students
+    const allStudents = await prisma.user.findMany({
+      where: {
+        role: "student",
+        status: "active",
+      },
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        username: true,
+        phoneNumber: true,
+        roomStudent: {
+          select: {
+            time: true,
+            duration: true,
+            teacher: {
+              select: {
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+              },
+            },
+          },
+          take: 1,
+        },
+      },
+      orderBy: {
+        firstName: "asc",
+      },
+    });
+
+    // Get all students who have paid for this month/year
+    const paidStudents = await prisma.payment.findMany({
+      where: {
+        month: month,
+        year: year,
+      },
+      select: {
+        studentId: true,
+      },
+    });
+
+    const paidStudentIds = new Set(paidStudents.map((p) => p.studentId));
+
+    // Filter out students who have already paid
+    const unpaidStudents = allStudents.filter(
+      (student) => !paidStudentIds.has(student.id)
+    );
+
+    return {
+      success: true,
+      data: unpaidStudents,
+      totalCount: unpaidStudents.length,
+      month,
+      year,
+    };
+  } catch (error) {
+    console.error("Failed to get unpaid students:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get unpaid students",
+    };
+  }
+}

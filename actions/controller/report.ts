@@ -71,6 +71,26 @@ export async function createReport(data: CreateReportData) {
       throw new Error("Invalid learning progress value");
     }
 
+    // Authorization: Only controllers can create reports, and only for their assigned students
+    if (session.user.role === "controller") {
+      const student = await prisma.user.findFirst({
+        where: {
+          id: studentId,
+          role: "student",
+          controllerId: session.user.id,
+        },
+      });
+
+      if (!student) {
+        throw new Error(
+          "You can only create reports for students assigned to you"
+        );
+      }
+    } else if (session.user.role !== "manager") {
+      // Only controllers and managers can create reports
+      throw new Error("You do not have permission to create reports");
+    }
+
     // Use transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx) => {
       // 1. Check if TeacherProgress exists for this student-teacher pair
@@ -671,16 +691,24 @@ export async function getStudentsForReport(teacherId: string) {
       throw new Error("Teacher ID is required");
     }
 
-    // Get students who are assigned to this teacher through the room table
-    const students = await prisma.user.findMany({
-      where: {
-        role: "student",
-        roomStudent: {
-          some: {
-            teacherId: teacherId,
-          },
+    // Build where clause based on user role
+    const whereClause: any = {
+      role: "student",
+      roomStudent: {
+        some: {
+          teacherId: teacherId,
         },
       },
+    };
+
+    // If controller, only show students assigned to them
+    if (session.user.role === "controller") {
+      whereClause.controllerId = session.user.id;
+    }
+
+    // Get students who are assigned to this teacher through the room table
+    const students = await prisma.user.findMany({
+      where: whereClause,
       select: {
         id: true,
         firstName: true,

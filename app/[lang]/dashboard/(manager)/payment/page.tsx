@@ -10,12 +10,23 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Tabs,
+  Tab,
+  Select,
+  SelectItem,
+  Skeleton,
+  Card,
+  CardBody,
+  ScrollShadow,
+  Chip,
+  Input,
 } from "@heroui/react";
 import {
   getMonthsPayment,
   getYearsPayment,
   paymentDashboard,
   rollbackMonthlyPayment,
+  getUnpaidStudents,
 } from "@/actions/manager/payment";
 import { addToast } from "@heroui/toast";
 import { useLocalization } from "@/hooks/useLocalization";
@@ -28,10 +39,14 @@ import {
   DollarSign,
   Trash2,
   AlertCircle,
+  CheckCircle,
+  XCircle,
+  Search as SearchIcon,
 } from "lucide-react";
 
 function Page() {
   const { t, getMonthName, formatCurrency } = useLocalization();
+  const [activeTab, setActiveTab] = useState<string>("paid");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [month, setMonth] = useState<string | undefined>(undefined);
@@ -47,6 +62,14 @@ function Page() {
     id: string;
     amount: string;
   } | null>(null);
+
+  // Unpaid tab states
+  const [unpaidMonth, setUnpaidMonth] = useState<number>(
+    new Date().getMonth() + 1
+  );
+  const [unpaidYear, setUnpaidYear] = useState<number>(
+    new Date().getFullYear()
+  );
 
   const [dashboardData, isLoadingDashboard] = useData(
     paymentDashboard,
@@ -67,6 +90,14 @@ function Page() {
   );
 
   const [yearsData, isLoadingYears] = useData(getYearsPayment, () => {});
+
+  // Get unpaid students data
+  const [unpaidData, isLoadingUnpaid, refreshUnpaid] = useData(
+    getUnpaidStudents,
+    () => {},
+    unpaidMonth,
+    unpaidYear
+  );
 
   // Delete/Rollback payment mutation
   const [deleteAction, isLoadingDelete] = useMutation(
@@ -447,92 +478,280 @@ function Page() {
             </div>
           </div>
         </div>
-        {/* Payment Table */}
+        {/* Payment Tabs */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  {t("payment.title")}
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  {t("payment.subtitle")}
-                </p>
+          <Tabs
+            aria-label="Payment tabs"
+            selectedKey={activeTab}
+            onSelectionChange={(key: React.Key) => setActiveTab(key as string)}
+            color="primary"
+            variant="underlined"
+            classNames={{
+              tabList:
+                "gap-6 w-full relative rounded-none p-6 border-b border-divider bg-gray-50 dark:bg-gray-800/50",
+              cursor: "w-full bg-primary",
+              tab: "max-w-fit px-4 h-12",
+              tabContent: "group-data-[selected=true]:text-primary",
+            }}
+          >
+            <Tab
+              key="paid"
+              title={
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="size-4" />
+                  <span>{t("payment.paid") || "Paid"}</span>
+                </div>
+              }
+            >
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                      {t("payment.paymentHistory") || "Payment History"}
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      {t("payment.viewPaidPayments") ||
+                        "View all paid payments"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* Year filter */}
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      {t("payment.year")}:
+                    </label>
+                    <select
+                      value={year || ""}
+                      onChange={(e) => {
+                        setYear(e.target.value || undefined);
+                        setPage(1);
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ minWidth: 80 }}
+                      disabled={isLoadingYears}
+                    >
+                      <option value="">{t("common.all")}</option>
+                      {yearOptions.map(
+                        (opt: { value: string; label: string }) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        )
+                      )}
+                    </select>
+                    {/* Month filter */}
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      {t("payment.month")}:
+                    </label>
+                    <select
+                      value={month || ""}
+                      onChange={(e) => {
+                        setMonth(e.target.value || undefined);
+                        setPage(1);
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ minWidth: 80 }}
+                    >
+                      <option value="">{t("common.all")}</option>
+                      {monthOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Year filter */}
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                  {t("payment.year")}:
-                </label>
-                <select
-                  value={year || ""}
-                  onChange={(e) => {
-                    setYear(e.target.value || undefined);
-                    setPage(1);
-                  }}
-                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{ minWidth: 80 }}
-                  disabled={isLoadingYears}
-                >
-                  <option value="">{t("common.all")}</option>
-                  {yearOptions.map((opt: { value: string; label: string }) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                {/* Month filter */}
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                  {t("payment.month")}:
-                </label>
-                <select
-                  value={month || ""}
-                  onChange={(e) => {
-                    setMonth(e.target.value || undefined);
-                    setPage(1);
-                  }}
-                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{ minWidth: 80 }}
-                >
-                  <option value="">{t("common.all")}</option>
-                  {monthOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
 
-          <div className="p-6 bg-white dark:bg-gray-900">
-            <CustomTable
-              columns={columns}
-              rows={rows.map((row) =>
-                Object.fromEntries(
-                  Object.entries(row).map(([k, v]) => [k, v ?? ""])
-                )
-              )}
-              totalRows={data?.pagination?.totalRecords || 0}
-              page={page}
-              pageSize={pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={(n) => {
-                setPageSize(n);
-                setPage(1);
-              }}
-              searchValue={search}
-              onSearch={(val) => {
-                setSearch(val);
-                setPage(1);
-              }}
-              isLoading={isLoading}
-              enableDateFilter
-              startDate={startDate?.toISOString().split("T")[0]}
-              endDate={endDate?.toISOString().split("T")[0]}
-              onDateChange={handleDateChange}
-            />
-          </div>
+              <div className="p-6 bg-white dark:bg-gray-900">
+                <CustomTable
+                  columns={columns}
+                  rows={rows.map((row) =>
+                    Object.fromEntries(
+                      Object.entries(row).map(([k, v]) => [k, v ?? ""])
+                    )
+                  )}
+                  totalRows={data?.pagination?.totalRecords || 0}
+                  page={page}
+                  pageSize={pageSize}
+                  onPageChange={setPage}
+                  onPageSizeChange={(n) => {
+                    setPageSize(n);
+                    setPage(1);
+                  }}
+                  searchValue={search}
+                  onSearch={(val) => {
+                    setSearch(val);
+                    setPage(1);
+                  }}
+                  isLoading={isLoading}
+                  enableDateFilter
+                  startDate={startDate?.toISOString().split("T")[0]}
+                  endDate={endDate?.toISOString().split("T")[0]}
+                  onDateChange={handleDateChange}
+                />
+              </div>
+            </Tab>
+
+            <Tab
+              key="unpaid"
+              title={
+                <div className="flex items-center space-x-2">
+                  <XCircle className="size-4" />
+                  <span>{t("payment.unpaid") || "Unpaid"}</span>
+                </div>
+              }
+            >
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                      {t("payment.unpaidStudents") || "Unpaid Students"}
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      {t("payment.studentsWhoHaventPaid") ||
+                        "Students who haven't paid for selected month"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* Year selector */}
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      {t("payment.year")}:
+                    </label>
+                    <select
+                      value={unpaidYear}
+                      onChange={(e) => {
+                        setUnpaidYear(Number(e.target.value));
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ minWidth: 100 }}
+                    >
+                      {yearOptions.map(
+                        (opt: { value: string; label: string }) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        )
+                      )}
+                    </select>
+                    {/* Month selector */}
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      {t("payment.month")}:
+                    </label>
+                    <select
+                      value={unpaidMonth}
+                      onChange={(e) => {
+                        setUnpaidMonth(Number(e.target.value));
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ minWidth: 120 }}
+                    >
+                      {monthOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 bg-white dark:bg-gray-900">
+                {isLoadingUnpaid ? (
+                  <Skeleton className="w-full h-96 rounded-xl" />
+                ) : unpaidData?.success && unpaidData.data ? (
+                  <ScrollShadow className="p-2 pb-20 bg-default-50/50 border border-default-100/20 rounded-xl grid gap-2 auto-rows-min xl:grid-cols-2">
+                    {unpaidData.data.length > 0 ? (
+                      unpaidData.data.map((student, i) => (
+                        <Card
+                          key={student.id}
+                          className="h-fit bg-default-50/30 backdrop-blur-sm border-2 border-danger-200 hover:border-danger-400 transition-all"
+                        >
+                          <CardBody className="p-2">
+                            {/* Line 1: Student Info */}
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="w-6 h-6 rounded-full bg-danger/10 flex items-center justify-center text-danger font-bold text-xs shrink-0">
+                                {i + 1}
+                              </div>
+                              <Users className="size-3 text-primary shrink-0" />
+                              <span className="font-semibold text-sm">
+                                {student.firstName} {student.lastName}
+                              </span>
+                              <Chip
+                                size="sm"
+                                color="danger"
+                                variant="dot"
+                                className="ml-auto"
+                              >
+                                {t("payment.unpaid") || "Unpaid"}
+                              </Chip>
+                            </div>
+
+                            {/* Line 2: Details */}
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-default-500">
+                                @{student.username}
+                              </span>
+                              {student.phoneNumber && (
+                                <>
+                                  <span className="text-default-400">•</span>
+                                  <span className="text-default-600">
+                                    {student.phoneNumber}
+                                  </span>
+                                </>
+                              )}
+                              {student.roomStudent &&
+                                student.roomStudent.length > 0 && (
+                                  <>
+                                    <span className="text-default-400 ml-auto">
+                                      •
+                                    </span>
+                                    <span className="text-default-600">
+                                      {student.roomStudent[0].teacher.firstName}{" "}
+                                      {student.roomStudent[0].teacher.lastName}
+                                    </span>
+                                  </>
+                                )}
+                            </div>
+                          </CardBody>
+                        </Card>
+                      ))
+                    ) : (
+                      <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center">
+                        <CheckCircle className="size-20 text-success-300 mb-4" />
+                        <h3 className="text-xl font-semibold text-success-600 mb-2">
+                          {t("payment.allPaid") || "All Students Paid!"}
+                        </h3>
+                        <p className="text-sm text-default-400 max-w-md">
+                          {t("payment.allStudentsPaidForMonth") ||
+                            `All active students have paid for ${getMonthName(
+                              unpaidMonth
+                            )} ${unpaidYear}`}
+                        </p>
+                      </div>
+                    )}
+                  </ScrollShadow>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-danger">
+                      {t("common.failedToLoad") || "Failed to load data"}
+                    </p>
+                  </div>
+                )}
+
+                {/* Unpaid Summary */}
+                {unpaidData?.success && unpaidData.data && (
+                  <div className="mt-4 p-4 bg-danger/10 border border-danger/20 rounded-lg">
+                    <p className="text-sm font-semibold text-danger-700 dark:text-danger-400">
+                      {t("payment.unpaidCount") || "Unpaid Students"}:{" "}
+                      <span className="text-lg">{unpaidData.totalCount}</span> /{" "}
+                      {t("payment.forMonth") || "for"}{" "}
+                      {getMonthName(unpaidMonth)} {unpaidYear}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Tab>
+          </Tabs>
         </div>
       </div>
 

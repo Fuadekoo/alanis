@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTeacher } from "./provider";
 import useData from "@/hooks/useData";
-import { getReportByTeacher } from "@/actions/controller/report";
+import { getReportByTeacher } from "@/actions/manager/report";
 import { Skeleton, Card, CardBody, Tabs, Tab } from "@/components/ui/heroui";
 import { BookOpen, FileText, TrendingUp, Users, History } from "lucide-react";
 import { Chip } from "@heroui/react";
