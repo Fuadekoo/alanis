@@ -91,7 +91,7 @@ function CustomTable({
         const rowIndex = row.index;
         const rowNumber = (page - 1) * pageSize + rowIndex + 1;
         return (
-          <span className="font-semibold text-default-600 dark:text-default-200">
+          <span className="font-semibold text-gray-700 dark:text-white">
             {rowNumber}
           </span>
         );
@@ -211,9 +211,9 @@ function CustomTable({
   };
 
   return (
-    <div className="bg-white dark:bg-default-900 rounded-xl shadow-sm border border-default-200 dark:border-default-700 overflow-hidden">
+    <div className="bg-white dark:bg-black rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
       {/* Header with Search and Controls */}
-      <div className="p-3 sm:p-4 border-b border-default-200 dark:border-default-700">
+      <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-800">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3">
           {/* Search Section */}
           <div className="flex items-center gap-2 flex-1">
@@ -226,7 +226,7 @@ function CustomTable({
             >
               <div className="relative flex flex-1 min-w-0 max-w-md">
                 <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-default-400" />
+                  <Search className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                 </div>
                 <input
                   type="text"
@@ -238,7 +238,7 @@ function CustomTable({
                       onSearch("");
                     }
                   }}
-                  className="w-full pl-8 pr-8 py-2 text-sm border border-default-300 dark:border-default-600 rounded-lg bg-default-50 dark:bg-default-900 text-default-900 dark:text-default-100 placeholder-default-400 focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                  className="w-full pl-8 pr-8 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                   disabled={isLoading}
                 />
                 {localSearch && (
@@ -248,7 +248,7 @@ function CustomTable({
                       setLocalSearch("");
                       onSearch("");
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-default-400 hover:text-default-600 dark:hover:text-default-300 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -258,7 +258,7 @@ function CustomTable({
                 <button
                   type="button"
                   onClick={() => setShowDateFilter(true)}
-                  className="px-3 py-2 text-sm border border-default-300 dark:border-default-600 rounded-lg bg-default-50 dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800 transition-colors flex items-center gap-1.5 shrink-0"
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-1.5 shrink-0"
                   disabled={isLoading}
                 >
                   <Filter className="h-4 w-4" />
@@ -270,13 +270,13 @@ function CustomTable({
 
           {/* Page Size Control */}
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs sm:text-sm text-default-600 dark:text-default-400 whitespace-nowrap">
+            <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
               Rows:
             </span>
             <select
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="px-2 sm:px-3 py-2 text-sm border border-default-300 dark:border-default-600 rounded-lg bg-default-50 dark:bg-default-900 text-default-900 dark:text-default-100 focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+              className="px-2 sm:px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
               disabled={isLoading}
             >
               {PAGE_SIZES.map((size) => (
@@ -292,21 +292,21 @@ function CustomTable({
       {/* Date Filter Modal */}
       {showDateFilter && enableDateFilter && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex justify-center items-center p-4 z-50">
-          <div className="bg-white dark:bg-default-900 p-6 rounded-xl shadow-xl w-full max-w-4xl border border-default-200 dark:border-default-700">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-xl w-full max-w-4xl border border-gray-200 dark:border-gray-700">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-default-900 dark:text-default-100">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Filter by Date Range
               </h2>
               <button
                 onClick={() => setShowDateFilter(false)}
-                className="p-2 rounded-lg hover:bg-default-100 dark:hover:bg-default-800 text-default-500 dark:text-default-400 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-sm font-medium text-default-700 dark:text-default-200 mb-3">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">
                   Start Date
                 </h3>
                 <Calendar
@@ -320,7 +320,7 @@ function CustomTable({
                 />
               </div>
               <div>
-                <h3 className="text-sm font-medium text-default-700 dark:text-default-200 mb-3">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">
                   End Date
                 </h3>
                 <Calendar
@@ -337,13 +337,13 @@ function CustomTable({
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
               <button
                 onClick={() => setShowDateFilter(false)}
-                className="px-4 py-2 bg-default-100 dark:bg-default-800 text-default-700 dark:text-default-200 rounded-lg hover:bg-default-200 dark:hover:bg-default-700 transition-colors"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleClearDateFilter}
-                className="px-4 py-2 bg-default-100 dark:bg-default-800 text-default-700 dark:text-default-200 rounded-lg hover:bg-default-200 dark:hover:bg-default-700 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                 disabled={isLoading}
               >
                 Clear
@@ -362,14 +362,14 @@ function CustomTable({
 
       {/* Table Container */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-default-200 dark:divide-default-700">
-          <thead className="bg-default-100 dark:bg-default-100/10">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+          <thead className="bg-gray-50 dark:bg-gray-900">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-default-700 dark:text-default-300 uppercase tracking-wider whitespace-nowrap"
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-white uppercase tracking-wider whitespace-nowrap"
                   >
                     {header.isPlaceholder
                       ? null
@@ -382,14 +382,14 @@ function CustomTable({
               </tr>
             ))}
           </thead>
-          <tbody className="bg-white dark:bg-default-950 divide-y divide-default-200 dark:divide-default-700">
+          <tbody className="bg-white dark:bg-black divide-y divide-gray-200 dark:divide-gray-800">
             {isLoading ? (
               <tr>
                 <td
                   colSpan={columns.length + 1}
                   className="px-4 py-12 text-center"
                 >
-                  <div className="flex justify-center items-center gap-3 text-default-500 dark:text-default-400">
+                  <div className="flex justify-center items-center gap-3 text-gray-500 dark:text-gray-400">
                     <Loader2 className="h-5 w-5 animate-spin" />
                     <span className="text-sm">Loading data...</span>
                   </div>
@@ -401,10 +401,10 @@ function CustomTable({
                   colSpan={columns.length + 1}
                   className="px-4 py-12 text-center"
                 >
-                  <div className="text-default-500 dark:text-default-300 text-base font-medium">
+                  <div className="text-gray-700 dark:text-white text-base font-medium">
                     No data to display
                   </div>
-                  <div className="text-default-400 dark:text-default-500 text-sm mt-1">
+                  <div className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                     Try adjusting your search or filters
                   </div>
                 </td>
@@ -413,12 +413,12 @@ function CustomTable({
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className="hover:bg-default-50 dark:hover:bg-default-800/20 transition-colors"
+                  className="hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
                       key={cell.id}
-                      className="px-3 sm:px-4 py-3 text-sm text-default-900 dark:text-default-50"
+                      className="px-3 sm:px-4 py-3 text-sm text-gray-900 dark:text-white"
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
@@ -434,23 +434,23 @@ function CustomTable({
       </div>
 
       {/* Pagination */}
-      <div className="px-3 sm:px-4 py-3 border-t border-default-200 dark:border-default-700 bg-default-50 dark:bg-default-800/30">
+      <div className="px-3 sm:px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* Results Info */}
-          <div className="text-xs sm:text-sm text-default-600 dark:text-default-400 order-2 sm:order-1">
+          <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 order-2 sm:order-1">
             <span className="hidden sm:inline">Showing </span>
-            <span className="font-semibold text-default-900 dark:text-default-100">
+            <span className="font-semibold text-gray-900 dark:text-white">
               {rows.length > 0
                 ? Math.min((page - 1) * pageSize + 1, totalRows)
                 : 0}
             </span>
             {" - "}
-            <span className="font-semibold text-default-900 dark:text-default-100">
+            <span className="font-semibold text-gray-900 dark:text-white">
               {Math.min(page * pageSize, totalRows)}
             </span>
             <span className="hidden sm:inline"> of </span>
             <span className="sm:hidden"> / </span>
-            <span className="font-semibold text-default-900 dark:text-default-100">
+            <span className="font-semibold text-gray-900 dark:text-white">
               {totalRows}
             </span>
           </div>
@@ -462,7 +462,7 @@ function CustomTable({
               <button
                 onClick={() => onPageChange(1)}
                 disabled={page === 1 || isLoading}
-                className="p-1.5 sm:p-2 rounded-lg border border-default-300 dark:border-default-600 bg-white dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 sm:p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 aria-label="First page"
               >
                 <ChevronsLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -472,7 +472,7 @@ function CustomTable({
               <button
                 onClick={() => onPageChange(Math.max(1, page - 1))}
                 disabled={page === 1 || isLoading}
-                className="p-1.5 sm:p-2 rounded-lg border border-default-300 dark:border-default-600 bg-white dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 sm:p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 aria-label="Previous page"
               >
                 <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -493,7 +493,7 @@ function CustomTable({
                   .map((pg, i, arr) => (
                     <React.Fragment key={pg}>
                       {i > 0 && pg - arr[i - 1] > 1 && (
-                        <span className="px-1 text-default-400 text-xs">
+                        <span className="px-1 text-gray-400 dark:text-gray-500 text-xs">
                           ...
                         </span>
                       )}
@@ -503,7 +503,7 @@ function CustomTable({
                         className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                           pg === page
                             ? "bg-primary text-white"
-                            : "border border-default-300 dark:border-default-600 bg-white dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800"
+                            : "border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                         } disabled:cursor-not-allowed`}
                       >
                         {pg}
@@ -516,7 +516,7 @@ function CustomTable({
               <button
                 onClick={() => onPageChange(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages || isLoading}
-                className="p-1.5 sm:p-2 rounded-lg border border-default-300 dark:border-default-600 bg-white dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 sm:p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 aria-label="Next page"
               >
                 <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -526,7 +526,7 @@ function CustomTable({
               <button
                 onClick={() => onPageChange(totalPages)}
                 disabled={page === totalPages || isLoading}
-                className="p-1.5 sm:p-2 rounded-lg border border-default-300 dark:border-default-600 bg-white dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 sm:p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 aria-label="Last page"
               >
                 <ChevronsRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -543,7 +543,7 @@ function CustomTable({
           onClick={handleCloseZoom}
         >
           <div
-            className="relative bg-white dark:bg-default-900 p-4 rounded-xl shadow-2xl max-w-[95vw] max-h-[95vh] flex items-center justify-center border border-default-200 dark:border-default-700"
+            className="relative bg-white dark:bg-gray-900 p-4 rounded-xl shadow-2xl max-w-[95vw] max-h-[95vh] flex items-center justify-center border border-gray-200 dark:border-gray-700"
             onClick={(e) => e.stopPropagation()}
           >
             <Image
