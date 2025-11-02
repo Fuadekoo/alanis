@@ -433,44 +433,47 @@ function Page() {
   ];
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header - Fixed */}
-      <div className="flex-shrink-0 p-4 sm:p-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="h-full overflow-hidden p-3 sm:p-5">
+      <div className="h-full flex flex-col gap-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="text-2xl sm:text-3xl font-bold">
               {isAm ? "መምህር ደሞዝ" : "Teacher Salary"}
             </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-sm text-default-500 mt-1">
               {isAm
-                ? "መምህሮችን ደሞዝ ይፈጥሩ ያስተዳድሩ"
+                ? "መምህሮችን ደሞዝ ይፈጥሩ እና ያስተዳድሩ"
                 : "Create and manage teacher salaries"}
             </p>
           </div>
           <Button
             color="primary"
-            startContent={<Plus className="h-4 w-4" />}
+            startContent={<Plus className="size-4" />}
             onPress={() => setIsModalOpen(true)}
+            className="shrink-0"
           >
             {isAm ? "አዲስ ደሞዝ ይፍጠሩ" : "Create Salary"}
           </Button>
         </div>
-      </div>
 
-      {/* Salary Table - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <CustomTable
-          rows={paginatedSalaries}
-          columns={columns}
-          totalRows={filteredSalaries.length}
-          page={page}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          searchValue={search}
-          onSearch={setSearch}
-          isLoading={salariesLoading}
-        />
+        {/* Salary Table Card */}
+        <Card className="flex-1 overflow-hidden">
+          <CardBody className="p-0 h-full overflow-auto">
+            <CustomTable
+              rows={paginatedSalaries}
+              columns={columns}
+              totalRows={filteredSalaries.length}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              searchValue={search}
+              onSearch={setSearch}
+              isLoading={salariesLoading}
+            />
+          </CardBody>
+        </Card>
       </div>
 
       {/* Create Salary Modal */}

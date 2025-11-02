@@ -206,6 +206,13 @@ export async function deleteReport(reportId: string) {
       throw new Error("Report not found");
     }
 
+    // Check if the report belongs to shifted teacher data
+    if (report.shiftTeacherDataId) {
+      throw new Error(
+        "Cannot delete report. This report belongs to shifted teacher data (historical records). You can only delete reports from current active teacher progress."
+      );
+    }
+
     // Check if the teacher progress exists and is open (not closed)
     if (!report.teacherProgress) {
       throw new Error("Teacher progress not found for this report");

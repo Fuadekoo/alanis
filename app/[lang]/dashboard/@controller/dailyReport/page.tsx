@@ -199,7 +199,20 @@ export default function Page() {
     activeTeacher: { firstName: string; lastName: string };
     date: string | Date;
     teacherProgress: { progressStatus: string } | null;
+    shiftTeacherDataId?: string | null;
   }) => {
+    // Check if report belongs to shifted teacher data
+    if (report.shiftTeacherDataId) {
+      showAlert({
+        message: isAm
+          ? "ይህ ሪፖርት ወደ ሌላ መምህር የተዛወረ ታሪካዊ መረጃ ነው። ታሪካዊ ሪፖርቶችን መሰረዝ አይችሉም።"
+          : "This report belongs to shifted teacher data (historical records). You cannot delete historical reports.",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+      return;
+    }
+
     // Check if teacherProgress exists
     if (!report.teacherProgress) {
       showAlert({
@@ -337,19 +350,20 @@ export default function Page() {
                           search
                         )}
                       </span>
-                      {/* Delete Button - Only show if progress is open */}
-                      {report.teacherProgress?.progressStatus === "open" && (
-                        <Button
-                          isIconOnly
-                          size="sm"
-                          color="danger"
-                          variant="light"
-                          onPress={() => handleDeleteClick(report)}
-                          className="min-w-unit-6 w-6 h-6"
-                        >
-                          <Trash2 className="size-3" />
-                        </Button>
-                      )}
+                      {/* Delete Button - Only show if progress is open and not shifted data */}
+                      {!report.shiftTeacherDataId &&
+                        report.teacherProgress?.progressStatus === "open" && (
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            color="danger"
+                            variant="light"
+                            onPress={() => handleDeleteClick(report)}
+                            className="min-w-unit-6 w-6 h-6"
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        )}
                     </div>
 
                     {/* Line 2: Date, Slot, Status & Student Approval */}
