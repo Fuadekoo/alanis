@@ -73,7 +73,7 @@ export default async function Layout({
         english: "daily report",
         amharic: "ረፖርት",
         url: "dailyReportView",
-        Iconn: <Database className="size-5" />,
+        Icon: <Database className="size-5" />,
       },
       {
         english: "teacher Salary",
