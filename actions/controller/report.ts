@@ -71,6 +71,16 @@ export async function createReport(data: CreateReportData) {
       throw new Error("Invalid learning progress value");
     }
 
+    // Validate that the date is not in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const reportDate = new Date(date);
+    reportDate.setHours(0, 0, 0, 0);
+
+    if (reportDate > today) {
+      throw new Error("Cannot create reports for future dates");
+    }
+
     // Authorization: Only controllers can create reports, and only for their assigned students
     if (session.user.role === "controller") {
       const student = await prisma.user.findFirst({

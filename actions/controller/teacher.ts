@@ -66,8 +66,8 @@ export async function getTeachers({ search, currentPage, row, sort }: Filter) {
   const session = await auth();
 
   // Base where clause for teachers
-  const baseWhere = {
-    role: "teacher",
+  const whereClause = {
+    role: "teacher" as const,
     OR: [
       { firstName: { contains: search } },
       { fatherName: { contains: search } },
@@ -75,10 +75,6 @@ export async function getTeachers({ search, currentPage, row, sort }: Filter) {
       { country: { contains: search } },
     ],
   };
-
-  // For controllers, show all teachers (not just those with assigned rooms)
-  // This allows controllers to see all available teachers for assignment
-  const whereClause = baseWhere;
 
   const list = await prisma.user
     .findMany({

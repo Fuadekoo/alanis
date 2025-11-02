@@ -132,7 +132,7 @@ export default function Page() {
           title: isAm ? "ስህተት" : "Error",
         });
       }
-    } catch (error) {
+    } catch {
       showAlert({
         message: isAm ? "መምህር መቀየር አልተሳካም" : "Failed to change teacher",
         type: "error",

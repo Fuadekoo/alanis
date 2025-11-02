@@ -414,7 +414,7 @@ export async function getReportStatistics() {
       where: {
         role: "teacher",
         status: "active",
-        teachingProgress: {
+        teacherProgressAsTeacher: {
           some: {
             progressStatus: "open",
           },
@@ -427,7 +427,7 @@ export async function getReportStatistics() {
       where: {
         role: "student",
         status: "active",
-        studentProgress: {
+        teacherProgressAsStudent: {
           some: {
             progressStatus: "open",
           },

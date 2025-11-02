@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   CardBody,
-  CardHeader,
   Input,
   Select,
   SelectItem,
@@ -50,7 +49,7 @@ export default function Page() {
   const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
 
   // Get reports data
-  const [reportsData, isLoadingReports, refreshReports] = useData(
+  const [reportsData, isLoadingReports] = useData(
     getAllReports,
     () => {},
     currentPage,
@@ -94,6 +93,23 @@ export default function Page() {
           : "Please fill in all required fields",
         type: "warning",
         title: isAm ? "ማስጠንቀቂያ" : "Warning",
+      });
+      return;
+    }
+
+    // Check if the selected date is in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDateObj = new Date(reportDate);
+    selectedDateObj.setHours(0, 0, 0, 0);
+
+    if (selectedDateObj > today) {
+      showAlert({
+        message: isAm
+          ? "ለወደፊት ቀናት ሪፖርት መፍጠር አይችሉም። እባክዎ ዛሬን ወይም ያለፈውን ቀን ይምረጡ"
+          : "You cannot create reports for future dates. Please select today or a past date",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
       });
       return;
     }
@@ -157,7 +173,7 @@ export default function Page() {
           title: isAm ? "ስህተት" : "Error",
         });
       }
-    } catch (error) {
+    } catch {
       showAlert({
         message: isAm ? "ሪፖርት መፍጠር አልተሳካም" : "Failed to create report",
         type: "error",
@@ -469,14 +485,17 @@ export default function Page() {
 
                     // Auto-fill learning slot from student's room data
                     const studentData = studentsData?.data?.find(
-                      (student: any) => student.id === selected
-                    );
+                      (student: Record<string, unknown>) =>
+                        student.id === selected
+                    ) as Record<string, unknown> | undefined;
                     if (
                       studentData &&
-                      (studentData as any).roomStudent &&
-                      (studentData as any).roomStudent.length > 0
+                      Array.isArray(studentData.roomStudent) &&
+                      studentData.roomStudent.length > 0
                     ) {
-                      const roomTime = (studentData as any).roomStudent[0].time;
+                      const roomTime = (
+                        studentData.roomStudent[0] as Record<string, unknown>
+                      ).time as string;
                       setLearningSlot(roomTime || "");
                     } else {
                       setLearningSlot("");
@@ -490,23 +509,33 @@ export default function Page() {
                       : "",
                   }}
                 >
-                  {(studentsData?.data || []).map((student: any) => (
-                    <SelectItem key={student.id}>
-                      <div className="flex flex-col">
-                        <span>
-                          {student.firstName} {student.lastName} (@
-                          {student.username})
-                        </span>
-                        {student.roomStudent &&
-                          student.roomStudent.length > 0 && (
-                            <span className="text-xs text-purple-600 dark:text-purple-400">
-                              {isAm ? "ሰዓት" : "Time"}:{" "}
-                              {student.roomStudent[0].time}
-                            </span>
-                          )}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {(studentsData?.data || []).map(
+                    (student: Record<string, unknown>) => (
+                      <SelectItem key={student.id as string}>
+                        <div className="flex flex-col">
+                          <span>
+                            {student.firstName as string}{" "}
+                            {student.lastName as string} (@
+                            {student.username as string})
+                          </span>
+                          {Array.isArray(student.roomStudent) &&
+                            student.roomStudent.length > 0 && (
+                              <span className="text-xs text-purple-600 dark:text-purple-400">
+                                {isAm ? "ሰዓት" : "Time"}:{" "}
+                                {
+                                  (
+                                    student.roomStudent[0] as Record<
+                                      string,
+                                      unknown
+                                    >
+                                  ).time as string
+                                }
+                              </span>
+                            )}
+                        </div>
+                      </SelectItem>
+                    )
+                  )}
                 </Select>
               </div>
             )}
@@ -530,10 +559,11 @@ export default function Page() {
                     label={isAm ? "ቀን *" : "Date *"}
                     value={reportDate}
                     onChange={(e) => setReportDate(e.target.value)}
+                    max={new Date().toISOString().split("T")[0]}
                     description={
                       isAm
-                        ? "ሪፖርቱ የተሰራበትን ቀን ይምረጡ"
-                        : "Select the date for this report"
+                        ? "ለዛሬ ወይም ለያለፉ ቀናት ብቻ ሪፖርት መፍጠር ይችላሉ"
+                        : "You can only create reports for today or past dates"
                     }
                     classNames={{
                       input: reportDate

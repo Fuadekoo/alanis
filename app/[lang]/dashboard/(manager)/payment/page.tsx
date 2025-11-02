@@ -12,14 +12,8 @@ import {
   ModalFooter,
   Tabs,
   Tab,
-  Select,
-  SelectItem,
   Skeleton,
-  Card,
-  CardBody,
-  ScrollShadow,
   Chip,
-  Input,
 } from "@heroui/react";
 import {
   getMonthsPayment,
@@ -41,7 +35,6 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  Search as SearchIcon,
 } from "lucide-react";
 
 function Page() {
@@ -70,6 +63,9 @@ function Page() {
   const [unpaidYear, setUnpaidYear] = useState<number>(
     new Date().getFullYear()
   );
+  const [unpaidSearch, setUnpaidSearch] = useState("");
+  const [unpaidPage, setUnpaidPage] = useState(1);
+  const [unpaidPageSize, setUnpaidPageSize] = useState(10);
 
   const [dashboardData, isLoadingDashboard] = useData(
     paymentDashboard,
@@ -92,7 +88,7 @@ function Page() {
   const [yearsData, isLoadingYears] = useData(getYearsPayment, () => {});
 
   // Get unpaid students data
-  const [unpaidData, isLoadingUnpaid, refreshUnpaid] = useData(
+  const [unpaidData, isLoadingUnpaid] = useData(
     getUnpaidStudents,
     () => {},
     unpaidMonth,
@@ -253,6 +249,102 @@ function Page() {
       ),
     },
   ];
+
+  // Unpaid students columns
+  const unpaidColumns = [
+    {
+      key: "studentFullName",
+      label: t("deposit.studentName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {item.studentFullName}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            @{item.username}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "studentPhone",
+      label: t("deposit.studentPhone"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => (
+        <span className="text-gray-700 dark:text-gray-300">
+          {item.studentPhone}
+        </span>
+      ),
+    },
+    {
+      key: "teacherName",
+      label: t("deposit.teacherName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => (
+        <span className="text-gray-700 dark:text-gray-300">
+          {item.teacherName}
+        </span>
+      ),
+    },
+    {
+      key: "learningTime",
+      label: t("payment.learningTime") || "Learning Time",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => (
+        <span className="text-gray-700 dark:text-gray-300">
+          {item.learningTime}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: t("common.status"),
+      renderCell: () => (
+        <Chip color="danger" size="sm" variant="flat">
+          {t("payment.unpaid") || "Unpaid"}
+        </Chip>
+      ),
+    },
+  ];
+
+  // Map unpaid students data to table rows
+  const unpaidRows = (unpaidData?.data || [])
+    .filter((student) => {
+      if (!unpaidSearch) return true;
+      const searchLower = unpaidSearch.toLowerCase();
+      const fullName = `${student.firstName} ${student.fatherName || ""} ${
+        student.lastName
+      }`.toLowerCase();
+      const username = (student.username || "").toLowerCase();
+      const phone = (student.phoneNumber || "").toLowerCase();
+      return (
+        fullName.includes(searchLower) ||
+        username.includes(searchLower) ||
+        phone.includes(searchLower)
+      );
+    })
+    .map((student) => ({
+      key: student.id,
+      id: student.id,
+      studentFullName: `${student.firstName} ${student.fatherName || ""} ${
+        student.lastName
+      }`,
+      username: student.username || "N/A",
+      studentPhone: student.phoneNumber || "N/A",
+      teacherName:
+        student.roomStudent && student.roomStudent.length > 0
+          ? `${student.roomStudent[0].teacher.firstName} ${
+              student.roomStudent[0].teacher.fatherName || ""
+            } ${student.roomStudent[0].teacher.lastName}`
+          : "N/A",
+      learningTime:
+        student.roomStudent && student.roomStudent.length > 0
+          ? `${student.roomStudent[0].time || "N/A"} (${
+              student.roomStudent[0].duration || "N/A"
+            }h)`
+          : "N/A",
+    }));
 
   // Date filter handler
   const handleDateChange = ({
@@ -656,96 +748,65 @@ function Page() {
               </div>
 
               <div className="p-6 bg-white dark:bg-gray-900">
-                {isLoadingUnpaid ? (
-                  <Skeleton className="w-full h-96 rounded-xl" />
-                ) : unpaidData?.success && unpaidData.data ? (
-                  <ScrollShadow className="p-2 pb-20 bg-default-50/50 border border-default-100/20 rounded-xl grid gap-2 auto-rows-min xl:grid-cols-2">
-                    {unpaidData.data.length > 0 ? (
-                      unpaidData.data.map((student, i) => (
-                        <Card
-                          key={student.id}
-                          className="h-fit bg-default-50/30 backdrop-blur-sm border-2 border-danger-200 hover:border-danger-400 transition-all"
-                        >
-                          <CardBody className="p-2">
-                            {/* Line 1: Student Info */}
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className="w-6 h-6 rounded-full bg-danger/10 flex items-center justify-center text-danger font-bold text-xs shrink-0">
-                                {i + 1}
-                              </div>
-                              <Users className="size-3 text-primary shrink-0" />
-                              <span className="font-semibold text-sm">
-                                {student.firstName} {student.lastName}
-                              </span>
-                              <Chip
-                                size="sm"
-                                color="danger"
-                                variant="dot"
-                                className="ml-auto"
-                              >
-                                {t("payment.unpaid") || "Unpaid"}
-                              </Chip>
-                            </div>
+                {unpaidRows.length > 0 ? (
+                  <>
+                    <CustomTable
+                      columns={unpaidColumns}
+                      rows={unpaidRows}
+                      totalRows={unpaidRows.length}
+                      page={unpaidPage}
+                      pageSize={unpaidPageSize}
+                      onPageChange={setUnpaidPage}
+                      onPageSizeChange={(n) => {
+                        setUnpaidPageSize(n);
+                        setUnpaidPage(1);
+                      }}
+                      searchValue={unpaidSearch}
+                      onSearch={(val) => {
+                        setUnpaidSearch(val);
+                        setUnpaidPage(1);
+                      }}
+                      isLoading={isLoadingUnpaid}
+                    />
 
-                            {/* Line 2: Details */}
-                            <div className="flex items-center gap-2 text-xs">
-                              <span className="text-default-500">
-                                @{student.username}
-                              </span>
-                              {student.phoneNumber && (
-                                <>
-                                  <span className="text-default-400">•</span>
-                                  <span className="text-default-600">
-                                    {student.phoneNumber}
-                                  </span>
-                                </>
-                              )}
-                              {student.roomStudent &&
-                                student.roomStudent.length > 0 && (
-                                  <>
-                                    <span className="text-default-400 ml-auto">
-                                      •
-                                    </span>
-                                    <span className="text-default-600">
-                                      {student.roomStudent[0].teacher.firstName}{" "}
-                                      {student.roomStudent[0].teacher.lastName}
-                                    </span>
-                                  </>
-                                )}
-                            </div>
-                          </CardBody>
-                        </Card>
-                      ))
-                    ) : (
-                      <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center">
-                        <CheckCircle className="size-20 text-success-300 mb-4" />
-                        <h3 className="text-xl font-semibold text-success-600 mb-2">
-                          {t("payment.allPaid") || "All Students Paid!"}
-                        </h3>
-                        <p className="text-sm text-default-400 max-w-md">
-                          {t("payment.allStudentsPaidForMonth") ||
-                            `All active students have paid for ${getMonthName(
-                              unpaidMonth
-                            )} ${unpaidYear}`}
-                        </p>
+                    {/* Unpaid Summary */}
+                    <div className="mt-4 p-4 bg-danger/10 border border-danger/20 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-danger/20 rounded-lg">
+                          <AlertCircle className="h-5 w-5 text-danger-700 dark:text-danger-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-danger-700 dark:text-danger-400">
+                            {t("payment.unpaidCount") || "Unpaid Students"}:{" "}
+                            <span className="text-lg">
+                              {unpaidData?.totalCount || 0}
+                            </span>
+                          </p>
+                          <p className="text-xs text-danger-600 dark:text-danger-500">
+                            {t("payment.forMonth") || "for"}{" "}
+                            {getMonthName(unpaidMonth)} {unpaidYear}
+                          </p>
+                        </div>
                       </div>
-                    )}
-                  </ScrollShadow>
+                      <Chip color="danger" size="lg" variant="flat">
+                        {unpaidData?.totalCount || 0} /{" "}
+                        {unpaidData?.totalCount || 0}
+                      </Chip>
+                    </div>
+                  </>
+                ) : isLoadingUnpaid ? (
+                  <Skeleton className="w-full h-96 rounded-xl" />
                 ) : (
-                  <div className="text-center py-8">
-                    <p className="text-danger">
-                      {t("common.failedToLoad") || "Failed to load data"}
-                    </p>
-                  </div>
-                )}
-
-                {/* Unpaid Summary */}
-                {unpaidData?.success && unpaidData.data && (
-                  <div className="mt-4 p-4 bg-danger/10 border border-danger/20 rounded-lg">
-                    <p className="text-sm font-semibold text-danger-700 dark:text-danger-400">
-                      {t("payment.unpaidCount") || "Unpaid Students"}:{" "}
-                      <span className="text-lg">{unpaidData.totalCount}</span> /{" "}
-                      {t("payment.forMonth") || "for"}{" "}
-                      {getMonthName(unpaidMonth)} {unpaidYear}
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <CheckCircle className="size-20 text-success-300 mb-4" />
+                    <h3 className="text-xl font-semibold text-success-600 mb-2">
+                      {t("payment.allPaid") || "All Students Paid!"}
+                    </h3>
+                    <p className="text-sm text-default-400 max-w-md">
+                      {t("payment.allStudentsPaidForMonth") ||
+                        `All active students have paid for ${getMonthName(
+                          unpaidMonth
+                        )} ${unpaidYear}`}
                     </p>
                   </div>
                 )}

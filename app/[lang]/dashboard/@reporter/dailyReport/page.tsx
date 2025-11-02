@@ -109,7 +109,7 @@ export default function Page() {
           title: isAm ? "ስህተት" : "Error",
         });
       }
-    } catch (error) {
+    } catch {
       showAlert({
         message: isAm ? "ሪፖርት መፍጠር አልተሳካም" : "Failed to create report",
         type: "error",
@@ -141,7 +141,7 @@ export default function Page() {
           title: isAm ? "ስህተት" : "Error",
         });
       }
-    } catch (error) {
+    } catch {
       showAlert({
         message: isAm ? "ሪፖርት ማጽደቅ አልተሳካም" : "Failed to approve report",
         type: "error",
@@ -171,7 +171,7 @@ export default function Page() {
           title: isAm ? "ስህተት" : "Error",
         });
       }
-    } catch (error) {
+    } catch {
       showAlert({
         message: isAm ? "ሪፖርት መቃወም አልተሳካም" : "Failed to reject report",
         type: "error",

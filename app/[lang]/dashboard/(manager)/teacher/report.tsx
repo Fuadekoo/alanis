@@ -66,11 +66,11 @@ export function Report() {
     {
       key: "studentName",
       label: isAm ? "ተማሪ ስም" : "Student Name",
-      renderCell: (item: any) => (
+      renderCell: (item: Record<string, unknown>) => (
         <div className="flex flex-col">
-          <span className="font-medium">{item.studentName}</span>
+          <span className="font-medium">{item.studentName as string}</span>
           <span className="text-xs text-default-400">
-            @{item.studentUsername}
+            @{item.studentUsername as string}
           </span>
         </div>
       ),
@@ -86,43 +86,43 @@ export function Report() {
     {
       key: "learningCount",
       label: isAm ? "የመማሪያ ቀናት" : "Learning Days",
-      renderCell: (item: any) => (
+      renderCell: (item: Record<string, unknown>) => (
         <Chip color="success" size="sm" variant="flat">
-          {item.learningCount}
+          {item.learningCount as number}
         </Chip>
       ),
     },
     {
       key: "missingCount",
       label: isAm ? "የጠፋ ቀናት" : "Missing Days",
-      renderCell: (item: any) => (
+      renderCell: (item: Record<string, unknown>) => (
         <Chip color="danger" size="sm" variant="flat">
-          {item.missingCount}
+          {item.missingCount as number}
         </Chip>
       ),
     },
     {
       key: "totalCount",
       label: isAm ? "ጠቅላላ" : "Total",
-      renderCell: (item: any) => (
+      renderCell: (item: Record<string, unknown>) => (
         <Chip color="primary" size="sm" variant="flat">
-          {item.totalCount}
+          {item.totalCount as number}
         </Chip>
       ),
     },
     {
       key: "dailyReportsCount",
       label: isAm ? "ሪፖርቶች" : "Reports",
-      renderCell: (item: any) => (
+      renderCell: (item: Record<string, unknown>) => (
         <Chip color="secondary" size="sm" variant="flat">
-          {item.dailyReportsCount}
+          {item.dailyReportsCount as number}
         </Chip>
       ),
     },
     {
       key: "progressStatus",
       label: isAm ? "የሂደት ሁኔታ" : "Progress Status",
-      renderCell: (item: any) => (
+      renderCell: (item: Record<string, unknown>) => (
         <Chip
           color={item.progressStatus === "open" ? "success" : "default"}
           size="sm"
@@ -141,7 +141,7 @@ export function Report() {
     {
       key: "paymentStatus",
       label: isAm ? "የክፍያ ሁኔታ" : "Payment Status",
-      renderCell: (item: any) => (
+      renderCell: (item: Record<string, unknown>) => (
         <Chip
           color={
             item.paymentStatus === "approved"

@@ -1,10 +1,9 @@
 "use client";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Button,
   Card,
   CardBody,
-  CardHeader,
   Modal,
   ModalContent,
   ModalHeader,
@@ -32,6 +31,22 @@ import { paymentStatus } from "@prisma/client";
 import useAlert from "@/hooks/useAlert";
 import CustomAlert from "@/components/customAlert";
 
+interface TeacherSalaryData {
+  id?: string;
+  teacher: {
+    firstName: string;
+    fatherName: string;
+    lastName: string;
+  };
+  month: number;
+  year: number;
+  totalDayForLearning: number;
+  unitPrice?: number;
+  amount?: number;
+  status?: string;
+  [key: string]: unknown;
+}
+
 function Page() {
   const isAm = useAmharic();
   const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
@@ -41,7 +56,8 @@ function Page() {
     "approve" | "reject" | null
   >(null);
   const [selectedSalaryId, setSelectedSalaryId] = useState<string>("");
-  const [selectedSalaryData, setSelectedSalaryData] = useState<any>(null);
+  const [selectedSalaryData, setSelectedSalaryData] =
+    useState<TeacherSalaryData | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -197,7 +213,7 @@ function Page() {
   // Open confirmation modal
   const openConfirmModal = (
     salaryId: string,
-    salary: any,
+    salary: TeacherSalaryData,
     action: "approve" | "reject"
   ) => {
     setSelectedSalaryId(salaryId);
@@ -245,7 +261,7 @@ function Page() {
           title: isAm ? "ስህተት" : "Error",
         });
       }
-    } catch (error) {
+    } catch {
       showAlert({
         message: isAm ? "ደሞዝ ማዘመን አልተሳካም" : "Failed to update salary",
         type: "error",
@@ -291,44 +307,57 @@ function Page() {
     {
       key: "teacher",
       label: isAm ? "መምህር" : "Teacher",
-      renderCell: (item: any) => (
-        <span>
-          {item.teacher.firstName} {item.teacher.fatherName}{" "}
-          {item.teacher.lastName}
-        </span>
-      ),
+      renderCell: (item: Record<string, unknown>) => {
+        const teacher = item.teacher as Record<string, unknown>;
+        return (
+          <span>
+            {teacher.firstName as string} {teacher.fatherName as string}{" "}
+            {teacher.lastName as string}
+          </span>
+        );
+      },
     },
     {
       key: "month",
       label: isAm ? "ወር" : "Month",
-      renderCell: (item: any) => <span>{item.month}</span>,
+      renderCell: (item: Record<string, unknown>) => (
+        <span>{item.month as number}</span>
+      ),
     },
     {
       key: "year",
       label: isAm ? "ዓመት" : "Year",
-      renderCell: (item: any) => <span>{item.year}</span>,
+      renderCell: (item: Record<string, unknown>) => (
+        <span>{item.year as number}</span>
+      ),
     },
     {
       key: "totalDayForLearning",
       label: isAm ? "የመማሪያ ቀናት" : "Learning Days",
-      renderCell: (item: any) => <span>{item.totalDayForLearning}</span>,
+      renderCell: (item: Record<string, unknown>) => (
+        <span>{item.totalDayForLearning as number}</span>
+      ),
     },
     {
       key: "unitPrice",
       label: isAm ? "የአሃድ ዋጋ" : "Unit Price",
-      renderCell: (item: any) => <span>{item.unitPrice.toLocaleString()}</span>,
+      renderCell: (item: Record<string, unknown>) => (
+        <span>{(item.unitPrice as number).toLocaleString()}</span>
+      ),
     },
     {
       key: "amount",
       label: isAm ? "ጠቅላላ" : "Total Amount",
-      renderCell: (item: any) => (
-        <span className="font-semibold">{item.amount.toLocaleString()}</span>
+      renderCell: (item: Record<string, unknown>) => (
+        <span className="font-semibold">
+          {(item.amount as number).toLocaleString()}
+        </span>
       ),
     },
     {
       key: "status",
       label: isAm ? "ሁኔታ" : "Status",
-      renderCell: (item: any) => (
+      renderCell: (item: Record<string, unknown>) => (
         <span
           className={`px-2 py-1 rounded text-xs font-medium ${
             item.status === paymentStatus.approved
@@ -338,21 +367,21 @@ function Page() {
               : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
           }`}
         >
-          {item.status}
+          {item.status as string}
         </span>
       ),
     },
     {
       key: "createdAt",
       label: isAm ? "የተፈጠረበት ቀን" : "Created At",
-      renderCell: (item: any) => (
-        <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+      renderCell: (item: Record<string, unknown>) => (
+        <span>{new Date(item.createdAt as string).toLocaleDateString()}</span>
       ),
     },
     {
       key: "actions",
       label: isAm ? "ድርጊቶች" : "Actions",
-      renderCell: (item: any) => (
+      renderCell: (item: Record<string, unknown>) => (
         <div className="flex gap-2">
           {item.status === paymentStatus.pending && (
             <>
@@ -361,7 +390,13 @@ function Page() {
                 color="success"
                 variant="flat"
                 startContent={<Check className="size-3" />}
-                onPress={() => openConfirmModal(item.id, item, "approve")}
+                onPress={() =>
+                  openConfirmModal(
+                    item.id as string,
+                    item as TeacherSalaryData,
+                    "approve"
+                  )
+                }
               >
                 {isAm ? "ጸድቅ" : "Approve"}
               </Button>
@@ -370,7 +405,13 @@ function Page() {
                 color="danger"
                 variant="flat"
                 startContent={<X className="size-3" />}
-                onPress={() => openConfirmModal(item.id, item, "reject")}
+                onPress={() =>
+                  openConfirmModal(
+                    item.id as string,
+                    item as TeacherSalaryData,
+                    "reject"
+                  )
+                }
               >
                 {isAm ? "አትቀበል" : "Reject"}
               </Button>

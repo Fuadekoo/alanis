@@ -1,5 +1,4 @@
 import UserLayout from "@/components/layout/userLayout";
-import { url } from "inspector";
 import {
   BadgeDollarSignIcon,
   Calendar,
