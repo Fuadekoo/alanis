@@ -1,15 +1,12 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
-  Table,
-  TableHeader,
-  TableColumn,
-  TableBody,
-  TableRow,
-  TableCell,
-  getKeyValue,
-  Calendar,
-} from "@heroui/react";
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  ColumnDef,
+} from "@tanstack/react-table";
+import { Calendar } from "@heroui/react";
 import { parseDate } from "@internationalized/date";
 import {
   X,
@@ -24,7 +21,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 
-export interface ColumnDef<T> {
+export interface CustomColumnDef<T> {
   key: string;
   label: string;
   renderCell?: (item: T) => React.ReactNode;
@@ -36,7 +33,7 @@ interface CustomTableProps {
     Record<string, any> & { key?: string | number; id?: string | number }
   >;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  columns: Array<ColumnDef<Record<string, any>>>;
+  columns: Array<CustomColumnDef<Record<string, any>>>;
   totalRows: number;
   page: number;
   pageSize: number;
@@ -82,6 +79,96 @@ function CustomTable({
   // For search input local state
   const [localSearch, setLocalSearch] = useState(searchValue);
 
+  // Convert custom columns to TanStack Table format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tanstackColumns = useMemo<ColumnDef<Record<string, any>>[]>(() => {
+    return columns.map((col) => ({
+      id: col.key,
+      accessorKey: col.key,
+      header: col.label,
+      cell: ({ row }) => {
+        const item = row.original;
+
+        // Handle actions column with image preview
+        if (col.key === "actions") {
+          return (
+            <div className="flex items-center gap-2">
+              {col.renderCell ? col.renderCell(item) : null}
+              {item.photo && (
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 p-2 text-blue-600 dark:text-blue-400 transition-colors"
+                  onClick={() =>
+                    setZoomedImageUrl(`/api/filedata/${item.photo}`)
+                  }
+                  aria-label="View proof image"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          );
+        }
+
+        // Handle photo column with image display
+        if (
+          col.key === "photo" &&
+          typeof item.photo === "string" &&
+          item.photo
+        ) {
+          return (
+            <div className="relative w-16 h-16">
+              <Image
+                src={`/api/filedata/${item.photo}`}
+                alt={`Photo for ${item.id || item.key}`}
+                fill
+                className="object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() =>
+                  setZoomedImageUrl(`/api/filedata/${item.photo}`)
+                }
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = "none";
+                  const parent = target.parentElement;
+                  if (parent && !parent.querySelector(".no-preview-text")) {
+                    const errorText = document.createElement("span");
+                    errorText.textContent = "No preview";
+                    errorText.className =
+                      "text-xs text-gray-400 dark:text-gray-500 no-preview-text flex items-center justify-center h-full";
+                    parent.appendChild(errorText);
+                  }
+                }}
+              />
+            </div>
+          );
+        }
+
+        // Use custom renderCell if provided
+        if (col.renderCell) {
+          return col.renderCell(item);
+        }
+
+        // Default rendering
+        return (
+          <span className="truncate max-w-xs block">
+            {item[col.key] !== undefined && item[col.key] !== null
+              ? String(item[col.key])
+              : ""}
+          </span>
+        );
+      },
+    }));
+  }, [columns]);
+
+  // Create TanStack Table instance
+  const table = useReactTable({
+    data: rows,
+    columns: tanstackColumns,
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true,
+    pageCount: totalPages,
+  });
+
   const handleApplyDateFilter = () => {
     if (onDateChange) {
       onDateChange({ startDate: localStartDate, endDate: localEndDate });
@@ -98,20 +185,9 @@ function CustomTable({
     setShowDateFilter(false);
   };
 
-  const handleImageClick = (imageUrl: string) => {
-    setZoomedImageUrl(imageUrl);
-  };
-
   const handleCloseZoom = () => {
     setZoomedImageUrl(null);
   };
-
-  // Add a handler for showing image from actions
-  // const handleShowImage = (item: any) => {
-  //   if (item.photo) {
-  //     setZoomedImageUrl(`/api/filedata/${item.photo}`);
-  //   }
-  // };
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -265,124 +341,76 @@ function CustomTable({
 
       {/* Table Container */}
       <div className="overflow-x-auto">
-        <Table
-          aria-label="Data table with dynamic content"
-          className="min-w-full"
-        >
-          <TableHeader columns={columns}>
-            {(column) => (
-              <TableColumn
-                key={column.key}
-                className="bg-gray-50 dark:bg-gray-800/50 px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700"
-              >
-                {column.label}
-              </TableColumn>
-            )}
-          </TableHeader>
-          <TableBody
-            items={rows}
-            emptyContent={
-              !isLoading && rows.length === 0 ? (
-                <div className="text-center py-12">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-800/50">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider"
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            {isLoading ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="px-6 py-12 text-center"
+                >
+                  <div className="flex justify-center items-center gap-3 text-gray-500 dark:text-gray-400">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Loading data...</span>
+                  </div>
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="px-6 py-12 text-center"
+                >
                   <div className="text-gray-500 dark:text-gray-400 text-lg font-medium">
                     No data to display
                   </div>
                   <div className="text-gray-400 dark:text-gray-500 text-sm mt-1">
                     Try adjusting your search or filters
                   </div>
-                </div>
-              ) : null
-            }
-          >
-            {(item) => (
-              <TableRow
-                key={item.key || item.id}
-                className="hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 last:border-b-0 transition-colors"
-              >
-                {(columnKey) => {
-                  const column = columns.find((col) => col.key === columnKey);
-
-                  if (columnKey === "actions") {
-                    return (
-                      <TableCell className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                        <div className="flex items-center gap-2">
-                          {column && column.renderCell
-                            ? column.renderCell(item)
-                            : null}
-                          {item.photo && (
-                            <button
-                              type="button"
-                              className="inline-flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 p-2 text-blue-600 dark:text-blue-400 transition-colors"
-                              onClick={() =>
-                                setZoomedImageUrl(`/api/filedata/${item.photo}`)
-                              }
-                              aria-label="View proof image"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </TableCell>
-                    );
-                  }
-
-                  return (
-                    <TableCell className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                      {column && column.renderCell ? (
-                        column.renderCell(item)
-                      ) : columnKey === "photo" &&
-                        typeof item.photo === "string" &&
-                        item.photo ? (
-                        <div className="relative w-16 h-16">
-                          <Image
-                            src={`/api/filedata/${item.photo}`}
-                            alt={`Photo for ${item.id || item.key}`}
-                            fill
-                            className="object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() =>
-                              handleImageClick(`/api/filedata/${item.photo}`)
-                            }
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = "none";
-                              const parent = target.parentElement;
-                              if (
-                                parent &&
-                                !parent.querySelector(".no-preview-text")
-                              ) {
-                                const errorText =
-                                  document.createElement("span");
-                                errorText.textContent = "No preview";
-                                errorText.className =
-                                  "text-xs text-gray-400 dark:text-gray-500 no-preview-text flex items-center justify-center h-full";
-                                parent.appendChild(errorText);
-                              }
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <span className="truncate max-w-xs block">
-                          {getKeyValue(item, columnKey)}
-                        </span>
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap"
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
                       )}
-                    </TableCell>
-                  );
-                }}
-              </TableRow>
+                    </td>
+                  ))}
+                </tr>
+              ))
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
-
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex justify-center items-center p-8">
-          <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Loading data...</span>
-          </div>
-        </div>
-      )}
 
       {/* Pagination */}
       <div className="px-4 sm:px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
