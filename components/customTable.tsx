@@ -82,81 +82,103 @@ function CustomTable({
   // Convert custom columns to TanStack Table format
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tanstackColumns = useMemo<ColumnDef<Record<string, any>>[]>(() => {
-    return columns.map((col) => ({
-      id: col.key,
-      accessorKey: col.key,
-      header: col.label,
+    // Add row number column as the first column
+    const numberColumn: ColumnDef<Record<string, any>> = {
+      id: "#",
+      header: "#",
       cell: ({ row }) => {
-        const item = row.original;
-
-        // Handle actions column with image preview
-        if (col.key === "actions") {
-          return (
-            <div className="flex items-center gap-2">
-              {col.renderCell ? col.renderCell(item) : null}
-              {item.photo && (
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 p-2 text-blue-600 dark:text-blue-400 transition-colors"
-                  onClick={() =>
-                    setZoomedImageUrl(`/api/filedata/${item.photo}`)
-                  }
-                  aria-label="View proof image"
-                >
-                  <Eye className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          );
-        }
-
-        // Handle photo column with image display
-        if (
-          col.key === "photo" &&
-          typeof item.photo === "string" &&
-          item.photo
-        ) {
-          return (
-            <div className="relative w-16 h-16">
-              <Image
-                src={`/api/filedata/${item.photo}`}
-                alt={`Photo for ${item.id || item.key}`}
-                fill
-                className="object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => setZoomedImageUrl(`/api/filedata/${item.photo}`)}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = "none";
-                  const parent = target.parentElement;
-                  if (parent && !parent.querySelector(".no-preview-text")) {
-                    const errorText = document.createElement("span");
-                    errorText.textContent = "No preview";
-                    errorText.className =
-                      "text-xs text-gray-400 dark:text-gray-500 no-preview-text flex items-center justify-center h-full";
-                    parent.appendChild(errorText);
-                  }
-                }}
-              />
-            </div>
-          );
-        }
-
-        // Use custom renderCell if provided
-        if (col.renderCell) {
-          return col.renderCell(item);
-        }
-
-        // Default rendering
+        const rowIndex = row.index;
+        const rowNumber = (page - 1) * pageSize + rowIndex + 1;
         return (
-          <span className="truncate max-w-xs block">
-            {item[col.key] !== undefined && item[col.key] !== null
-              ? String(item[col.key])
-              : ""}
+          <span className="font-semibold text-gray-600 dark:text-gray-400">
+            {rowNumber}
           </span>
         );
       },
-    }));
-  }, [columns]);
+      size: 60,
+    };
+
+    return [
+      numberColumn,
+      ...columns.map((col) => ({
+        id: col.key,
+        accessorKey: col.key,
+        header: col.label,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        cell: ({ row }: any) => {
+          const item = row.original;
+
+          // Handle actions column with image preview
+          if (col.key === "actions") {
+            return (
+              <div className="flex items-center gap-2">
+                {col.renderCell ? col.renderCell(item) : null}
+                {item.photo && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 p-2 text-blue-600 dark:text-blue-400 transition-colors"
+                    onClick={() =>
+                      setZoomedImageUrl(`/api/filedata/${item.photo}`)
+                    }
+                    aria-label="View proof image"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            );
+          }
+
+          // Handle photo column with image display
+          if (
+            col.key === "photo" &&
+            typeof item.photo === "string" &&
+            item.photo
+          ) {
+            return (
+              <div className="relative w-16 h-16">
+                <Image
+                  src={`/api/filedata/${item.photo}`}
+                  alt={`Photo for ${item.id || item.key}`}
+                  fill
+                  className="object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() =>
+                    setZoomedImageUrl(`/api/filedata/${item.photo}`)
+                  }
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = "none";
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector(".no-preview-text")) {
+                      const errorText = document.createElement("span");
+                      errorText.textContent = "No preview";
+                      errorText.className =
+                        "text-xs text-gray-400 dark:text-gray-500 no-preview-text flex items-center justify-center h-full";
+                      parent.appendChild(errorText);
+                    }
+                  }}
+                />
+              </div>
+            );
+          }
+
+          // Use custom renderCell if provided
+          if (col.renderCell) {
+            return col.renderCell(item);
+          }
+
+          // Default rendering
+          return (
+            <span className="truncate max-w-xs block">
+              {item[col.key] !== undefined && item[col.key] !== null
+                ? String(item[col.key])
+                : ""}
+            </span>
+          );
+        },
+      })),
+    ];
+  }, [columns, page, pageSize]);
 
   // Create TanStack Table instance
   const table = useReactTable({
@@ -188,26 +210,26 @@ function CustomTable({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-default-200 dark:border-default-700 overflow-hidden">
       {/* Header with Search and Controls */}
-      <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+      <div className="p-3 sm:p-4 border-b border-default-200 dark:border-default-700">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3">
           {/* Search Section */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
+          <div className="flex items-center gap-2 flex-1">
             <form
-              className="flex items-center gap-2 w-full sm:w-auto"
+              className="flex items-center gap-2 flex-1 min-w-0"
               onSubmit={(e) => {
                 e.preventDefault();
                 onSearch(localSearch);
               }}
             >
-              <div className="relative flex w-full sm:w-80">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+              <div className="relative flex flex-1 min-w-0 max-w-md">
+                <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-default-400" />
                 </div>
                 <input
                   type="text"
-                  placeholder="Search records..."
+                  placeholder="Search..."
                   value={localSearch}
                   onChange={(e) => {
                     setLocalSearch(e.target.value);
@@ -215,7 +237,7 @@ function CustomTable({
                       onSearch("");
                     }
                   }}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 transition-colors"
+                  className="w-full pl-8 pr-8 py-2 text-sm border border-default-300 dark:border-default-600 rounded-lg bg-default-50 dark:bg-default-900 text-default-900 dark:text-default-100 placeholder-default-400 focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                   disabled={isLoading}
                 />
                 {localSearch && (
@@ -225,9 +247,9 @@ function CustomTable({
                       setLocalSearch("");
                       onSearch("");
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-default-400 hover:text-default-600 dark:hover:text-default-300 transition-colors"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
@@ -235,7 +257,7 @@ function CustomTable({
                 <button
                   type="button"
                   onClick={() => setShowDateFilter(true)}
-                  className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+                  className="px-3 py-2 text-sm border border-default-300 dark:border-default-600 rounded-lg bg-default-50 dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800 transition-colors flex items-center gap-1.5 shrink-0"
                   disabled={isLoading}
                 >
                   <Filter className="h-4 w-4" />
@@ -246,14 +268,14 @@ function CustomTable({
           </div>
 
           {/* Page Size Control */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-              page:
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs sm:text-sm text-default-600 dark:text-default-400 whitespace-nowrap">
+              Rows:
             </span>
             <select
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 transition-colors"
+              className="px-2 sm:px-3 py-2 text-sm border border-default-300 dark:border-default-600 rounded-lg bg-default-50 dark:bg-default-900 text-default-900 dark:text-default-100 focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
               disabled={isLoading}
             >
               {PAGE_SIZES.map((size) => (
@@ -339,14 +361,14 @@ function CustomTable({
 
       {/* Table Container */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-800/50">
+        <table className="min-w-full divide-y divide-default-200 dark:divide-default-700">
+          <thead className="bg-default-100 dark:bg-default-800/50">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider"
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-default-700 dark:text-default-400 uppercase tracking-wider whitespace-nowrap"
                   >
                     {header.isPlaceholder
                       ? null
@@ -359,23 +381,29 @@ function CustomTable({
               </tr>
             ))}
           </thead>
-          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-white dark:bg-gray-900 divide-y divide-default-200 dark:divide-default-700">
             {isLoading ? (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-12 text-center">
-                  <div className="flex justify-center items-center gap-3 text-gray-500 dark:text-gray-400">
+                <td
+                  colSpan={columns.length + 1}
+                  className="px-4 py-12 text-center"
+                >
+                  <div className="flex justify-center items-center gap-3 text-default-500">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Loading data...</span>
+                    <span className="text-sm">Loading data...</span>
                   </div>
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-12 text-center">
-                  <div className="text-gray-500 dark:text-gray-400 text-lg font-medium">
+                <td
+                  colSpan={columns.length + 1}
+                  className="px-4 py-12 text-center"
+                >
+                  <div className="text-default-500 text-base font-medium">
                     No data to display
                   </div>
-                  <div className="text-gray-400 dark:text-gray-500 text-sm mt-1">
+                  <div className="text-default-400 text-sm mt-1">
                     Try adjusting your search or filters
                   </div>
                 </td>
@@ -384,12 +412,12 @@ function CustomTable({
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  className="hover:bg-default-50 dark:hover:bg-default-800/30 transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
                       key={cell.id}
-                      className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap"
+                      className="px-3 sm:px-4 py-3 text-sm text-default-900 dark:text-default-100"
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
@@ -405,76 +433,76 @@ function CustomTable({
       </div>
 
       {/* Pagination */}
-      <div className="px-4 sm:px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="px-3 sm:px-4 py-3 border-t border-default-200 dark:border-default-700 bg-default-50 dark:bg-default-800/30">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* Results Info */}
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Showing{" "}
-            <span className="font-semibold text-gray-900 dark:text-gray-100">
+          <div className="text-xs sm:text-sm text-default-600 dark:text-default-400 order-2 sm:order-1">
+            <span className="hidden sm:inline">Showing </span>
+            <span className="font-semibold text-default-900 dark:text-default-100">
               {rows.length > 0
                 ? Math.min((page - 1) * pageSize + 1, totalRows)
                 : 0}
-            </span>{" "}
-            to{" "}
-            <span className="font-semibold text-gray-900 dark:text-gray-100">
+            </span>
+            {" - "}
+            <span className="font-semibold text-default-900 dark:text-default-100">
               {Math.min(page * pageSize, totalRows)}
-            </span>{" "}
-            of{" "}
-            <span className="font-semibold text-gray-900 dark:text-gray-100">
+            </span>
+            <span className="hidden sm:inline"> of </span>
+            <span className="sm:hidden"> / </span>
+            <span className="font-semibold text-default-900 dark:text-default-100">
               {totalRows}
-            </span>{" "}
-            results
+            </span>
           </div>
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 order-1 sm:order-2">
               {/* First Page */}
               <button
                 onClick={() => onPageChange(1)}
                 disabled={page === 1 || isLoading}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 sm:p-2 rounded-lg border border-default-300 dark:border-default-600 bg-white dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 aria-label="First page"
               >
-                <ChevronsLeft className="h-4 w-4" />
+                <ChevronsLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
 
               {/* Previous Page */}
               <button
                 onClick={() => onPageChange(Math.max(1, page - 1))}
                 disabled={page === 1 || isLoading}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 sm:p-2 rounded-lg border border-default-300 dark:border-default-600 bg-white dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 aria-label="Previous page"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
 
               {/* Page Numbers */}
-              <div className="flex items-center gap-1 mx-2">
+              <div className="flex items-center gap-1 mx-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter((pg) => {
-                    if (totalPages <= 7) return true;
-                    if (page <= 4) return pg <= 5 || pg === totalPages;
-                    if (page >= totalPages - 3)
-                      return pg >= totalPages - 4 || pg === 1;
+                    if (totalPages <= 5) return true;
+                    if (page <= 3) return pg <= 4 || pg === totalPages;
+                    if (page >= totalPages - 2)
+                      return pg >= totalPages - 3 || pg === 1;
                     return (
-                      Math.abs(pg - page) <= 2 || pg === 1 || pg === totalPages
+                      Math.abs(pg - page) <= 1 || pg === 1 || pg === totalPages
                     );
                   })
                   .map((pg, i, arr) => (
                     <React.Fragment key={pg}>
                       {i > 0 && pg - arr[i - 1] > 1 && (
-                        <span className="px-2 text-gray-400 dark:text-gray-500">
+                        <span className="px-1 text-default-400 text-xs">
                           ...
                         </span>
                       )}
                       <button
                         onClick={() => onPageChange(pg)}
                         disabled={isLoading}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                           pg === page
-                            ? "bg-blue-600 text-white"
-                            : "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            ? "bg-primary text-white"
+                            : "border border-default-300 dark:border-default-600 bg-white dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800"
                         } disabled:cursor-not-allowed`}
                       >
                         {pg}
@@ -487,20 +515,20 @@ function CustomTable({
               <button
                 onClick={() => onPageChange(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages || isLoading}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 sm:p-2 rounded-lg border border-default-300 dark:border-default-600 bg-white dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 aria-label="Next page"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
 
               {/* Last Page */}
               <button
                 onClick={() => onPageChange(totalPages)}
                 disabled={page === totalPages || isLoading}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 sm:p-2 rounded-lg border border-default-300 dark:border-default-600 bg-white dark:bg-default-900 text-default-700 dark:text-default-300 hover:bg-default-100 dark:hover:bg-default-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 aria-label="Last page"
               >
-                <ChevronsRight className="h-4 w-4" />
+                <ChevronsRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
             </div>
           )}
