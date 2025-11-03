@@ -602,19 +602,18 @@ export default function Page() {
                   {(teacher: {
                     id: string;
                     firstName: string;
+                    fatherName: string;
                     lastName: string;
                     username: string;
                   }) => (
                     <AutocompleteItem
                       key={teacher.id}
-                      textValue={`${teacher.firstName} ${teacher.lastName}`}
+                      textValue={`${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`}
                     >
                       <div className="flex flex-col">
                         <span className="font-medium">
-                          {teacher.firstName} {teacher.lastName}
-                        </span>
-                        <span className="text-xs text-default-400">
-                          @{teacher.username}
+                          {teacher.firstName} {teacher.fatherName}{" "}
+                          {teacher.lastName}
                         </span>
                       </div>
                     </AutocompleteItem>
@@ -690,6 +689,7 @@ export default function Page() {
                   {(student: {
                     id: string;
                     firstName: string;
+                    fatherName: string;
                     lastName: string;
                     username: string;
                     roomStudent?: Array<{ time: string; teacherId: string }>;
@@ -704,14 +704,12 @@ export default function Page() {
                     return (
                       <AutocompleteItem
                         key={student.id}
-                        textValue={`${student.firstName} ${student.lastName}`}
+                        textValue={`${student.firstName} ${student.fatherName} ${student.lastName}`}
                       >
                         <div className="flex flex-col py-1">
                           <span className="font-medium">
-                            {student.firstName} {student.lastName}
-                          </span>
-                          <span className="text-xs text-default-400">
-                            @{student.username}
+                            {student.firstName} {student.fatherName}{" "}
+                            {student.lastName}
                           </span>
                           {teacherRoom && (
                             <span className="text-xs text-primary mt-1 flex items-center gap-1">
