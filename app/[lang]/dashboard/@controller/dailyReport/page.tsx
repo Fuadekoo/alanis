@@ -8,6 +8,8 @@ import {
   Input,
   Select,
   SelectItem,
+  Autocomplete,
+  AutocompleteItem,
   Skeleton,
   Chip,
   Modal,
@@ -555,28 +557,57 @@ export default function Page() {
                       : "Choose a teacher to create a report for"}
                   </p>
                 </div>
-                <Select
-                  placeholder={isAm ? "መምህር ይምረጡ" : "Select Teacher"}
-                  selectedKeys={selectedTeacher ? [selectedTeacher] : []}
-                  onSelectionChange={(keys) => {
-                    const selected = Array.from(keys)[0] as string;
-                    setSelectedTeacher(selected);
+                <Autocomplete
+                  placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
+                  selectedKey={selectedTeacher}
+                  onSelectionChange={(key: React.Key | null) => {
+                    setSelectedTeacher(key as string);
                   }}
                   isLoading={isLoadingTeachers}
-                  label={isAm ? "መምህር" : "Teacher"}
+                  label={isAm ? "መምህር *" : "Teacher *"}
+                  defaultItems={teachersData?.data || []}
+                  listboxProps={{
+                    emptyContent: isAm
+                      ? "ምንም መምህር አልተገኘም"
+                      : "No teachers found",
+                  }}
                   classNames={{
-                    trigger: selectedTeacher
-                      ? "border-2 border-blue-300 dark:border-blue-600"
+                    base: selectedTeacher
+                      ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
                       : "",
                   }}
+                  description={
+                    selectedTeacher
+                      ? isAm
+                        ? "✓ መምህር ተመርጧል"
+                        : "✓ Teacher selected"
+                      : isAm
+                      ? "መምህርን ለመፈለግ መታየብ ይጀምሩ"
+                      : "Start typing to search for teachers"
+                  }
+                  isClearable
                 >
-                  {(teachersData?.data || []).map((teacher) => (
-                    <SelectItem key={teacher.id}>
-                      {teacher.firstName} {teacher.lastName} (@
-                      {teacher.username})
-                    </SelectItem>
-                  ))}
-                </Select>
+                  {(teacher: {
+                    id: string;
+                    firstName: string;
+                    lastName: string;
+                    username: string;
+                  }) => (
+                    <AutocompleteItem
+                      key={teacher.id}
+                      textValue={`${teacher.firstName} ${teacher.lastName}`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-medium">
+                          {teacher.firstName} {teacher.lastName}
+                        </span>
+                        <span className="text-xs text-default-400">
+                          @{teacher.username}
+                        </span>
+                      </div>
+                    </AutocompleteItem>
+                  )}
+                </Autocomplete>
               </div>
             )}
 
@@ -593,67 +624,94 @@ export default function Page() {
                       : "Choose the student for this report"}
                   </p>
                 </div>
-                <Select
-                  placeholder={isAm ? "ተማሪ ይምረጡ" : "Select Student"}
-                  selectedKeys={selectedStudent ? [selectedStudent] : []}
-                  onSelectionChange={(keys) => {
-                    const selected = Array.from(keys)[0] as string;
-                    setSelectedStudent(selected);
+                <Autocomplete
+                  placeholder={isAm ? "ተማሪ ይፈልጉ..." : "Search for student..."}
+                  selectedKey={selectedStudent}
+                  onSelectionChange={(key: React.Key | null) => {
+                    setSelectedStudent(key as string);
 
-                    // Auto-fill learning slot from student's room data
+                    // Auto-fill learning slot from student's room data FOR THE SELECTED TEACHER
                     const studentData = studentsData?.data?.find(
-                      (student: Record<string, unknown>) =>
-                        student.id === selected
+                      (student: Record<string, unknown>) => student.id === key
                     ) as Record<string, unknown> | undefined;
-                    if (
-                      studentData &&
-                      Array.isArray(studentData.roomStudent) &&
-                      studentData.roomStudent.length > 0
-                    ) {
-                      const roomTime = (
-                        studentData.roomStudent[0] as Record<string, unknown>
-                      ).time as string;
-                      setLearningSlot(roomTime || "");
+
+                    if (studentData && Array.isArray(studentData.roomStudent)) {
+                      // Find the room that matches the selected teacher
+                      const teacherRoom = studentData.roomStudent.find(
+                        (room: Record<string, unknown>) =>
+                          room.teacherId === selectedTeacher
+                      ) as Record<string, unknown> | undefined;
+
+                      if (teacherRoom) {
+                        setLearningSlot((teacherRoom.time as string) || "");
+                      } else {
+                        setLearningSlot("");
+                      }
                     } else {
                       setLearningSlot("");
                     }
                   }}
                   isLoading={isLoadingStudents}
-                  label={isAm ? "ተማሪ" : "Student"}
+                  label={isAm ? "ተማሪ *" : "Student *"}
+                  defaultItems={studentsData?.data || []}
+                  listboxProps={{
+                    emptyContent: isAm
+                      ? "ምንም ተማሪ አልተገኘም"
+                      : "No students found for this teacher",
+                  }}
                   classNames={{
-                    trigger: selectedStudent
-                      ? "border-2 border-blue-300 dark:border-blue-600"
+                    base: selectedStudent
+                      ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
                       : "",
                   }}
+                  description={
+                    selectedStudent
+                      ? isAm
+                        ? "✓ ተማሪ ተመርጧል"
+                        : "✓ Student selected"
+                      : isAm
+                      ? "ተማሪውን ለመፈለግ መታየብ ይጀምሩ"
+                      : "Start typing to search for students"
+                  }
+                  isClearable
                 >
-                  {(studentsData?.data || []).map(
-                    (student: Record<string, unknown>) => (
-                      <SelectItem key={student.id as string}>
-                        <div className="flex flex-col">
-                          <span>
-                            {student.firstName as string}{" "}
-                            {student.lastName as string} (@
-                            {student.username as string})
+                  {(student: {
+                    id: string;
+                    firstName: string;
+                    lastName: string;
+                    username: string;
+                    roomStudent?: Array<{ time: string; teacherId: string }>;
+                  }) => {
+                    // Find the room for the selected teacher
+                    const teacherRoom = Array.isArray(student.roomStudent)
+                      ? student.roomStudent.find(
+                          (room) => room.teacherId === selectedTeacher
+                        )
+                      : undefined;
+
+                    return (
+                      <AutocompleteItem
+                        key={student.id}
+                        textValue={`${student.firstName} ${student.lastName}`}
+                      >
+                        <div className="flex flex-col py-1">
+                          <span className="font-medium">
+                            {student.firstName} {student.lastName}
                           </span>
-                          {Array.isArray(student.roomStudent) &&
-                            student.roomStudent.length > 0 && (
-                              <span className="text-xs text-purple-600 dark:text-purple-400">
-                                {isAm ? "ሰዓት" : "Time"}:{" "}
-                                {
-                                  (
-                                    student.roomStudent[0] as Record<
-                                      string,
-                                      unknown
-                                    >
-                                  ).time as string
-                                }
-                              </span>
-                            )}
+                          <span className="text-xs text-default-400">
+                            @{student.username}
+                          </span>
+                          {teacherRoom && (
+                            <span className="text-xs text-primary mt-1 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                              {isAm ? "ሰዓት" : "Time"}: {teacherRoom.time}
+                            </span>
+                          )}
                         </div>
-                      </SelectItem>
-                    )
-                  )}
-                </Select>
+                      </AutocompleteItem>
+                    );
+                  }}
+                </Autocomplete>
               </div>
             )}
 

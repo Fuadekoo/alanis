@@ -22,6 +22,10 @@ import {
 import { Button as HButton, ButtonGroup as HButtonGroup } from "@heroui/button";
 import { Input as HInput, Textarea as HTextarea } from "@heroui/input";
 import { Select as HSelect, SelectItem as HSelectItem } from "@heroui/select";
+import {
+  Autocomplete as HAutocomplete,
+  AutocompleteItem as HAutocompleteItem,
+} from "@heroui/autocomplete";
 import { ScrollShadow as HScrollShadow } from "@heroui/scroll-shadow";
 import { Pagination as HPagination } from "@heroui/pagination";
 import { Link as HLink } from "@heroui/link";
@@ -96,6 +100,8 @@ export const Input = HInput;
 export const Textarea = HTextarea;
 export const Select = HSelect;
 export const SelectItem = HSelectItem;
+export const Autocomplete = HAutocomplete;
+export const AutocompleteItem = HAutocompleteItem;
 export const Modal = HModal;
 export const ModalContent = HModalContent;
 export const ModalHeader = HModalHeader;
