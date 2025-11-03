@@ -1,7 +1,7 @@
 import useAmharic from "@/hooks/useAmharic";
 import RegistrationModal from "./registratioModal";
 import useData from "@/hooks/useData";
-import { Input, Select, SelectItem } from "./ui/heroui";
+import { Input, Autocomplete, AutocompleteItem } from "./ui/heroui";
 import { TimeInput } from "@heroui/react";
 import { parseTime } from "@internationalized/date";
 import { UseRegistration } from "@/hooks/useRegistration";
@@ -33,15 +33,54 @@ export function AssignRoom({
       {...registration}
       title={isAm ? "ክፍል ምደባ" : "Assign Room"}
     >
-      <Select label={title} {...registration.register(idTitle as "id")}>
-        {[...(data ?? [])].map(({ id, firstName, fatherName, lastName }) => (
-          <SelectItem key={id}>
-            {`${firstName} ${fatherName} ${lastName}`}
-          </SelectItem>
-        ))}
-      </Select>
+      <Autocomplete
+        label={title}
+        placeholder={isAm ? "ፈልግ..." : "Search..."}
+        selectedKey={registration.watch(idTitle as "id") || null}
+        onSelectionChange={(key) => {
+          registration.setValue(idTitle as "id", key as string);
+        }}
+        defaultItems={data ?? []}
+        variant="bordered"
+        isClearable
+        listboxProps={{
+          emptyContent: isAm ? "አልተገኘም" : "Not found",
+        }}
+        description={
+          registration.watch(idTitle as "id")
+            ? isAm
+              ? "✓ ተመርጧል"
+              : "✓ Selected"
+            : isAm
+            ? "ለመፈለግ መታየብ ይጀምሩ"
+            : "Start typing to search"
+        }
+        classNames={{
+          base: registration.watch(idTitle as "id")
+            ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
+            : "",
+        }}
+      >
+        {(item: {
+          id: string;
+          firstName: string;
+          fatherName: string;
+          lastName: string;
+        }) => (
+          <AutocompleteItem
+            key={item.id}
+            textValue={`${item.firstName} ${item.fatherName} ${item.lastName}`}
+          >
+            <div className="flex flex-col py-1">
+              <span className="font-medium">
+                {item.firstName} {item.fatherName} {item.lastName}
+              </span>
+            </div>
+          </AutocompleteItem>
+        )}
+      </Autocomplete>
       <TimeInput
-        className="w-60 "
+        className="w-60"
         label={isAm ? "ሰዓት" : "Time"}
         value={parseTime(registration.watch("time"))}
         onChange={(v) => {
@@ -51,8 +90,9 @@ export function AssignRoom({
         }}
       />
       <Input
-        className="w-60 "
+        className="w-60"
         label={isAm ? "ቆይታ" : "Duration"}
+        variant="bordered"
         {...registration.register("duration")}
       />
     </RegistrationModal>
