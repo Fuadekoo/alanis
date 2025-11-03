@@ -52,12 +52,6 @@ export default async function Layout({
         Icon: <Calendar className="size-6" />,
       },
       {
-        english: "change Teacher",
-        amharic: "መሚሂር ቀዪር",
-        url: "changeTeacher",
-        Icon: <User className="size-6" />,
-      },
-      {
         english: "attendance",
         amharic: "አቴንዳንስ",
         url: "attendance",
