@@ -91,10 +91,21 @@ export default function Page() {
   };
 
   const handleCreateReport = async () => {
+    // Check if learning slot was auto-filled from room data
+    if (!learningSlot) {
+      showAlert({
+        message: isAm
+          ? "የትምህርት ሰዓት አልተገኘም። እባክዎ ለዚህ መምህር እና ተማሪ የክፍል ምደባ (room assignment) እንዳለ ያረጋግጡ።"
+          : "Learning time not found. Please ensure there is a room assignment for this teacher and student.",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+      return;
+    }
+
     if (
       !selectedStudent ||
       !selectedTeacher ||
-      !learningSlot ||
       !reportDate ||
       !learningProgress
     ) {
@@ -742,31 +753,12 @@ export default function Page() {
                     }
                     classNames={{
                       input: reportDate
-                        ? "border-2 border-blue-300 dark:border-blue-600"
+                        ? "border-2 border-success-300 dark:border-success-600"
                         : "",
                     }}
                   />
 
-                  <Input
-                    label={isAm ? "የትምህርት ሰላት" : "Learning Slot"}
-                    placeholder={
-                      isAm ? "የትምህርት ሰላት ያስገቡ" : "Enter learning slot"
-                    }
-                    value={learningSlot}
-                    onChange={(e) => setLearningSlot(e.target.value)}
-                    description={
-                      learningSlot
-                        ? isAm
-                          ? "ሰዓቱ ራሱን ችሎ ተሞልቷል"
-                          : "Auto-filled from student's schedule"
-                        : ""
-                    }
-                    classNames={{
-                      input: learningSlot
-                        ? "border-2 border-green-300 dark:border-green-600"
-                        : "",
-                    }}
-                  />
+                  {/* Learning Slot is hidden - auto-filled in background from room data */}
 
                   <Select
                     label={isAm ? "የትምህርት ሁኔታ *" : "Learning Status *"}
@@ -780,35 +772,54 @@ export default function Page() {
                       setLearningProgress(selected);
                     }}
                     description={
-                      isAm
+                      learningProgress
+                        ? isAm
+                          ? "✓ ሁኔታ ተመርጧል"
+                          : "✓ Status selected"
+                        : isAm
                         ? "ተማሪው በትምህርቱ ላይ ሁኔታውን ይምረጡ"
                         : "Select the student's attendance status"
                     }
                     classNames={{
                       trigger: learningProgress
-                        ? "border-2 border-blue-300 dark:border-blue-600"
+                        ? "border-2 border-success-300 dark:border-success-600"
                         : "",
+                      value: "text-foreground",
                     }}
+                    disallowEmptySelection
                   >
-                    <SelectItem key="present">
+                    <SelectItem key="present" textValue="Present">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-green-500"></span>
                         <span>{isAm ? "ተገኝቷል" : "Present"}</span>
                       </div>
                     </SelectItem>
-                    <SelectItem key="absent">
+                    <SelectItem key="absent" textValue="Absent">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-red-500"></span>
                         <span>{isAm ? "ጠፍቷል" : "Absent"}</span>
                       </div>
                     </SelectItem>
-                    <SelectItem key="permission">
+                    <SelectItem key="permission" textValue="Permission">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                         <span>{isAm ? "ፈቃድ" : "Permission"}</span>
                       </div>
                     </SelectItem>
                   </Select>
+
+                  {/* Show auto-filled info */}
+                  {learningSlot && (
+                    <div className="p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
+                      <p className="text-sm text-primary-700 dark:text-primary-300 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary-500"></span>
+                        <span>
+                          {isAm ? "የትምህርት ሰዓት" : "Learning Time"}:{" "}
+                          <strong>{learningSlot}</strong>
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
