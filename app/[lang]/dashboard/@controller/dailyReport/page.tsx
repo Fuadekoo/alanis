@@ -311,6 +311,7 @@ export default function Page() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             startContent={<Search className="size-4" />}
+            variant="bordered"
             className="flex-1"
           />
           <Button
@@ -746,6 +747,7 @@ export default function Page() {
                     value={reportDate}
                     onChange={(e) => setReportDate(e.target.value)}
                     max={new Date().toISOString().split("T")[0]}
+                    variant="bordered"
                     description={
                       isAm
                         ? "ለዛሬ ወይም ለያለፉ ቀናት ብቻ ሪፖርት መፍጠር ይችላሉ"
