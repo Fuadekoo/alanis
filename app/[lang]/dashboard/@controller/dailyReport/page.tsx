@@ -208,8 +208,8 @@ export default function Page() {
 
   const handleDeleteClick = (report: {
     id: string;
-    student: { firstName: string; lastName: string };
-    activeTeacher: { firstName: string; lastName: string };
+    student: { firstName: string; fatherName: string; lastName: string };
+    activeTeacher: { firstName: string; fatherName: string; lastName: string };
     date: string | Date;
     teacherProgress: { progressStatus: string } | null;
     shiftTeacherDataId?: string | null;
@@ -252,8 +252,8 @@ export default function Page() {
 
     setReportToDelete({
       id: report.id,
-      studentName: `${report.student.firstName} ${report.student.lastName}`,
-      teacherName: `${report.activeTeacher.firstName} ${report.activeTeacher.lastName}`,
+      studentName: `${report.student.firstName} ${report.student.fatherName} ${report.student.lastName}`,
+      teacherName: `${report.activeTeacher.firstName} ${report.activeTeacher.fatherName} ${report.activeTeacher.lastName}`,
       date: new Date(report.date).toLocaleDateString(),
     });
     setIsDeleteModalOpen(true);
@@ -353,14 +353,14 @@ export default function Page() {
                       <User className="size-3 text-primary shrink-0" />
                       <span className="font-semibold text-sm">
                         {highlight(
-                          `${report.student.firstName} ${report.student.lastName}`,
+                          `${report.student.firstName} ${report.student.fatherName} ${report.student.lastName}`,
                           search
                         )}
                       </span>
                       <BookOpen className="size-3 text-secondary shrink-0 ml-auto" />
                       <span className="text-xs text-default-600">
                         {highlight(
-                          `${report.activeTeacher.firstName} ${report.activeTeacher.lastName}`,
+                          `${report.activeTeacher.firstName} ${report.activeTeacher.fatherName} ${report.activeTeacher.lastName}`,
                           search
                         )}
                       </span>

@@ -12,6 +12,8 @@ import {
   Input,
   Select,
   SelectItem,
+  Autocomplete,
+  AutocompleteItem,
   Skeleton,
 } from "@/components/ui/heroui";
 import { Plus, Calculator, Check, X, AlertTriangle } from "lucide-react";
@@ -501,23 +503,56 @@ function Page() {
               {teachersLoading ? (
                 <Skeleton className="h-10 rounded-lg" />
               ) : (
-                <Select
-                  placeholder={isAm ? "መምህር ይምረጡ" : "Select Teacher"}
-                  selectedKeys={selectedTeacher ? [selectedTeacher] : []}
-                  onSelectionChange={(keys) => {
-                    const selected = Array.from(keys)[0] as string;
-                    setSelectedTeacher(selected || "");
+                <Autocomplete
+                  placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
+                  selectedKey={selectedTeacher || null}
+                  onSelectionChange={(key: React.Key | null) => {
+                    setSelectedTeacher((key as string) || "");
                     setSelectedTeacherProgress(new Set());
                     setSelectedShiftTeacherData(new Set());
                   }}
+                  defaultItems={teachers || []}
+                  variant="bordered"
+                  isClearable
+                  listboxProps={{
+                    emptyContent: isAm
+                      ? "ምንም መምህር አልተገኘም"
+                      : "No teachers found",
+                  }}
+                  description={
+                    selectedTeacher
+                      ? isAm
+                        ? "✓ መምህር ተመርጧል"
+                        : "✓ Teacher selected"
+                      : isAm
+                      ? "ለመፈለግ መታየብ ይጀምሩ"
+                      : "Start typing to search"
+                  }
+                  classNames={{
+                    base: selectedTeacher
+                      ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
+                      : "",
+                  }}
                 >
-                  {(teachers || []).map((teacher) => (
-                    <SelectItem key={teacher.id}>
-                      {teacher.firstName} {teacher.fatherName}{" "}
-                      {teacher.lastName}
-                    </SelectItem>
-                  ))}
-                </Select>
+                  {(teacher: {
+                    id: string;
+                    firstName: string;
+                    fatherName: string;
+                    lastName: string;
+                  }) => (
+                    <AutocompleteItem
+                      key={teacher.id}
+                      textValue={`${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`}
+                    >
+                      <div className="flex flex-col py-1">
+                        <span className="font-medium">
+                          {teacher.firstName} {teacher.fatherName}{" "}
+                          {teacher.lastName}
+                        </span>
+                      </div>
+                    </AutocompleteItem>
+                  )}
+                </Autocomplete>
               )}
             </div>
 
@@ -620,12 +655,13 @@ function Page() {
                     return (
                       <SelectItem
                         key={tp.id}
-                        textValue={`${tp.student.firstName} ${tp.student.lastName} - ${tp.learningCount} days`}
+                        textValue={`${tp.student.firstName} ${tp.student.fatherName} ${tp.student.lastName} - ${tp.learningCount} days`}
                       >
                         <div className="flex flex-col gap-1 py-1">
                           <div className="flex items-center justify-between">
                             <span className="font-medium">
-                              {tp.student.firstName} {tp.student.lastName}
+                              {tp.student.firstName} {tp.student.fatherName}{" "}
+                              {tp.student.lastName}
                             </span>
                             <span className="text-xs text-gray-500">
                               {formattedDate}
@@ -732,12 +768,13 @@ function Page() {
                     return (
                       <SelectItem
                         key={std.id}
-                        textValue={`${std.student.firstName} ${std.student.lastName} - ${std.learningCount} days`}
+                        textValue={`${std.student.firstName} ${std.student.fatherName} ${std.student.lastName} - ${std.learningCount} days`}
                       >
                         <div className="flex flex-col gap-1 py-1">
                           <div className="flex items-center justify-between">
                             <span className="font-medium">
-                              {std.student.firstName} {std.student.lastName}
+                              {std.student.firstName} {std.student.fatherName}{" "}
+                              {std.student.lastName}
                             </span>
                             <span className="text-xs text-gray-500">
                               {formattedDate}
