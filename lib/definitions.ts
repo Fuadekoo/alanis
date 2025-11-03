@@ -1,4 +1,4 @@
-export type MutationState = { status: boolean; message?: string };
+export type MutationState = { status: boolean; message: string };
 
 export type Filter = {
   search: string;
