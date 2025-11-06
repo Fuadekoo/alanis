@@ -1,536 +1,340 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Button,
   Card,
   CardBody,
   CardHeader,
   Input,
-  Select,
-  SelectItem,
+  Autocomplete,
+  AutocompleteItem,
   Skeleton,
   Chip,
+  ScrollShadow,
 } from "@/components/ui/heroui";
 import {
-  getAllReports,
-  getStudentsForReport,
-  getTeachersForReport,
-  createReport,
-  updateReportStatus,
-} from "@/actions/controller/report";
-import { Search, Plus, Check, X, Calendar, User, BookOpen } from "lucide-react";
+  getTeacherMonthlyCalendar,
+  getTeachersWithControllers,
+} from "@/actions/manager/reporter";
+import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import useData from "@/hooks/useData";
-import { highlight } from "@/lib/utils";
-import PaginationPlace from "@/components/paginationPlace";
 import useAmharic from "@/hooks/useAmharic";
 import useAlert from "@/hooks/useAlert";
 import CustomAlert from "@/components/customAlert";
 
 export default function Page() {
-  const [step, setStep] = useState(1); // 1: Select Teacher, 2: Select Student, 3: Fill Details
-  const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedStudent, setSelectedStudent] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState("");
-  const [learningSlot, setLearningSlot] = useState("");
-  const [learningProgress, setLearningProgress] = useState<
-    "present" | "absent" | "permission"
-  >("present");
-  const [isCreating, setIsCreating] = useState(false);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
 
   const isAm = useAmharic();
   const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
 
-  // Get reports data
-  const [reportsData, isLoadingReports] = useData(
-    getAllReports,
-    () => {},
-    currentPage,
-    10,
-    search
-  );
-
-  // Get students for selection - only when teacher is selected
-  const [studentsData, isLoadingStudents] = useData(
-    getStudentsForReport,
-    () => {},
-    selectedTeacher || ""
-  );
-
-  // Get teachers for selection
+  // Get teachers with controllers
   const [teachersData, isLoadingTeachers] = useData(
-    getTeachersForReport,
+    getTeachersWithControllers,
     () => {}
   );
 
-  const handleCreateReport = async () => {
-    if (!selectedStudent || !selectedTeacher || !learningSlot) {
-      showAlert({
-        message: isAm
-          ? "እባክዎ ሁሉንም መስኮች ይሙሉ"
-          : "Please fill in all required fields",
-        type: "warning",
-        title: isAm ? "ማስጠንቀቂያ" : "Warning",
-      });
-      return;
-    }
+  // Get calendar data when teacher is selected
+  const [calendarData, isLoadingCalendar, refreshCalendar] = useData(
+    getTeacherMonthlyCalendar,
+    () => {},
+    selectedTeacher || "",
+    year,
+    month
+  );
 
-    setIsCreating(true);
-    try {
-      const result = await createReport({
-        studentId: selectedStudent,
-        activeTeacherId: selectedTeacher,
-        learningSlot,
-        learningProgress,
-      });
-
-      if (result.success) {
-        showAlert({
-          message: isAm
-            ? "ሪፖርት በተሳካ ሁኔታ ተፈጥሯል!"
-            : "Report created successfully!",
-          type: "success",
-          title: isAm ? "ተሳክቷል" : "Success",
-        });
-        setStep(0);
-        setSelectedStudent("");
-        setSelectedTeacher("");
-        setLearningSlot("");
-        setLearningProgress("present");
-        // Refresh reports data
-        window.location.reload();
-      } else {
-        showAlert({
-          message:
-            result.error ||
-            (isAm ? "ሪፖርት መፍጠር አልተሳካም" : "Failed to create report"),
-          type: "error",
-          title: isAm ? "ስህተት" : "Error",
-        });
-      }
-    } catch {
-      showAlert({
-        message: isAm ? "ሪፖርት መፍጠር አልተሳካም" : "Failed to create report",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-    } finally {
-      setIsCreating(false);
+  // Helper functions for month navigation
+  const handlePreviousMonth = () => {
+    if (month === 1) {
+      setMonth(12);
+      setYear(year - 1);
+    } else {
+      setMonth(month - 1);
     }
   };
 
-  const handleApproveReport = async (reportId: string) => {
-    try {
-      const result = await updateReportStatus(reportId, "approved");
-      if (result.success) {
-        showAlert({
-          message: isAm
-            ? "ሪፖርት በተሳካ ሁኔታ ጸድቋል!"
-            : "Report approved successfully!",
-          type: "success",
-          title: isAm ? "ተሳክቷል" : "Success",
-        });
-        window.location.reload();
-      } else {
-        showAlert({
-          message:
-            result.error ||
-            (isAm ? "ሪፖርት ማጽደቅ አልተሳካም" : "Failed to approve report"),
-          type: "error",
-          title: isAm ? "ስህተት" : "Error",
-        });
-      }
-    } catch {
-      showAlert({
-        message: isAm ? "ሪፖርት ማጽደቅ አልተሳካም" : "Failed to approve report",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
+  const handleNextMonth = () => {
+    if (month === 12) {
+      setMonth(1);
+      setYear(year + 1);
+    } else {
+      setMonth(month + 1);
     }
   };
 
-  const handleRejectReport = async (reportId: string) => {
-    try {
-      const result = await updateReportStatus(reportId, "rejected");
-      if (result.success) {
-        showAlert({
-          message: isAm
-            ? "ሪፖርት በተሳካ ሁኔታ ተቀባይነት አላገኘም!"
-            : "Report rejected successfully!",
-          type: "success",
-          title: isAm ? "ተሳክቷል" : "Success",
-        });
-        window.location.reload();
-      } else {
-        showAlert({
-          message:
-            result.error ||
-            (isAm ? "ሪፖርት መቃወም አልተሳካም" : "Failed to reject report"),
-          type: "error",
-          title: isAm ? "ስህተት" : "Error",
-        });
-      }
-    } catch {
-      showAlert({
-        message: isAm ? "ሪፖርት መቃወም አልተሳካም" : "Failed to reject report",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-    }
+  // Get month name
+  const getMonthName = (monthNum: number) => {
+    const monthNames = isAm
+      ? [
+          "መስከረም",
+          "ጥቅምት",
+          "ህዳር",
+          "ታህሳስ",
+          "ጥር",
+          "የካቲት",
+          "መጋቢት",
+          "ሚያዝያ",
+          "ግንቦት",
+          "ሰኔ",
+          "ሐምሌ",
+          "ነሐሴ",
+        ]
+      : [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ];
+    return monthNames[monthNum - 1];
   };
 
   return (
-    <div className="grid gap-4 grid-rows-[auto_1fr] overflow-hidden">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">
-          {isAm ? "ዕለታዊ ሪፖርት" : "Daily Reports"}
+    <div className="flex flex-col h-full overflow-hidden p-2 lg:p-5 gap-4">
+      {/* Header with Teacher Selection */}
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Calendar className="size-6" />
+          {isAm ? "የወር ሪፖርት አቀራረብ" : "Monthly Report View"}
         </h1>
-        <Button
-          color="primary"
-          startContent={<Plus className="size-4" />}
-          onPress={() => setStep(1)}
-        >
-          {isAm ? "አዲስ ሪፖርት" : "New Report"}
-        </Button>
-      </div>
 
-      {/* Step Indicator */}
-      {step > 0 && (
-        <div className="flex items-center gap-2 p-4 bg-default-50 rounded-lg">
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              step >= 1
-                ? "bg-primary text-white"
-                : "bg-default-200 text-default-500"
-            }`}
-          >
-            1
-          </div>
-          <span
-            className={
-              step >= 1 ? "text-primary font-semibold" : "text-default-500"
+        {/* Teacher Selection */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Autocomplete
+            label={isAm ? "መምህር ይምረጡ" : "Select Teacher"}
+            placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
+            selectedKey={selectedTeacher || null}
+            onSelectionChange={(key: React.Key | null) => {
+              setSelectedTeacher((key as string) || "");
+            }}
+            defaultItems={teachersData?.data || []}
+            variant="bordered"
+            isClearable
+            isLoading={isLoadingTeachers}
+            listboxProps={{
+              emptyContent: isAm ? "ምንም መምህር አልተገኘም" : "No teachers found",
+            }}
+            description={
+              selectedTeacher
+                ? isAm
+                  ? "✓ መምህር ተመርጧል"
+                  : "✓ Teacher selected"
+                : isAm
+                ? "ለመፈለግ መታየብ ይጀምሩ"
+                : "Start typing to search"
             }
+            classNames={{
+              base: selectedTeacher
+                ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
+                : "",
+            }}
           >
-            {isAm ? "መምህር ይምረጡ" : "Select Teacher"}
-          </span>
-          <div className="w-8 h-0.5 bg-default-200"></div>
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              step >= 2
-                ? "bg-primary text-white"
-                : "bg-default-200 text-default-500"
-            }`}
-          >
-            2
-          </div>
-          <span
-            className={
-              step >= 2 ? "text-primary font-semibold" : "text-default-500"
-            }
-          >
-            {isAm ? "ተማሪ ይምረጡ" : "Select Student"}
-          </span>
-          <div className="w-8 h-0.5 bg-default-200"></div>
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              step >= 3
-                ? "bg-primary text-white"
-                : "bg-default-200 text-default-500"
-            }`}
-          >
-            3
-          </div>
-          <span
-            className={
-              step >= 3 ? "text-primary font-semibold" : "text-default-500"
-            }
-          >
-            {isAm ? "ዝርዝሮች ይሙሉ" : "Fill Details"}
-          </span>
+            {(item: {
+              teacher: {
+                id: string;
+                firstName: string;
+                fatherName: string;
+                lastName: string;
+              };
+              controller: {
+                firstName: string;
+                fatherName: string;
+                lastName: string;
+              } | null;
+            }) => (
+              <AutocompleteItem
+                key={item.teacher.id}
+                textValue={`${item.teacher.firstName} ${item.teacher.fatherName} ${item.teacher.lastName}`}
+              >
+                <div className="flex flex-col py-1">
+                  <span className="font-medium">
+                    {item.teacher.firstName} {item.teacher.fatherName}{" "}
+                    {item.teacher.lastName}
+                  </span>
+                  {item.controller && (
+                    <span className="text-xs text-primary mt-1">
+                      {isAm ? "ተቆጣጣሪ" : "Controller"}:{" "}
+                      {item.controller.firstName} {item.controller.fatherName}{" "}
+                      {item.controller.lastName}
+                    </span>
+                  )}
+                </div>
+              </AutocompleteItem>
+            )}
+          </Autocomplete>
         </div>
-      )}
-
-      {/* Search */}
-      <div className="flex gap-2">
-        <Input
-          placeholder={isAm ? "ፈልግ..." : "Search..."}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          startContent={<Search className="size-4" />}
-          className="flex-1"
-        />
       </div>
 
-      {/* Step 1: Select Teacher */}
-      {step === 1 && (
-        <Card className="mb-4">
-          <CardHeader>
-            <h2 className="text-lg font-semibold">
-              {isAm ? "መምህር ይምረጡ" : "Step 1: Select Teacher"}
-            </h2>
-            <p className="text-sm text-default-500">
-              {isAm
-                ? "ሪፖርት ለመፍጠር መምህር ይምረጡ"
-                : "Choose a teacher to create a report for"}
-            </p>
-          </CardHeader>
-          <CardBody className="space-y-4">
-            <Select
-              placeholder={isAm ? "መምህር ይምረጡ" : "Select Teacher"}
-              selectedKeys={selectedTeacher ? [selectedTeacher] : []}
-              onSelectionChange={(keys) => {
-                const selected = Array.from(keys)[0] as string;
-                setSelectedTeacher(selected);
-              }}
-              isLoading={isLoadingTeachers}
-              className="w-full"
+      {/* Month/Year Navigation and Calendar */}
+      {selectedTeacher && (
+        <Card className="flex-1 overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between p-4 border-b border-default-200">
+            <Button
+              isIconOnly
+              variant="light"
+              onPress={handlePreviousMonth}
+              size="sm"
             >
-              {teachersData?.data?.map((teacher) => (
-                <SelectItem key={teacher.id}>
-                  {teacher.firstName} {teacher.lastName} (@{teacher.username})
-                </SelectItem>
-              )) || []}
-            </Select>
+              <ChevronLeft className="size-5" />
+            </Button>
 
-            <div className="flex gap-2 justify-end">
-              <Button variant="light" onPress={() => setStep(0)}>
-                {isAm ? "ይቅር" : "Cancel"}
-              </Button>
-              <Button
-                color="primary"
-                onPress={() => setStep(2)}
-                isDisabled={!selectedTeacher}
-              >
-                {isAm ? "ቀጥል" : "Next"}
-              </Button>
+            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-bold">
+                {getMonthName(month)} {year}
+              </h2>
             </div>
-          </CardBody>
-        </Card>
-      )}
 
-      {/* Step 2: Select Student */}
-      {step === 2 && (
-        <Card className="mb-4">
-          <CardHeader>
-            <h2 className="text-lg font-semibold">
-              {isAm ? "ተማሪ ይምረጡ" : "Step 2: Select Student"}
-            </h2>
-            <p className="text-sm text-default-500">
-              {isAm
-                ? "ሪፖርት የሚፈጠርለት ተማሪ ይምረጡ"
-                : "Choose the student for this report"}
-            </p>
-          </CardHeader>
-          <CardBody className="space-y-4">
-            <Select
-              placeholder={isAm ? "ተማሪ ይምረጡ" : "Select Student"}
-              selectedKeys={selectedStudent ? [selectedStudent] : []}
-              onSelectionChange={(keys) => {
-                const selected = Array.from(keys)[0] as string;
-                setSelectedStudent(selected);
-              }}
-              isLoading={isLoadingStudents}
-              className="w-full"
+            <Button
+              isIconOnly
+              variant="light"
+              onPress={handleNextMonth}
+              size="sm"
             >
-              {studentsData?.data?.map((student) => (
-                <SelectItem key={student.id}>
-                  {student.firstName} {student.lastName} (@{student.username})
-                </SelectItem>
-              )) || []}
-            </Select>
-
-            <div className="flex gap-2 justify-between">
-              <Button variant="light" onPress={() => setStep(1)}>
-                {isAm ? "ተመለስ" : "Back"}
-              </Button>
-              <Button
-                color="primary"
-                onPress={() => setStep(3)}
-                isDisabled={!selectedStudent}
-              >
-                {isAm ? "ቀጥል" : "Next"}
-              </Button>
-            </div>
-          </CardBody>
-        </Card>
-      )}
-
-      {/* Step 3: Fill Details */}
-      {step === 3 && (
-        <Card className="mb-4">
-          <CardHeader>
-            <h2 className="text-lg font-semibold">
-              {isAm ? "ዝርዝሮች ይሙሉ" : "Step 3: Fill Details"}
-            </h2>
-            <p className="text-sm text-default-500">
-              {isAm ? "ሪፖርቱን ለመጠናቀቅ ዝርዝሮች ይሙሉ" : "Complete the report details"}
-            </p>
+              <ChevronRight className="size-5" />
+            </Button>
           </CardHeader>
-          <CardBody className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                placeholder={isAm ? "የትምህርት ሰላት" : "Learning Slot"}
-                value={learningSlot}
-                onChange={(e) => setLearningSlot(e.target.value)}
-              />
 
-              <Select
-                placeholder={isAm ? "የትምህርት ሁኔታ" : "Learning Status"}
-                selectedKeys={[learningProgress]}
-                onSelectionChange={(keys) => {
-                  const selected = Array.from(keys)[0] as
-                    | "present"
-                    | "absent"
-                    | "permission";
-                  setLearningProgress(selected);
-                }}
-              >
-                <SelectItem key="present">
-                  {isAm ? "ተገኝቷል" : "Present"}
-                </SelectItem>
-                <SelectItem key="absent">{isAm ? "ጠፍቷል" : "Absent"}</SelectItem>
-                <SelectItem key="permission">
-                  {isAm ? "ፈቃድ" : "Permission"}
-                </SelectItem>
-              </Select>
-            </div>
-
-            <div className="flex gap-2 justify-between">
-              <Button variant="light" onPress={() => setStep(2)}>
-                {isAm ? "ተመለስ" : "Back"}
-              </Button>
-              <Button
-                color="primary"
-                onPress={handleCreateReport}
-                isLoading={isCreating}
-                isDisabled={!learningSlot}
-              >
-                {isAm ? "ሪፖርት ይፍጠሩ" : "Create Report"}
-              </Button>
-            </div>
-          </CardBody>
-        </Card>
-      )}
-
-      {/* Reports List */}
-      <div className="overflow-hidden">
-        {isLoadingReports ? (
-          <div className="space-y-2">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full" />
-            ))}
-          </div>
-        ) : reportsData?.success && reportsData.data ? (
-          <div className="space-y-2">
-            {reportsData.data.reports.map((report) => (
-              <Card key={report.id}>
-                <CardBody className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <User className="size-4 text-primary" />
-                        <span className="font-semibold">
-                          {highlight(
-                            `${report.student.firstName} ${report.student.lastName}`,
-                            search
-                          )}
-                        </span>
-                        <span className="text-sm text-default-500">
-                          (@{report.student.username})
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 mb-2">
-                        <BookOpen className="size-4 text-secondary" />
-                        <span className="text-sm">
-                          {highlight(
-                            `${report.activeTeacher.firstName} ${report.activeTeacher.lastName}`,
-                            search
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-4 text-sm text-default-500">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="size-3" />
-                          {new Date(report.date).toLocaleDateString()}
-                        </div>
-                        <span>Slot: {report.learningSlot}</span>
-                        <Chip
-                          color={
-                            report.learningProgress === "present"
-                              ? "success"
-                              : report.learningProgress === "permission"
-                              ? "primary"
-                              : "warning"
-                          }
-                          size="sm"
+          <CardBody className="p-0 overflow-auto">
+            {isLoadingCalendar ? (
+              <div className="p-4">
+                <Skeleton className="w-full h-96 rounded-lg" />
+              </div>
+            ) : calendarData?.success && calendarData.data ? (
+              <div className="overflow-auto">
+                <table className="w-full border-collapse">
+                  <thead className="sticky top-0 bg-default-100 z-10">
+                    <tr>
+                      <th className="border border-default-200 p-2 text-left font-semibold min-w-[150px] sticky left-0 bg-default-100 z-20">
+                        {isAm ? "ተማሪ" : "Student"}
+                      </th>
+                      {Array.from(
+                        { length: calendarData.data.daysInMonth },
+                        (_, i) => i + 1
+                      ).map((day) => (
+                        <th
+                          key={day}
+                          className="border border-default-200 p-1 text-center font-semibold min-w-[50px] text-xs"
                         >
-                          {report.learningProgress}
-                        </Chip>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        color="success"
-                        variant="flat"
-                        startContent={<Check className="size-3" />}
-                        onPress={() => handleApproveReport(report.id)}
-                      >
-                        {isAm ? "ይፀድቅ" : "Approve"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        color="danger"
-                        variant="flat"
-                        startContent={<X className="size-3" />}
-                        onPress={() => handleRejectReport(report.id)}
-                      >
-                        {isAm ? "ይተው" : "Reject"}
-                      </Button>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            ))}
-
-            {reportsData.data?.reports.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-default-500">
-                  {isAm ? "ምንም ሪፖርት አልተገኘም" : "No reports found"}
-                </p>
+                          {day}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {calendarData.data.calendarData.length > 0 ? (
+                      calendarData.data.calendarData.map((item, idx) => (
+                        <tr
+                          key={item.student.id}
+                          className="hover:bg-default-50"
+                        >
+                          <td className="border border-default-200 p-2 font-medium sticky left-0 bg-white dark:bg-default-50 z-10">
+                            <div className="flex flex-col">
+                              <span className="text-sm">
+                                {item.student.firstName}{" "}
+                                {item.student.fatherName}{" "}
+                                {item.student.lastName}
+                              </span>
+                            </div>
+                          </td>
+                          {Array.from(
+                            { length: calendarData.data.daysInMonth },
+                            (_, i) => i + 1
+                          ).map((day) => {
+                            const report = item.reportsByDate[day];
+                            return (
+                              <td
+                                key={day}
+                                className="border border-default-200 p-1 text-center"
+                              >
+                                {report ? (
+                                  <div className="flex items-center justify-center">
+                                    <Chip
+                                      size="sm"
+                                      color={
+                                        report.learningProgress === "present"
+                                          ? "success"
+                                          : report.learningProgress ===
+                                            "permission"
+                                          ? "primary"
+                                          : "danger"
+                                      }
+                                      variant="flat"
+                                      className="text-[10px] h-5 min-w-[45px]"
+                                    >
+                                      {report.learningProgress === "present"
+                                        ? isAm
+                                          ? "ተገኝ"
+                                          : "P"
+                                        : report.learningProgress ===
+                                          "permission"
+                                        ? isAm
+                                          ? "ፈቃድ"
+                                          : "PE"
+                                        : isAm
+                                        ? "ጠፋ"
+                                        : "A"}
+                                    </Chip>
+                                  </div>
+                                ) : (
+                                  <span className="text-default-300">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={calendarData.data.daysInMonth + 1}
+                          className="border border-default-200 p-8 text-center text-default-500"
+                        >
+                          {isAm
+                            ? "ለዚህ መምህር ምንም ተማሪዎች አልተገኙም"
+                            : "No students found for this teacher"}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-default-500">
+                {isAm ? "መረጃ ማግኘት አልተሳካም" : "Failed to load data"}
               </div>
             )}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-danger">
-              {isAm ? "ሪፖርቶችን ማግኘት አልተቻለም" : "Failed to load reports"}
-            </p>
-          </div>
-        )}
+          </CardBody>
+        </Card>
+      )}
 
-        {/* Pagination */}
-        {reportsData?.success &&
-          reportsData.data &&
-          reportsData.data.totalPages > 1 && (
-            <div className="mt-4">
-              <PaginationPlace
-                currentPage={currentPage}
-                totalPage={reportsData.data.totalPages}
-                onPageChange={setCurrentPage}
-                sort={false}
-                onSortChange={() => {}}
-                row={10}
-                onRowChange={() => {}}
-              />
+      {/* Instructions when no teacher selected */}
+      {!selectedTeacher && (
+        <Card className="flex-1">
+          <CardBody className="flex items-center justify-center p-8">
+            <div className="text-center space-y-4">
+              <Calendar className="size-20 text-default-300 mx-auto" />
+              <h3 className="text-xl font-semibold text-default-600">
+                {isAm ? "መምህር ይምረጡ" : "Select a Teacher"}
+              </h3>
+              <p className="text-sm text-default-400 max-w-md">
+                {isAm
+                  ? "የወር ሪፖርት አቀራረብን ለማየት ከላይ ያለውን ተወላጅ መምህር ይምረጡ። ሪፖርቶች በቀን እና ተማሪ የተደራጁ ይታያሉ።"
+                  : "Select a teacher from above to view their monthly report calendar. Reports will be organized by day and student."}
+              </p>
             </div>
-          )}
-      </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Custom Alert */}
       <CustomAlert

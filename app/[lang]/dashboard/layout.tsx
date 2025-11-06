@@ -9,12 +9,14 @@ export default async function Layout({
   controller,
   teacher,
   student,
+  reporter,
 }: {
   children: React.ReactNode;
   scanner: React.ReactNode;
   controller: React.ReactNode;
   teacher: React.ReactNode;
   student: React.ReactNode;
+  reporter: React.ReactNode;
 }) {
   const session = await auth();
   const data = await prisma.user.findFirst({
@@ -38,6 +40,7 @@ export default async function Layout({
   else if (session?.user?.role == "controller") return controller;
   else if (session?.user?.role == "teacher") return teacher;
   else if (session?.user?.role == "student") return student;
+  else if (session?.user?.role == "reporter") return reporter;
   else
     return (
       <div className="grid place-content-center">

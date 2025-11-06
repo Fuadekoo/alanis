@@ -181,11 +181,23 @@ export async function createSalary(
   return result;
 }
 
-export async function updateSalary(salaryId: string, status: paymentStatus) {
+export async function updateSalary(
+  salaryId: string,
+  status: paymentStatus,
+  paymentPhoto?: string
+) {
   // simple status update for a salary -> teacherSalary
+  const updateData: { status: paymentStatus; paymentPhoto?: string } = {
+    status,
+  };
+
+  if (paymentPhoto) {
+    updateData.paymentPhoto = paymentPhoto;
+  }
+
   return prisma.teacherSalary.update({
     where: { id: salaryId },
-    data: { status },
+    data: updateData,
   });
 }
 

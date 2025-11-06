@@ -16,6 +16,7 @@ enum role {
   student
   recordStudent
   recordTeacher
+  reporter
 }
 
 enum gender {
@@ -362,6 +363,7 @@ model teacherSalary {
   amount              Int
   date                DateTime      @default(now())
   status              paymentStatus @default(pending)
+  paymentPhoto        String?
 
   createdAt DateTime @default(now())
 

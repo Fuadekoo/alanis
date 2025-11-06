@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo } from "react";
+import Image from "next/image";
 import {
   Button,
   Card,
@@ -16,7 +17,14 @@ import {
   AutocompleteItem,
   Skeleton,
 } from "@/components/ui/heroui";
-import { Plus, Calculator, Check, X, AlertTriangle } from "lucide-react";
+import {
+  Plus,
+  Calculator,
+  Check,
+  X,
+  AlertTriangle,
+  Upload,
+} from "lucide-react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
@@ -77,6 +85,13 @@ function Page() {
     Set<string>
   >(new Set());
 
+  // Photo upload state
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string>("");
+
   // Fetch data
   const [salaries, salariesLoading, refreshSalaries] = useData(
     getSalary,
@@ -109,6 +124,94 @@ function Page() {
     setUnitPrice(0);
     setSelectedTeacherProgress(new Set());
     setSelectedShiftTeacherData(new Set());
+  };
+
+  // Photo upload helpers
+  const CHUNK_SIZE = 512 * 1024; // 512KB
+
+  const getTimestampUUID = (ext: string) => {
+    return `${Date.now()}-${Math.floor(Math.random() * 100000)}.${ext}`;
+  };
+
+  const formatImageUrl = (url: string | null | undefined): string => {
+    if (!url) return "/placeholder.png";
+    return `/api/filedata/${encodeURIComponent(url)}`;
+  };
+
+  const uploadFile = async (file: File, uuid: string): Promise<string> => {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const uuidName = uuid || getTimestampUUID(ext);
+
+    const chunkSize = CHUNK_SIZE;
+    const total = Math.ceil(file.size / chunkSize);
+    let finalReturnedName: string | null = null;
+
+    for (let i = 0; i < total; i++) {
+      const start = i * chunkSize;
+      const end = Math.min(file.size, start + chunkSize);
+      const chunk = file.slice(start, end);
+
+      const formData = new FormData();
+      formData.append("file", chunk);
+      formData.append("filename", uuidName);
+      formData.append("chunkIndex", i.toString());
+      formData.append("totalChunks", total.toString());
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed for chunk ${i + 1} of ${total}`);
+      }
+
+      const result = await response.json();
+      finalReturnedName = result.filename;
+
+      // Update progress
+      const progress = Math.round(((i + 1) / total) * 100);
+      setUploadProgress(progress);
+    }
+
+    if (!finalReturnedName) {
+      throw new Error("Upload completed but no filename received");
+    }
+
+    return finalReturnedName;
+  };
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingPhoto(file);
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const uuid = getTimestampUUID(ext);
+      const serverFilename = await uploadFile(file, uuid);
+      setUploadedPhotoUrl(serverFilename);
+      setUploadProgress(100);
+    } catch (error) {
+      console.error("Failed to upload photo:", error);
+      showAlert({
+        message: isAm ? "ፎቶ መስቀል አልተሳካም" : "Failed to upload photo",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+      setUploadingPhoto(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removePhoto = () => {
+    setUploadedPhotoUrl("");
+    setUploadingPhoto(null);
+    setUploadProgress(0);
   };
 
   // Calculate totalDayForLearning and amount
@@ -228,13 +331,20 @@ function Page() {
   const handleConfirmAction = async () => {
     if (!selectedSalaryId || !confirmAction) return;
 
+    // If approving, open photo upload modal
+    if (confirmAction === "approve") {
+      setIsConfirmModalOpen(false);
+      setIsPhotoModalOpen(true);
+      return;
+    }
+
+    // For reject, proceed directly
     setIsUpdating(true);
     try {
-      const newStatus =
-        confirmAction === "approve"
-          ? paymentStatus.approved
-          : paymentStatus.rejected;
-      const result = await updateSalary(selectedSalaryId, newStatus);
+      const result = await updateSalary(
+        selectedSalaryId,
+        paymentStatus.rejected
+      );
 
       if (result) {
         setIsConfirmModalOpen(false);
@@ -245,14 +355,63 @@ function Page() {
           refreshSalaries();
         }
         showAlert({
-          message:
-            confirmAction === "approve"
-              ? isAm
-                ? "ደሞዝ በተሳካ ሁኔታ ጸድቋል!"
-                : "Salary approved successfully!"
-              : isAm
-              ? "ደሞዝ በተሳካ ሁኔታ ተቀባይነት አላገኘም!"
-              : "Salary rejected successfully!",
+          message: isAm
+            ? "ደሞዝ በተሳካ ሁኔታ ተቀባይነት አላገኘም!"
+            : "Salary rejected successfully!",
+          type: "success",
+          title: isAm ? "ተሳክቷል" : "Success",
+        });
+      } else {
+        showAlert({
+          message: isAm ? "ደሞዝ ማዘመን አልተሳካም" : "Failed to update salary",
+          type: "error",
+          title: isAm ? "ስህተት" : "Error",
+        });
+      }
+    } catch {
+      showAlert({
+        message: isAm ? "ደሞዝ ማዘመን አልተሳካም" : "Failed to update salary",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleApproveWithPhoto = async () => {
+    if (!selectedSalaryId) return;
+
+    if (!uploadedPhotoUrl) {
+      showAlert({
+        message: isAm ? "እባክዎ የክፍያ ፎቶ ይስቀሉ" : "Please upload payment photo",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Warning",
+      });
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const result = await updateSalary(
+        selectedSalaryId,
+        paymentStatus.approved,
+        uploadedPhotoUrl
+      );
+
+      if (result) {
+        setIsPhotoModalOpen(false);
+        setSelectedSalaryId("");
+        setSelectedSalaryData(null);
+        setConfirmAction(null);
+        removePhoto();
+        if (refreshSalaries) {
+          refreshSalaries();
+        }
+        showAlert({
+          message: isAm
+            ? "ደሞዝ በተሳካ ሁኔታ ጸድቋል!"
+            : "Salary approved successfully!",
           type: "success",
           title: isAm ? "ተሳክቷል" : "Success",
         });
@@ -379,6 +538,27 @@ function Page() {
       renderCell: (item: Record<string, unknown>) => (
         <span>{new Date(item.createdAt as string).toLocaleDateString()}</span>
       ),
+    },
+    {
+      key: "paymentPhoto",
+      label: isAm ? "የክፍያ ፎቶ" : "Payment Photo",
+      renderCell: (item: Record<string, unknown>) =>
+        item.paymentPhoto ? (
+          <Image
+            src={formatImageUrl(item.paymentPhoto as string)}
+            alt="Payment"
+            width={40}
+            height={40}
+            style={{
+              objectFit: "cover",
+              borderRadius: 4,
+            }}
+          />
+        ) : (
+          <span className="text-default-400 text-xs">
+            {isAm ? "ምስል የለም" : "No image"}
+          </span>
+        ),
     },
     {
       key: "actions",
@@ -565,9 +745,26 @@ function Page() {
                 <Input
                   type="number"
                   value={year.toString()}
-                  onValueChange={(value) => setYear(parseInt(value) || 0)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setYear(0);
+                    } else {
+                      const y = parseInt(value);
+                      if (!isNaN(y)) {
+                        setYear(y);
+                      }
+                    }
+                  }}
                   placeholder="2024"
                   min={2000}
+                  variant="bordered"
+                  classNames={{
+                    input:
+                      year >= 2000
+                        ? "border-success-300 dark:border-success-600"
+                        : "",
+                  }}
                 />
               </div>
               <div>
@@ -577,15 +774,34 @@ function Page() {
                 <Input
                   type="number"
                   value={month.toString()}
-                  onValueChange={(value) => {
-                    const m = parseInt(value) || 0;
-                    if (m >= 1 && m <= 12) {
-                      setMonth(m);
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setMonth(0);
+                    } else {
+                      const m = parseInt(value);
+                      if (!isNaN(m) && m >= 0 && m <= 12) {
+                        setMonth(m);
+                      }
                     }
                   }}
                   placeholder="1-12"
                   min={1}
                   max={12}
+                  variant="bordered"
+                  description={
+                    month < 1 || month > 12
+                      ? isAm
+                        ? "እባክዎ 1-12 መካከል ወር ያስገቡ"
+                        : "Please enter month between 1-12"
+                      : ""
+                  }
+                  classNames={{
+                    input:
+                      month >= 1 && month <= 12
+                        ? "border-success-300 dark:border-success-600"
+                        : "",
+                  }}
                 />
               </div>
             </div>
@@ -598,10 +814,27 @@ function Page() {
               <Input
                 type="number"
                 value={unitPrice.toString()}
-                onValueChange={(value) => setUnitPrice(parseFloat(value) || 0)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "") {
+                    setUnitPrice(0);
+                  } else {
+                    const price = parseFloat(value);
+                    if (!isNaN(price)) {
+                      setUnitPrice(price);
+                    }
+                  }
+                }}
                 placeholder={isAm ? "የአሃድ ዋጋ" : "Unit Price"}
                 min={0}
+                variant="bordered"
                 endContent={<Calculator className="h-4 w-4 text-gray-400" />}
+                classNames={{
+                  input:
+                    unitPrice > 0
+                      ? "border-success-300 dark:border-success-600"
+                      : "",
+                }}
               />
             </div>
 
@@ -1052,6 +1285,148 @@ function Page() {
                 : isAm
                 ? "አዎ, ቃወም"
                 : "Yes, Reject"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Payment Photo Upload Modal */}
+      <Modal
+        isOpen={isPhotoModalOpen}
+        onClose={() => {
+          if (!isUpdating) {
+            setIsPhotoModalOpen(false);
+            setConfirmAction(null);
+            removePhoto();
+          }
+        }}
+        size="md"
+        backdrop="blur"
+        classNames={{
+          backdrop: "bg-black/50 backdrop-blur-md",
+        }}
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-success/10 border-2 border-success/20">
+                <Upload className="size-6 text-success" />
+              </div>
+              <h3 className="text-xl font-bold">
+                {isAm ? "የክፍያ ፎቶ ይስቀሉ" : "Upload Payment Photo"}
+              </h3>
+            </div>
+          </ModalHeader>
+          <ModalBody>
+            <div className="space-y-4">
+              <p className="text-default-700">
+                {isAm
+                  ? "ደሞዝን ለማጽደቅ እባክዎ የክፍያ ማረጋገጫ ፎቶ ይስቀሉ።"
+                  : "Please upload payment proof photo to approve the salary."}
+              </p>
+
+              {/* Salary Details Summary */}
+              {selectedSalaryData && (
+                <div className="p-3 bg-default-100 rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-default-600">
+                      {isAm ? "መምህር:" : "Teacher:"}
+                    </span>
+                    <span className="font-semibold">
+                      {selectedSalaryData.teacher.firstName}{" "}
+                      {selectedSalaryData.teacher.fatherName}{" "}
+                      {selectedSalaryData.teacher.lastName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-default-600">
+                      {isAm ? "መጠን:" : "Amount:"}
+                    </span>
+                    <span className="font-bold text-lg text-primary">
+                      {selectedSalaryData.amount?.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* File Upload Input */}
+              <div>
+                <label className="block mb-2 text-sm font-medium">
+                  {isAm ? "ፎቶ ይምረጡ" : "Select Photo"} *
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-success-50 file:text-success-700 hover:file:bg-success-100"
+                  disabled={isUploading}
+                />
+
+                {/* Upload Progress */}
+                {isUploading && uploadingPhoto && (
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span>{uploadingPhoto.name}</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-default-200 rounded-full h-2">
+                      <div
+                        className="bg-success h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Photo Preview */}
+                {uploadedPhotoUrl && (
+                  <div className="mt-3">
+                    <p className="text-sm text-default-600 mb-2">
+                      {isAm ? "የተስቀለ ፎቶ" : "Uploaded Photo"}:
+                    </p>
+                    <div className="relative inline-block">
+                      <Image
+                        src={formatImageUrl(uploadedPhotoUrl)}
+                        alt="Payment proof"
+                        width={128}
+                        height={128}
+                        className="w-32 h-32 object-cover rounded border"
+                      />
+                      <Button
+                        size="sm"
+                        color="danger"
+                        className="absolute top-1 right-1"
+                        onPress={removePhoto}
+                        isIconOnly
+                      >
+                        <X size={14} />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="light"
+              onPress={() => {
+                setIsPhotoModalOpen(false);
+                setConfirmAction(null);
+                removePhoto();
+              }}
+              isDisabled={isUpdating}
+            >
+              {isAm ? "ይቅር" : "Cancel"}
+            </Button>
+            <Button
+              color="success"
+              onPress={handleApproveWithPhoto}
+              isLoading={isUpdating}
+              isDisabled={!uploadedPhotoUrl || isUploading}
+              startContent={<Check className="size-4" />}
+            >
+              {isAm ? "ጸድቅ" : "Approve"}
             </Button>
           </ModalFooter>
         </ModalContent>
