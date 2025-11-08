@@ -205,24 +205,24 @@ export async function createSalary(
       },
     });
 
-    // update ShiftTeacherData: set paymentStatus = APPROVED, progressStatus = "CLOSED", and link to salary
+    // update ShiftTeacherData: link to salary and keep pending until approval
     if (shiftTeacherDataIds && shiftTeacherDataIds.length > 0) {
       await tx.shiftTeacherData.updateMany({
         where: { id: { in: shiftTeacherDataIds } },
         data: {
-          paymentStatus: paymentStatus.approved,
+          paymentStatus: paymentStatus.pending,
           progressStatus: progressStatus.closed,
           teacherSalaryId: teacherSalary.id,
         },
       });
     }
 
-    // update TeacherProgress: set paymentStatus = APPROVED, progressStatus = "CLOSED" and link to salary
+    // update TeacherProgress: link to salary and mark closed, leave payment pending
     if (teacherProgressIds && teacherProgressIds.length > 0) {
       await tx.teacherProgress.updateMany({
         where: { id: { in: teacherProgressIds } },
         data: {
-          paymentStatus: paymentStatus.approved,
+          paymentStatus: paymentStatus.pending,
           progressStatus: progressStatus.closed,
           teacherSalaryId: teacherSalary.id,
         },
@@ -235,23 +235,287 @@ export async function createSalary(
   return result;
 }
 
+const autoSalarySchema = z.object({
+  month: z.number().int().min(1).max(12),
+  year: z.number().int().min(2000),
+  unitPrice: z.number().nonnegative(),
+});
+
+export async function createAutomaticSalaries(
+  month: number,
+  year: number,
+  unitPrice: number
+) {
+  autoSalarySchema.parse({ month, year, unitPrice });
+
+  const session = await auth();
+  if (!session) {
+    throw new Error("Unauthorized");
+  }
+
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 1);
+  const roundedUnitPrice = Math.round(unitPrice);
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const teacherProgressRecords = await tx.teacherProgress.findMany({
+        where: {
+          createdAt: {
+            gte: startDate,
+            lt: endDate,
+          },
+          paymentStatus: paymentStatus.pending,
+          progressStatus: progressStatus.open,
+          teacherSalaryId: null,
+        },
+        select: {
+          id: true,
+          teacherId: true,
+          learningCount: true,
+        },
+      });
+
+      const shiftRecords = await tx.shiftTeacherData.findMany({
+        where: {
+          createdAt: {
+            gte: startDate,
+            lt: endDate,
+          },
+          paymentStatus: paymentStatus.pending,
+          teacherSalaryId: null,
+        },
+        select: {
+          id: true,
+          teacherId: true,
+          learningCount: true,
+        },
+      });
+
+      const grouped = new Map<
+        string,
+        {
+          progressIds: string[];
+          shiftIds: string[];
+          totalDays: number;
+        }
+      >();
+
+      const ensureGroup = (teacherId: string) => {
+        if (!grouped.has(teacherId)) {
+          grouped.set(teacherId, {
+            progressIds: [],
+            shiftIds: [],
+            totalDays: 0,
+          });
+        }
+        return grouped.get(teacherId)!;
+      };
+
+      teacherProgressRecords.forEach((progress) => {
+        const group = ensureGroup(progress.teacherId);
+        group.progressIds.push(progress.id);
+        group.totalDays += progress.learningCount ?? 0;
+      });
+
+      shiftRecords.forEach((shift) => {
+        const group = ensureGroup(shift.teacherId);
+        group.shiftIds.push(shift.id);
+        group.totalDays += shift.learningCount ?? 0;
+      });
+
+      if (grouped.size === 0) {
+        return {
+          success: false,
+          message:
+            "No pending teacher progress or shift history found for the selected month/year.",
+          created: [],
+          skipped: [],
+        };
+      }
+
+      const teacherIds = Array.from(grouped.keys());
+
+      const existingSalaries = await tx.teacherSalary.findMany({
+        where: {
+          teacherId: { in: teacherIds },
+          month,
+          year,
+        },
+        select: {
+          teacherId: true,
+        },
+      });
+
+      const existingMap = new Set(
+        existingSalaries.map((item) => item.teacherId)
+      );
+
+      const teacherInfo = await tx.user.findMany({
+        where: { id: { in: teacherIds } },
+        select: {
+          id: true,
+          firstName: true,
+          fatherName: true,
+          lastName: true,
+        },
+      });
+
+      const teacherMap = new Map(teacherInfo.map((info) => [info.id, info]));
+
+      const created: Array<{
+        salaryId: string;
+        teacherId: string;
+        teacherName: string;
+        totalDays: number;
+        amount: number;
+        progressCount: number;
+        shiftCount: number;
+      }> = [];
+
+      const skipped: Array<{ teacherId: string; reason: string }> = [];
+
+      for (const [teacherId, group] of grouped.entries()) {
+        if (existingMap.has(teacherId)) {
+          skipped.push({ teacherId, reason: "existing-salary" });
+          continue;
+        }
+
+        if (group.totalDays <= 0) {
+          skipped.push({ teacherId, reason: "no-learning-days" });
+          continue;
+        }
+
+        const amount = group.totalDays * roundedUnitPrice;
+
+        const salary = await tx.teacherSalary.create({
+          data: {
+            teacherId,
+            month,
+            year,
+            unitPrice: roundedUnitPrice,
+            totalDayForLearning: group.totalDays,
+            amount,
+            status: paymentStatus.pending,
+          },
+        });
+
+        if (group.progressIds.length > 0) {
+          await tx.teacherProgress.updateMany({
+            where: { id: { in: group.progressIds } },
+            data: {
+              teacherSalaryId: salary.id,
+              progressStatus: progressStatus.closed,
+            },
+          });
+        }
+
+        if (group.shiftIds.length > 0) {
+          await tx.shiftTeacherData.updateMany({
+            where: { id: { in: group.shiftIds } },
+            data: {
+              teacherSalaryId: salary.id,
+            },
+          });
+        }
+
+        const teacher = teacherMap.get(teacherId);
+        created.push({
+          salaryId: salary.id,
+          teacherId,
+          teacherName: teacher
+            ? `${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`
+            : teacherId,
+          totalDays: group.totalDays,
+          amount,
+          progressCount: group.progressIds.length,
+          shiftCount: group.shiftIds.length,
+        });
+      }
+
+      return {
+        success: created.length > 0,
+        message:
+          created.length > 0
+            ? "Automatic salaries generated successfully."
+            : "No salaries were generated for the selected month/year.",
+        created,
+        skipped,
+      };
+    });
+
+    return result;
+  } catch (error) {
+    console.error("Automatic salary generation failed", error);
+    return {
+      success: false,
+      message: "Failed to generate automatic salaries.",
+      created: [],
+      skipped: [],
+    };
+  }
+}
+
 export async function updateSalary(
   salaryId: string,
   status: paymentStatus,
   paymentPhoto?: string
 ) {
-  // simple status update for a salary -> teacherSalary
-  const updateData: { status: paymentStatus; paymentPhoto?: string } = {
-    status,
-  };
+  return prisma.$transaction(async (tx) => {
+    const updateData: { status: paymentStatus; paymentPhoto?: string } = {
+      status,
+    };
 
-  if (paymentPhoto) {
-    updateData.paymentPhoto = paymentPhoto;
-  }
+    if (status === paymentStatus.approved && paymentPhoto) {
+      updateData.paymentPhoto = paymentPhoto;
+    }
 
-  return prisma.teacherSalary.update({
-    where: { id: salaryId },
-    data: updateData,
+    if (status === paymentStatus.rejected) {
+      delete updateData.paymentPhoto;
+    }
+
+    const salary = await tx.teacherSalary.update({
+      where: { id: salaryId },
+      data: updateData,
+    });
+
+    if (status === paymentStatus.approved) {
+      await tx.teacherProgress.updateMany({
+        where: { teacherSalaryId: salaryId },
+        data: {
+          paymentStatus: paymentStatus.approved,
+          progressStatus: progressStatus.closed,
+        },
+      });
+
+      await tx.shiftTeacherData.updateMany({
+        where: { teacherSalaryId: salaryId },
+        data: {
+          paymentStatus: paymentStatus.approved,
+        },
+      });
+    }
+
+    if (status === paymentStatus.rejected) {
+      await tx.teacherProgress.updateMany({
+        where: { teacherSalaryId: salaryId },
+        data: {
+          paymentStatus: paymentStatus.pending,
+          progressStatus: progressStatus.open,
+          teacherSalaryId: null,
+        },
+      });
+
+      await tx.shiftTeacherData.updateMany({
+        where: { teacherSalaryId: salaryId },
+        data: {
+          paymentStatus: paymentStatus.pending,
+          teacherSalaryId: null,
+        },
+      });
+    }
+
+    return salary;
   });
 }
 

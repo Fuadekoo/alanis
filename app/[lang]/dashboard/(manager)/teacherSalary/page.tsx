@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardBody,
+  CardHeader,
   Modal,
   ModalContent,
   ModalHeader,
@@ -16,6 +17,7 @@ import {
   Autocomplete,
   AutocompleteItem,
   Skeleton,
+  Pagination,
 } from "@/components/ui/heroui";
 import {
   Plus,
@@ -26,8 +28,9 @@ import {
   Upload,
   Eye,
   FileText,
+  Search,
+  Calendar,
 } from "lucide-react";
-import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
 import useAmharic from "@/hooks/useAmharic";
@@ -38,6 +41,7 @@ import {
   getShiftTeacherDataForSalary,
   updateSalary,
   getSalaryDetail,
+  createAutomaticSalaries,
 } from "@/actions/manager/salary";
 import { getTeacherList } from "@/actions/controller/teacher";
 import { paymentStatus } from "@prisma/client";
@@ -122,6 +126,8 @@ function Page() {
   const [selectedShiftTeacherData, setSelectedShiftTeacherData] = useState<
     Set<string>
   >(new Set());
+  const [filterMonth, setFilterMonth] = useState<string>("all");
+  const [filterYear, setFilterYear] = useState<string>("all");
 
   // Photo upload state
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
@@ -136,6 +142,10 @@ function Page() {
   const [detailSummary, setDetailSummary] = useState<TeacherSalaryData | null>(
     null
   );
+  const [isAutoModalOpen, setIsAutoModalOpen] = useState(false);
+  const [autoMonth, setAutoMonth] = useState<number>(new Date().getMonth() + 1);
+  const [autoYear, setAutoYear] = useState<number>(new Date().getFullYear());
+  const [autoUnitPrice, setAutoUnitPrice] = useState<number>(0);
 
   // Fetch data
   const [salaries, salariesLoading, refreshSalaries] = useData(
@@ -606,6 +616,16 @@ function Page() {
     if (!salaries) return [];
     let filtered = salaries;
 
+    if (filterMonth !== "all") {
+      const monthNumber = parseInt(filterMonth, 10);
+      filtered = filtered.filter((salary) => salary.month === monthNumber);
+    }
+
+    if (filterYear !== "all") {
+      const yearNumber = parseInt(filterYear, 10);
+      filtered = filtered.filter((salary) => salary.year === yearNumber);
+    }
+
     // Apply search filter
     if (search) {
       const searchLower = search.toLowerCase();
@@ -620,16 +640,51 @@ function Page() {
     }
 
     return filtered;
-  }, [salaries, search]);
+  }, [salaries, search, filterMonth, filterYear]);
 
   const paginatedSalaries = useMemo(() => {
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
-    return filteredSalaries.slice(start, end).map((salary) => ({
-      ...salary,
-      key: salary.id,
-    }));
+    return filteredSalaries.slice(start, end);
   }, [filteredSalaries, page, pageSize]);
+
+  const yearOptions = useMemo(() => {
+    const years = new Set<number>();
+    (salaries || []).forEach((salary) => {
+      if (salary.year) years.add(salary.year);
+    });
+    const sortedYears = Array.from(years).sort((a, b) => b - a);
+    return [
+      { value: "all", label: isAm ? "ሁሉም ዓመታት" : "All years" },
+      ...sortedYears.map((year) => ({
+        value: year.toString(),
+        label: year.toString(),
+      })),
+    ];
+  }, [salaries, isAm]);
+
+  const summaryStats = useMemo(() => {
+    const total = filteredSalaries.length;
+    const approved = filteredSalaries.filter(
+      (salary) => salary.status === paymentStatus.approved
+    ).length;
+    const pending = filteredSalaries.filter(
+      (salary) => salary.status === paymentStatus.pending
+    ).length;
+    const totalAmount = filteredSalaries.reduce(
+      (sum, salary) => sum + (salary.amount ?? 0),
+      0
+    );
+
+    return {
+      total,
+      approved,
+      pending,
+      totalAmount,
+    };
+  }, [filteredSalaries]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSalaries.length / pageSize));
 
   // Table columns
   const columns = [
@@ -812,49 +867,456 @@ function Page() {
     },
   ];
 
-  return (
-    <div className="h-full overflow-hidden p-3 sm:p-5">
-      <div className="h-full flex flex-col gap-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">
-              {isAm ? "መምህር ደሞዝ" : "Teacher Salary"}
-            </h1>
-            <p className="text-sm text-default-500 mt-1">
-              {isAm
-                ? "መምህሮችን ደሞዝ ይፈጥሩ እና ያስተዳድሩ"
-                : "Create and manage teacher salaries"}
-            </p>
-          </div>
-          <Button
-            color="primary"
-            startContent={<Plus className="size-4" />}
-            onPress={() => setIsModalOpen(true)}
-            className="shrink-0"
-          >
-            {isAm ? "አዲስ ደሞዝ ይፍጠሩ" : "Create Salary"}
-          </Button>
-        </div>
+  const monthOptions = useMemo(() => {
+    return [
+      { value: "all", label: isAm ? "ሁሉም ወራት" : "All months" },
+      ...Array.from({ length: 12 }, (_, index) => ({
+        value: (index + 1).toString(),
+        label: (index + 1).toString(),
+      })),
+    ];
+  }, [isAm]);
 
-        {/* Salary Table Card */}
-        <Card className="flex-1 overflow-hidden">
-          <CardBody className="p-0 h-full overflow-auto">
-            <CustomTable
-              rows={paginatedSalaries}
-              columns={columns}
-              totalRows={filteredSalaries.length}
-              page={page}
-              pageSize={pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-              searchValue={search}
-              onSearch={setSearch}
-              isLoading={salariesLoading}
-            />
-          </CardBody>
-        </Card>
-      </div>
+  const [runAutoSalary, isAutoCreating] = useMutation(
+    createAutomaticSalaries,
+    (result) => {
+      if (result?.success) {
+        const createdCount = result.created.length;
+        showAlert({
+          message:
+            createdCount > 0
+              ? isAm
+                ? `${createdCount} የደሞዝ መዝገቦች ተፈጥረዋል።`
+                : `${createdCount} salary${
+                    createdCount > 1 ? " records" : " record"
+                  } generated successfully.`
+              : isAm
+              ? "ምንም የመምህር ክፍያ መረጃ አልተገኘም።"
+              : result.message,
+          type: "success",
+          title: isAm ? "ተሳክቷል" : "Success",
+        });
+        setIsAutoModalOpen(false);
+        refreshSalaries();
+      } else {
+        showAlert({
+          message:
+            result?.message ||
+            (isAm
+              ? "ምንም የመምህር ክፍያ መረጃ አልተገኘም።"
+              : "No salaries were generated for the selected period."),
+          type: "warning",
+          title: isAm ? "ማስጠንቀቂያ" : "Notice",
+        });
+      }
+    }
+  );
+
+  return (
+    <div className="h-full overflow-hidden p-3 sm:p-5 space-y-4">
+      {/* Header */}
+      {/* <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-default-500 text-sm">
+            <Calendar className="size-4 text-primary" />
+            <span>{isAm ? "የደሞዝ ኃላፊነት" : "Finance Management"}</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-default-900">
+            {isAm ? "መምህር ደሞዝ" : "Teacher Salary"}
+          </h1>
+          <p className="text-sm text-default-500 max-w-xl">
+            {isAm
+              ? "የወርና ዓመት ማጣሪያዎችን በመጠቀም የመምህሮችን ደሞዝ ይግብሩ እና ይተኩሩ፣ በክፍያ ሁኔታ ላይ ፈጣን ግምገማ ይድረሱ።"
+              : "Track and approve teacher salary payouts with fast filters for month, year, and status."}
+          </p>
+        </div>
+        <Button
+          color="primary"
+          startContent={<Plus className="size-4" />}
+          onPress={() => setIsModalOpen(true)}
+          className="shrink-0"
+        >
+          {isAm ? "አዲስ ደሞዝ ይፍጠሩ" : "Create Salary"}
+        </Button>
+      </div> */}
+
+      {/* Summary */}
+      {/* <Card className="border border-default-200/60 shadow-sm">
+        <CardBody className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-default-500">
+              {isAm ? "ጠቅላላ ደሞዞች" : "Total Salaries"}
+            </span>
+            <span className="text-2xl font-semibold text-default-900">
+              {summaryStats.total.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-default-500">
+              {isAm ? "የጸድቁ" : "Approved"}
+            </span>
+            <span className="text-2xl font-semibold text-success-600">
+              {summaryStats.approved.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-default-500">
+              {isAm ? "በመጠባበቅ ላይ" : "Pending"}
+            </span>
+            <span className="text-2xl font-semibold text-warning-600">
+              {summaryStats.pending.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-default-500">
+              {isAm ? "ጠቅላላ መጠን" : "Total Amount"}
+            </span>
+            <span className="text-2xl font-semibold text-primary">
+              {summaryStats.totalAmount.toLocaleString()}
+            </span>
+          </div>
+        </CardBody>
+      </Card> */}
+
+      {/* Filters */}
+      <Card className="border border-default-200/60 shadow-sm">
+        <CardHeader className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
+            <div className="flex flex-col gap-2 flex-1 lg:flex-row lg:items-end lg:gap-2">
+              <Input
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+                placeholder={
+                  isAm
+                    ? "መምህር ወይም ወር/ዓመት ፈልግ..."
+                    : "Search by teacher, month, or year..."
+                }
+                variant="bordered"
+                size="sm"
+                startContent={<Search className="size-4 text-default-400" />}
+                className="w-full lg:max-w-md"
+                classNames={{
+                  inputWrapper:
+                    "bg-white dark:bg-default-900/60 border border-default-200/60",
+                }}
+              />
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Select
+                  aria-label="month"
+                  selectedKeys={new Set([filterMonth])}
+                  onSelectionChange={(keys) => {
+                    const value = Array.from(keys)[0] as string;
+                    setFilterMonth(value || "all");
+                    setPage(1);
+                  }}
+                  variant="bordered"
+                  size="sm"
+                  className="sm:w-[140px]"
+                >
+                  {monthOptions.map((option) => (
+                    <SelectItem key={option.value}>{option.label}</SelectItem>
+                  ))}
+                </Select>
+                <Select
+                  aria-label="year"
+                  selectedKeys={new Set([filterYear])}
+                  onSelectionChange={(keys) => {
+                    const value = Array.from(keys)[0] as string;
+                    setFilterYear(value || "all");
+                    setPage(1);
+                  }}
+                  variant="bordered"
+                  size="sm"
+                  className="sm:w-[140px]"
+                >
+                  {yearOptions.map((option) => (
+                    <SelectItem key={option.value}>{option.label}</SelectItem>
+                  ))}
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto lg:ml-auto">
+              <Button
+                variant="flat"
+                color="secondary"
+                startContent={<Calculator className="size-4" />}
+                onPress={() => {
+                  setAutoMonth(
+                    filterMonth !== "all"
+                      ? parseInt(filterMonth, 10)
+                      : new Date().getMonth() + 1
+                  );
+                  setAutoYear(
+                    filterYear !== "all"
+                      ? parseInt(filterYear, 10)
+                      : new Date().getFullYear()
+                  );
+                  setAutoUnitPrice(unitPrice || 0);
+                  setIsAutoModalOpen(true);
+                }}
+                className="w-full sm:w-auto"
+              >
+                {isAm ? "አውቶማቲክ ደሞዝ" : "Automatic Salary"}
+              </Button>
+              <Button
+                color="primary"
+                startContent={<Plus className="size-4" />}
+                onPress={() => setIsModalOpen(true)}
+                className="w-full sm:w-auto"
+              >
+                {isAm ? "አዲስ ደሞዝ" : "Create Salary"}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Salary Table Card */}
+      <Card className="flex-1 overflow-hidden border border-default-200/60 shadow-sm">
+        <CardBody className="p-0 bg-default-50 dark:bg-default-950">
+          {salariesLoading ? (
+            <div className="p-4">
+              <Skeleton className="w-full h-80 rounded-lg" />
+            </div>
+          ) : paginatedSalaries.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              <div className="overflow-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                    <tr>
+                      <th className="border border-default-200 p-3 text-left font-semibold min-w-[220px]">
+                        {isAm ? "መምህር" : "Teacher"}
+                      </th>
+                      <th className="border border-default-200 p-3 text-left font-semibold min-w-[120px]">
+                        {isAm ? "ወር" : "Month"}
+                      </th>
+                      <th className="border border-default-200 p-3 text-left font-semibold min-w-[100px]">
+                        {isAm ? "ዓመት" : "Year"}
+                      </th>
+                      <th className="border border-default-200 p-3 text-center font-semibold min-w-[120px]">
+                        {isAm ? "የመማሪያ ቀናት" : "Learning Days"}
+                      </th>
+                      <th className="border border-default-200 p-3 text-center font-semibold min-w-[130px]">
+                        {isAm ? "የክፍያ ፎቶ" : "Payment Photo"}
+                      </th>
+                      <th className="border border-default-200 p-3 text-center font-semibold min-w-[120px]">
+                        {isAm ? "የአሃድ ዋጋ" : "Unit Price"}
+                      </th>
+                      <th className="border border-default-200 p-3 text-center font-semibold min-w-[140px]">
+                        {isAm ? "ጠቅላላ" : "Total Amount"}
+                      </th>
+                      <th className="border border-default-200 p-3 text-center font-semibold min-w-[140px]">
+                        {isAm ? "ሁኔታ" : "Status"}
+                      </th>
+                      <th className="border border-default-200 p-3 text-left font-semibold min-w-[140px]">
+                        {isAm ? "ተፈጥሯበት" : "Created"}
+                      </th>
+                      <th className="border border-default-200 p-3 text-center font-semibold min-w-[160px]">
+                        {isAm ? "ተግባራት" : "Actions"}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedSalaries.map((salary) => {
+                      const paymentBadge = getPaymentBadge(
+                        salary.status ?? "pending"
+                      );
+                      const monthLabel = formatMonth(salary.month);
+                      return (
+                        <tr
+                          key={salary.id}
+                          className="hover:bg-primary/5 transition-colors"
+                        >
+                          <td className="border border-default-200 p-3 align-top">
+                            <div className="font-semibold text-default-900">
+                              {salary.teacher.firstName}{" "}
+                              {salary.teacher.fatherName}{" "}
+                              {salary.teacher.lastName}
+                            </div>
+                            <div className="text-xs text-default-500 mt-1">
+                              ID: {salary.teacher.id}
+                            </div>
+                          </td>
+                          <td className="border border-default-200 p-3 align-top text-sm">
+                            <span className="font-medium text-default-800">
+                              {salary.month}
+                            </span>
+                          </td>
+                          <td className="border border-default-200 p-3 align-top text-sm">
+                            <span className="font-medium text-default-800">
+                              {salary.year}
+                            </span>
+                          </td>
+                          <td className="border border-default-200 p-3 align-top text-center">
+                            <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:bg-primary-500/10 dark:text-primary-200">
+                              {salary.totalDayForLearning}
+                            </span>
+                          </td>
+                          <td className="border border-default-200 p-3 align-top text-center">
+                            {salary.paymentPhoto ? (
+                              <div className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-default-200 bg-white shadow-sm overflow-hidden">
+                                <Image
+                                  src={formatImageUrl(salary.paymentPhoto)}
+                                  alt="Payment"
+                                  width={48}
+                                  height={48}
+                                  className="object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-default-100 px-2 py-0.5 text-xs font-semibold text-default-500 dark:bg-default-800/60 dark:text-default-300">
+                                {isAm ? "ምስል የለም" : "No photo"}
+                              </span>
+                            )}
+                          </td>
+                          <td className="border border-default-200 p-3 align-top text-center">
+                            <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-default-100 px-2 py-0.5 text-xs font-semibold text-default-700 dark:bg-default-800/60 dark:text-default-200">
+                              {salary.unitPrice?.toLocaleString()}
+                            </span>
+                          </td>
+                          <td className="border border-default-200 p-3 align-top text-center">
+                            <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-success-50 px-2 py-0.5 text-xs font-semibold text-success-600 dark:bg-success-500/10 dark:text-success-200">
+                              {salary.amount?.toLocaleString()}
+                            </span>
+                          </td>
+                          <td className="border border-default-200 p-3 align-top text-center">
+                            <span className={paymentBadge.className}>
+                              {paymentBadge.label}
+                            </span>
+                          </td>
+                          <td className="border border-default-200 p-3 align-top text-sm text-default-600">
+                            {new Date(
+                              salary.createdAt ?? ""
+                            ).toLocaleDateString()}
+                          </td>
+                          <td className="border border-default-200 p-3 align-top">
+                            <div className="flex flex-wrap gap-2 justify-center">
+                              <Button
+                                size="sm"
+                                variant="flat"
+                                color="primary"
+                                isIconOnly
+                                aria-label={
+                                  isAm ? "ዝርዝር ይመልከቱ" : "View details"
+                                }
+                                onPress={() => openDetailModal(salary)}
+                              >
+                                <FileText className="size-3" />
+                              </Button>
+                              {salary.paymentPhoto ? (
+                                <Button
+                                  size="sm"
+                                  variant="flat"
+                                  color="default"
+                                  isIconOnly
+                                  aria-label={
+                                    isAm ? "የክፍያ ፎቶ" : "View payment photo"
+                                  }
+                                  onPress={() =>
+                                    openPhotoPreview(
+                                      salary.paymentPhoto as string
+                                    )
+                                  }
+                                >
+                                  <Eye className="size-3" />
+                                </Button>
+                              ) : null}
+                              {salary.status === paymentStatus.pending && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    color="success"
+                                    variant="flat"
+                                    startContent={<Check className="size-3" />}
+                                    onPress={() =>
+                                      openConfirmModal(
+                                        salary.id as string,
+                                        salary,
+                                        "approve"
+                                      )
+                                    }
+                                  >
+                                    {isAm ? "ጸድቅ" : "Approve"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    color="danger"
+                                    variant="flat"
+                                    startContent={<X className="size-3" />}
+                                    onPress={() =>
+                                      openConfirmModal(
+                                        salary.id as string,
+                                        salary,
+                                        "reject"
+                                      )
+                                    }
+                                  >
+                                    {isAm ? "አትቀበል" : "Reject"}
+                                  </Button>
+                                </>
+                              )}
+                              {salary.status === paymentStatus.approved && (
+                                <span className="text-xs text-success font-medium">
+                                  {isAm ? "ጸድቋል" : "Approved"}
+                                </span>
+                              )}
+                              {salary.status === paymentStatus.rejected && (
+                                <span className="text-xs text-danger font-medium">
+                                  {isAm ? "ተቀባይነት አላገኘም" : "Rejected"}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="p-16 text-center text-default-500">
+              <Calendar className="size-16 mx-auto text-default-300 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                {isAm ? "የደሞዝ መረጃ የለም" : "No salary records"}
+              </h3>
+              <p className="text-sm text-default-400">
+                {isAm
+                  ? "ወርና ዓመት ማጣሪያዎችን ያስተካክሉ ወይም አዲስ ደሞዝ ይፍጠሩ።"
+                  : "Adjust your filters or create a new salary record."}
+              </p>
+            </div>
+          )}
+        </CardBody>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-t border-default-200">
+          <span className="text-xs text-default-500">
+            {filteredSalaries.length > 0
+              ? isAm
+                ? `ውጤቶች ${(page - 1) * pageSize + 1}-${Math.min(
+                    page * pageSize,
+                    filteredSalaries.length
+                  )} ከ ${filteredSalaries.length}`
+                : `Showing ${(page - 1) * pageSize + 1}-${Math.min(
+                    page * pageSize,
+                    filteredSalaries.length
+                  )} of ${filteredSalaries.length}`
+              : isAm
+              ? "ውጤት የለም"
+              : "No results"}
+          </span>
+          <Pagination
+            total={totalPages}
+            page={page}
+            onChange={setPage}
+            showControls
+            isCompact
+            className="self-end"
+          />
+        </div>
+      </Card>
 
       {/* Create Salary Modal */}
       <Modal
@@ -1957,6 +2419,114 @@ function Page() {
         onConfirm={alertOptions.onConfirm}
         showCancel={alertOptions.showCancel}
       />
+
+      {/* Automatic Salary Modal */}
+      <Modal
+        isOpen={isAutoModalOpen}
+        onClose={() => {
+          if (!isAutoCreating) {
+            setIsAutoModalOpen(false);
+          }
+        }}
+        size="md"
+        backdrop="blur"
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <h2 className="text-xl font-semibold">
+              {isAm ? "አውቶማቲክ ደሞዝ" : "Automatic Salary"}
+            </h2>
+            <p className="text-sm text-default-500">
+              {isAm
+                ? "የወርና ዓመት መረጃ በመሞላት ለሁሉም መምህሮች የቀረ ደሞዝ በአንድ ጊዜ ይፍጠሩ።"
+                : "Generate pending salaries for all teachers in a single step."}
+            </p>
+          </ModalHeader>
+          <ModalBody>
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Select
+                  label={isAm ? "ወር *" : "Month *"}
+                  selectedKeys={new Set([autoMonth.toString()])}
+                  onSelectionChange={(keys) => {
+                    const value = Array.from(keys)[0] as string;
+                    if (value) setAutoMonth(parseInt(value, 10));
+                  }}
+                >
+                  {Array.from({ length: 12 }, (_, index) => (
+                    <SelectItem key={(index + 1).toString()}>
+                      {index + 1}
+                    </SelectItem>
+                  ))}
+                </Select>
+                <Input
+                  type="number"
+                  label={isAm ? "ዓመት *" : "Year *"}
+                  value={autoYear.toString()}
+                  onChange={(event) => {
+                    const value = parseInt(event.target.value, 10);
+                    if (!Number.isNaN(value)) {
+                      setAutoYear(value);
+                    }
+                  }}
+                  min={2000}
+                />
+              </div>
+              <Input
+                type="number"
+                label={isAm ? "የአሃድ ዋጋ *" : "Unit Price *"}
+                value={autoUnitPrice ? autoUnitPrice.toString() : ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setAutoUnitPrice(value === "" ? 0 : parseFloat(value));
+                }}
+                placeholder={isAm ? "የአሃድ ዋጋ ያስገቡ" : "Enter unit price"}
+                min={0}
+              />
+              <div className="rounded-lg border border-default-200 bg-default-100/50 p-3 text-xs text-default-500">
+                <p>
+                  {isAm
+                    ? "አዲሱ ደሞዝ እስከሚጸድቅ ድረስ መመለስ ይቻላል። ጸድቆ ከተባረከ በኋላ ማቋረጥ አይቻልም።"
+                    : "Generated salaries remain reversible until approval. Once approved (with payment photo) the records can no longer be rolled back."}
+                </p>
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="light"
+              onPress={() => {
+                if (!isAutoCreating) {
+                  setIsAutoModalOpen(false);
+                }
+              }}
+              isDisabled={isAutoCreating}
+            >
+              {isAm ? "ዝጋ" : "Cancel"}
+            </Button>
+            <Button
+              color="primary"
+              onPress={() => {
+                if (autoUnitPrice <= 0) {
+                  showAlert({
+                    message: isAm
+                      ? "እባክዎ የአሃድ ዋጋ ያስገቡ"
+                      : "Please enter a unit price",
+                    type: "warning",
+                    title: isAm ? "ማስጠንቀቂያ" : "Warning",
+                  });
+                  return;
+                }
+                runAutoSalary(autoMonth, autoYear, autoUnitPrice);
+              }}
+              isLoading={isAutoCreating}
+              isDisabled={autoUnitPrice <= 0 || autoYear < 2000}
+            >
+              {isAm ? "በአንድ ጊዜ ይፍጠሩ" : "Generate"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
