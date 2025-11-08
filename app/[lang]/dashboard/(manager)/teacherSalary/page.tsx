@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   Upload,
   Eye,
+  FileText,
 } from "lucide-react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
@@ -36,6 +37,7 @@ import {
   getTeacherProgressForSalary,
   getShiftTeacherDataForSalary,
   updateSalary,
+  getSalaryDetail,
 } from "@/actions/manager/salary";
 import { getTeacherList } from "@/actions/controller/teacher";
 import { paymentStatus } from "@prisma/client";
@@ -56,6 +58,41 @@ interface TeacherSalaryData {
   amount?: number;
   status?: string;
   [key: string]: unknown;
+}
+
+interface SalaryDetail extends TeacherSalaryData {
+  createdAt?: string;
+  teacherProgresses: Array<{
+    id: string;
+    learningCount: number;
+    missingCount: number;
+    totalCount: number;
+    paymentStatus: string;
+    createdAt: string;
+    student: {
+      firstName: string;
+      fatherName: string;
+      lastName: string;
+    };
+  }>;
+  shiftTeacherData: Array<{
+    id: string;
+    learningCount: number;
+    missingCount: number;
+    totalCount: number;
+    paymentStatus: string;
+    createdAt: string;
+    student: {
+      firstName: string;
+      fatherName: string;
+      lastName: string;
+    };
+    teacher?: {
+      firstName: string;
+      fatherName: string;
+      lastName: string;
+    };
+  }>;
 }
 
 function Page() {
@@ -94,6 +131,11 @@ function Page() {
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string>("");
   const [isPhotoPreviewOpen, setIsPhotoPreviewOpen] = useState(false);
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string>("");
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [detailSalaryId, setDetailSalaryId] = useState<string>("");
+  const [detailSummary, setDetailSummary] = useState<TeacherSalaryData | null>(
+    null
+  );
 
   // Fetch data
   const [salaries, salariesLoading, refreshSalaries] = useData(
@@ -111,6 +153,110 @@ function Page() {
     () => {},
     selectedTeacher || ""
   );
+  const [salaryDetail, salaryDetailLoading] = useData(
+    getSalaryDetail,
+    () => {},
+    detailSalaryId || ""
+  );
+  const monthNames = useMemo(
+    () =>
+      isAm
+        ? [
+            "መስከረም",
+            "ጥቅምት",
+            "ህዳር",
+            "ታህሳስ",
+            "ጥር",
+            "የካቲት",
+            "መጋቢት",
+            "ሚያዝያ",
+            "ግንቦት",
+            "ሰኔ",
+            "ሐምሌ",
+            "ነሐሴ",
+          ]
+        : [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ],
+    [isAm]
+  );
+
+  const formatMonth = (value?: number) => {
+    if (!value || value < 1 || value > 12) return "-";
+    return monthNames[value - 1];
+  };
+
+  const openDetailModal = (salary: TeacherSalaryData) => {
+    if (!salary?.id) return;
+    setDetailSummary(salary);
+    setDetailSalaryId(salary.id);
+    setIsDetailModalOpen(true);
+  };
+
+  const closeDetailModal = () => {
+    setIsDetailModalOpen(false);
+    setDetailSalaryId("");
+    setDetailSummary(null);
+  };
+  const detailData = (salaryDetail as SalaryDetail | null) ?? null;
+  const summary = detailData ?? (detailSummary as SalaryDetail | null) ?? null;
+  const summaryTeacherName = summary?.teacher
+    ? `${summary.teacher.firstName} ${summary.teacher.fatherName} ${summary.teacher.lastName}`
+    : "-";
+  const summaryMonthLabel = summary?.month ? formatMonth(summary.month) : "-";
+  const summaryYearLabel = summary?.year ?? "-";
+  const summaryTotalDays = summary?.totalDayForLearning ?? 0;
+  const summaryUnitPrice = summary?.unitPrice ?? 0;
+  const summaryAmount = summary?.amount ?? 0;
+  const summaryCreatedAt =
+    summary && (summary as SalaryDetail)?.createdAt
+      ? new Date(
+          (summary as SalaryDetail).createdAt as string
+        ).toLocaleDateString()
+      : "-";
+  const teacherProgressList = detailData?.teacherProgresses ?? [];
+  const shiftList = detailData?.shiftTeacherData ?? [];
+  const countBadgeClass =
+    "inline-flex items-center rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:border-primary-400/40 dark:bg-primary-500/10 dark:text-primary-200";
+  const successBadgeClass =
+    "inline-flex min-w-[2.5rem] justify-center rounded-full bg-success-50 px-2 py-0.5 text-xs font-semibold text-success-600 dark:bg-success-500/10 dark:text-success-200";
+  const dangerBadgeClass =
+    "inline-flex min-w-[2.5rem] justify-center rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold text-danger-600 dark:bg-danger-500/10 dark:text-danger-200";
+  const primaryBadgeClass =
+    "inline-flex min-w-[2.5rem] justify-center rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:bg-primary-500/10 dark:text-primary-200";
+  const getPaymentBadge = (status: string) => {
+    switch (status) {
+      case "approved":
+        return {
+          className:
+            "inline-flex items-center rounded-full bg-success-50 px-2 py-0.5 text-xs font-semibold text-success-600 dark:bg-success-500/10 dark:text-success-200",
+          label: isAm ? "ጸድቋል" : "Paid",
+        };
+      case "pending":
+        return {
+          className:
+            "inline-flex items-center rounded-full bg-warning-50 px-2 py-0.5 text-xs font-semibold text-warning-600 dark:bg-warning-500/10 dark:text-warning-200",
+          label: isAm ? "በመጠባበቅ ላይ" : "Pending",
+        };
+      default:
+        return {
+          className:
+            "inline-flex items-center rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold text-danger-600 dark:bg-danger-500/10 dark:text-danger-200",
+          label: isAm ? "ተቀባይነት አላገኘም" : "Rejected",
+        };
+    }
+  };
 
   // Create salary mutation
   const [createSalaryMutation, isCreating] = useMutation(createSalary, () => {
@@ -586,6 +732,7 @@ function Page() {
       key: "actions",
       label: isAm ? "ድርጊቶች" : "Actions",
       renderCell: (item: Record<string, unknown>) => {
+        const salary = item as TeacherSalaryData;
         const paymentPhoto =
           typeof item.paymentPhoto === "string" && item.paymentPhoto
             ? (item.paymentPhoto as string)
@@ -593,6 +740,16 @@ function Page() {
 
         return (
           <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="flat"
+              color="primary"
+              isIconOnly
+              aria-label={isAm ? "የዝርዝር መረጃ ይመልከቱ" : "View details"}
+              onPress={() => openDetailModal(salary)}
+            >
+              <FileText className="size-3" />
+            </Button>
             {paymentPhoto && (
               <Button
                 size="sm"
@@ -1161,6 +1318,277 @@ function Page() {
               }
             >
               {isAm ? "ይፍጠሩ" : "Create"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Salary Detail Modal */}
+      <Modal
+        isOpen={isDetailModalOpen}
+        onClose={closeDetailModal}
+        size="4xl"
+        scrollBehavior="inside"
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <h3 className="text-xl font-bold">
+              {isAm ? "የደሞዝ ዝርዝር" : "Salary Details"}
+            </h3>
+            <p className="text-sm text-default-500">
+              {summaryTeacherName} • {summaryMonthLabel} {summaryYearLabel}
+            </p>
+          </ModalHeader>
+          <ModalBody className="space-y-6">
+            {salaryDetailLoading ? (
+              <Skeleton className="h-40 w-full rounded-xl" />
+            ) : detailData ? (
+              <>
+                <Card>
+                  <CardBody className="grid gap-2 text-sm md:grid-cols-2">
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "መምህር" : "Teacher"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {summaryTeacherName}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "ወር" : "Month"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {summaryMonthLabel}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "ዓመት" : "Year"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {summaryYearLabel}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "ተፈጥሯበት" : "Created"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {summaryCreatedAt}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "የመማሪያ ቀናት" : "Learning Days"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {summaryTotalDays}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "የአሃድ ዋጋ" : "Unit Price"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {summaryUnitPrice.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between md:col-span-2 border-t border-default-200 pt-2">
+                      <span className="text-default-500">
+                        {isAm ? "ጠቅላላ መጠን" : "Total Amount"}
+                      </span>
+                      <span className="font-bold text-lg text-primary">
+                        {summaryAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  </CardBody>
+                </Card>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-semibold">
+                      {isAm ? "Teacher Progress" : "Teacher Progress"}
+                    </h4>
+                    <span className={countBadgeClass}>
+                      {teacherProgressList.length}
+                    </span>
+                  </div>
+                  {teacherProgressList.length > 0 ? (
+                    <div className="overflow-auto max-h-64">
+                      <table className="w-full border-collapse text-sm">
+                        <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                          <tr>
+                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[180px]">
+                              {isAm ? "ተማሪ" : "Student"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[120px]">
+                              {isAm ? "ተፈጥሯበት" : "Created"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-center font-semibold">
+                              {isAm ? "መማሪያ" : "Learning"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-center font-semibold">
+                              {isAm ? "የጠፋ" : "Missing"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-center font-semibold">
+                              {isAm ? "ጠቅላላ" : "Total"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-center font-semibold">
+                              {isAm ? "ክፍያ" : "Payment"}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {teacherProgressList.map((progress) => (
+                            <tr
+                              key={progress.id}
+                              className="hover:bg-primary/5"
+                            >
+                              <td className="border border-default-200 p-2">
+                                {progress.student.firstName}{" "}
+                                {progress.student.fatherName}{" "}
+                                {progress.student.lastName}
+                              </td>
+                              <td className="border border-default-200 p-2">
+                                {new Date(
+                                  progress.createdAt
+                                ).toLocaleDateString()}
+                              </td>
+                              <td className="border border-default-200 p-2 text-center">
+                                <span className={successBadgeClass}>
+                                  {progress.learningCount ?? 0}
+                                </span>
+                              </td>
+                              <td className="border border-default-200 p-2 text-center">
+                                <span className={dangerBadgeClass}>
+                                  {progress.missingCount ?? 0}
+                                </span>
+                              </td>
+                              <td className="border border-default-200 p-2 text-center">
+                                <span className={primaryBadgeClass}>
+                                  {progress.totalCount ?? 0}
+                                </span>
+                              </td>
+                              <td className="border border-default-200 p-2 text-center">
+                                {(() => {
+                                  const badge = getPaymentBadge(
+                                    progress.paymentStatus
+                                  );
+                                  return (
+                                    <span className={badge.className}>
+                                      {badge.label}
+                                    </span>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-default-500">
+                      {isAm
+                        ? "የመምህር ሂደት አልተገኘም"
+                        : "No teacher progress linked to this salary."}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-semibold">
+                      {isAm ? "Shift Teacher Data" : "Shift Teacher Data"}
+                    </h4>
+                    <span className={countBadgeClass}>{shiftList.length}</span>
+                  </div>
+                  {shiftList.length > 0 ? (
+                    <div className="overflow-auto max-h-64">
+                      <table className="w-full border-collapse text-sm">
+                        <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                          <tr>
+                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[180px]">
+                              {isAm ? "ተማሪ" : "Student"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[120px]">
+                              {isAm ? "ተፈጥሯበት" : "Created"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-center font-semibold">
+                              {isAm ? "መማሪያ" : "Learning"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-center font-semibold">
+                              {isAm ? "የጠፋ" : "Missing"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-center font-semibold">
+                              {isAm ? "ጠቅላላ" : "Total"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-center font-semibold">
+                              {isAm ? "ክፍያ" : "Payment"}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shiftList.map((shift) => (
+                            <tr key={shift.id} className="hover:bg-primary/5">
+                              <td className="border border-default-200 p-2">
+                                {shift.student.firstName}{" "}
+                                {shift.student.fatherName}{" "}
+                                {shift.student.lastName}
+                              </td>
+                              <td className="border border-default-200 p-2">
+                                {new Date(shift.createdAt).toLocaleDateString()}
+                              </td>
+                              <td className="border border-default-200 p-2 text-center">
+                                <span className={successBadgeClass}>
+                                  {shift.learningCount}
+                                </span>
+                              </td>
+                              <td className="border border-default-200 p-2 text-center">
+                                <span className={dangerBadgeClass}>
+                                  {shift.missingCount}
+                                </span>
+                              </td>
+                              <td className="border border-default-200 p-2 text-center">
+                                <span className={primaryBadgeClass}>
+                                  {shift.totalCount}
+                                </span>
+                              </td>
+                              <td className="border border-default-200 p-2 text-center">
+                                {(() => {
+                                  const badge = getPaymentBadge(
+                                    shift.paymentStatus
+                                  );
+                                  return (
+                                    <span className={badge.className}>
+                                      {badge.label}
+                                    </span>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-default-500">
+                      {isAm
+                        ? "ከዚህ ደሞዝ ጋር የተያያዙ shift መረጃዎች የሉም።"
+                        : "No shift data linked to this salary."}
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-default-500">
+                {isAm ? "ዝርዝር መረጃ አልተገኘም" : "No detail information available."}
+              </p>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={closeDetailModal}>
+              {isAm ? "ዝጋ" : "Close"}
             </Button>
           </ModalFooter>
         </ModalContent>

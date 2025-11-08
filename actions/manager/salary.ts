@@ -32,6 +32,60 @@ export async function getSalary() {
   });
 }
 
+export async function getSalaryDetail(salaryId: string) {
+  if (!salaryId) {
+    return null;
+  }
+
+  return prisma.teacherSalary.findUnique({
+    where: { id: salaryId },
+    include: {
+      teacher: {
+        select: {
+          id: true,
+          firstName: true,
+          fatherName: true,
+          lastName: true,
+        },
+      },
+      teacherProgresses: {
+        include: {
+          student: {
+            select: {
+              id: true,
+              firstName: true,
+              fatherName: true,
+              lastName: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+      shiftTeacherData: {
+        include: {
+          student: {
+            select: {
+              id: true,
+              firstName: true,
+              fatherName: true,
+              lastName: true,
+            },
+          },
+          teacher: {
+            select: {
+              id: true,
+              firstName: true,
+              fatherName: true,
+              lastName: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+}
+
 export async function getTeacherProgressForSalary(teacherId: string) {
   // Get TeacherProgress records that are open and pending payment
   return prisma.teacherProgress.findMany({
