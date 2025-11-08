@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Button,
   Card,
   CardBody,
   CardHeader,
@@ -19,7 +18,7 @@ import {
   getTeacherMonthlyCalendar,
   getTeachersWithControllers,
 } from "@/actions/manager/reporter";
-import { Calendar, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Calendar, Search } from "lucide-react";
 import useData from "@/hooks/useData";
 import useAmharic from "@/hooks/useAmharic";
 import useAlert from "@/hooks/useAlert";
@@ -50,25 +49,6 @@ export default function Page() {
     year,
     month
   );
-
-  // Helper functions for month navigation
-  const handlePreviousMonth = () => {
-    if (month === 1) {
-      setMonth(12);
-      setYear(year - 1);
-    } else {
-      setMonth(month - 1);
-    }
-  };
-
-  const handleNextMonth = () => {
-    if (month === 12) {
-      setMonth(1);
-      setYear(year + 1);
-    } else {
-      setMonth(month + 1);
-    }
-  };
 
   const filteredCalendarData = useMemo(() => {
     if (!calendarData?.success || !calendarData.data) return [];
@@ -161,204 +141,162 @@ export default function Page() {
     );
   }, []);
 
-  // Get month name
-  const getMonthName = (monthNum: number) => {
-    const monthNames = isAm
-      ? [
-          "መስከረም",
-          "ጥቅምት",
-          "ህዳር",
-          "ታህሳስ",
-          "ጥር",
-          "የካቲት",
-          "መጋቢት",
-          "ሚያዝያ",
-          "ግንቦት",
-          "ሰኔ",
-          "ሐምሌ",
-          "ነሐሴ",
-        ]
-      : [
-          "January",
-          "February",
-          "March",
-          "April",
-          "May",
-          "June",
-          "July",
-          "August",
-          "September",
-          "October",
-          "November",
-          "December",
-        ];
-    return monthNames[monthNum - 1];
-  };
-
   return (
-    <div className="flex flex-col h-full overflow-hidden p-2 lg:p-5 gap-4">
+    <div className="flex flex-col h-full overflow-hidden p-3 lg:p-6 gap-4">
       {/* Header with Teacher Selection */}
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Calendar className="size-6" />
-          {isAm ? "የወር ሪፖርት አቀራረብ" : "Monthly Report View"}
-        </h1>
+      <Card className="border border-default-200/60 shadow-sm">
+        <CardBody className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold flex items-center gap-2 text-default-900">
+              <Calendar className="size-6 text-primary" />
+              {isAm ? "የወር ሪፖርት አቀራረብ" : "Monthly Report View"}
+            </h1>
+            {/* <p className="text-sm text-default-500">
+              {isAm
+                ? "መምህሩን ይምረጡ እና የተመረጠውን ወር ሪፖርት በግልጽ እና ታላቅ ንድፍ ይመልከቱ።"
+                : "Choose a teacher to explore their monthly learning progress in a clean, focused layout."}
+            </p> */}
+          </div>
 
-        {/* Teacher Selection */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Autocomplete
-            label={isAm ? "መምህር ይምረጡ" : "Select Teacher"}
-            placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
-            selectedKey={selectedTeacher || null}
-            onSelectionChange={(key: React.Key | null) => {
-              setSelectedTeacher((key as string) || "");
-            }}
-            defaultItems={teachersData?.data || []}
-            variant="bordered"
-            isClearable
-            isLoading={isLoadingTeachers}
-            listboxProps={{
-              emptyContent: isAm ? "ምንም መምህር አልተገኘም" : "No teachers found",
-            }}
-            description={
-              selectedTeacher
-                ? isAm
-                  ? "✓ መምህር ተመርጧል"
-                  : "✓ Teacher selected"
-                : isAm
-                ? "ለመፈለግ መታየብ ይጀምሩ"
-                : "Start typing to search"
-            }
-            classNames={{
-              base: selectedTeacher
-                ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
-                : "",
-            }}
-          >
-            {(item: {
-              teacher: {
-                id: string;
-                firstName: string;
-                fatherName: string;
-                lastName: string;
-              };
-              controller: {
-                firstName: string;
-                fatherName: string;
-                lastName: string;
-              } | null;
-            }) => (
-              <AutocompleteItem
-                key={item.teacher.id}
-                textValue={`${item.teacher.firstName} ${item.teacher.fatherName} ${item.teacher.lastName}`}
-              >
-                <div className="flex flex-col py-1">
-                  <span className="font-medium">
-                    {item.teacher.firstName} {item.teacher.fatherName}{" "}
-                    {item.teacher.lastName}
-                  </span>
-                  {item.controller && (
-                    <span className="text-xs text-primary mt-1">
-                      {isAm ? "ተቆጣጣሪ" : "Controller"}:{" "}
-                      {item.controller.firstName} {item.controller.fatherName}{" "}
-                      {item.controller.lastName}
+          {/* Teacher Selection */}
+          <div className="w-full lg:max-w-md">
+            <Autocomplete
+              label={isAm ? "መምህር ይምረጡ" : "Select Teacher"}
+              placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
+              selectedKey={selectedTeacher || null}
+              onSelectionChange={(key: React.Key | null) => {
+                setSelectedTeacher((key as string) || "");
+              }}
+              defaultItems={teachersData?.data || []}
+              variant="bordered"
+              isClearable
+              isLoading={isLoadingTeachers}
+              listboxProps={{
+                emptyContent: isAm ? "ምንም መምህር አልተገኘም" : "No teachers found",
+              }}
+              description={
+                selectedTeacher
+                  ? isAm
+                    ? "✓ መምህር ተመርጧል"
+                    : "✓ Teacher selected"
+                  : isAm
+                  ? "ለመፈለግ መታየብ ይጀምሩ"
+                  : "Start typing to search"
+              }
+              classNames={{
+                base: selectedTeacher
+                  ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
+                  : "",
+              }}
+            >
+              {(item: {
+                teacher: {
+                  id: string;
+                  firstName: string;
+                  fatherName: string;
+                  lastName: string;
+                };
+                controller: {
+                  firstName: string;
+                  fatherName: string;
+                  lastName: string;
+                } | null;
+              }) => (
+                <AutocompleteItem
+                  key={item.teacher.id}
+                  textValue={`${item.teacher.firstName} ${item.teacher.fatherName} ${item.teacher.lastName}`}
+                >
+                  <div className="flex flex-col py-1">
+                    <span className="font-semibold text-default-700">
+                      {item.teacher.firstName} {item.teacher.fatherName}{" "}
+                      {item.teacher.lastName}
                     </span>
-                  )}
-                </div>
-              </AutocompleteItem>
-            )}
-          </Autocomplete>
-        </div>
-      </div>
+                    {item.controller && (
+                      <span className="text-xs text-primary mt-1">
+                        {isAm ? "ተቆጣጣሪ" : "Controller"}:{" "}
+                        {item.controller.firstName} {item.controller.fatherName}{" "}
+                        {item.controller.lastName}
+                      </span>
+                    )}
+                  </div>
+                </AutocompleteItem>
+              )}
+            </Autocomplete>
+          </div>
+        </CardBody>
+      </Card>
 
       {/* Month/Year Navigation and Calendar */}
       {selectedTeacher && (
-        <Card className="flex-1 overflow-hidden">
-          <CardHeader className="flex flex-col gap-4 p-4 border-b border-default-200">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Button
-                  isIconOnly
-                  variant="light"
-                  onPress={handlePreviousMonth}
-                  size="sm"
-                >
-                  <ChevronLeft className="size-5" />
-                </Button>
-                <h2 className="text-xl font-bold whitespace-nowrap">
-                  {getMonthName(month)} {year}
-                </h2>
-                <Button
-                  isIconOnly
-                  variant="light"
-                  onPress={handleNextMonth}
-                  size="sm"
-                >
-                  <ChevronRight className="size-5" />
-                </Button>
-              </div>
-              <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center w-full lg:w-auto">
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={
-                    isAm
-                      ? "ተማሪን በፍጥነት ለመፈለግ ይጻፉ..."
-                      : "Quick search for a student..."
-                  }
-                  variant="bordered"
-                  startContent={<Search className="size-4 text-default-400" />}
-                  className="w-full lg:w-72"
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center lg:gap-3 gap-3 w-full lg:w-auto">
-                  <Select
-                    label={isAm ? "ወር ይምረጡ" : "Select Month"}
-                    selectedKeys={new Set([month.toString()])}
-                    onSelectionChange={(keys) => {
-                      const value = Array.from(keys)[0] as string;
-                      if (value) setMonth(parseInt(value));
-                    }}
-                    variant="bordered"
-                    className="min-w-[160px]"
-                  >
-                    {monthOptions.map((option) => (
-                      <SelectItem key={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </Select>
-                  <Select
-                    label={isAm ? "ዓመት ይምረጡ" : "Select Year"}
-                    selectedKeys={new Set([year.toString()])}
-                    onSelectionChange={(keys) => {
-                      const value = Array.from(keys)[0] as string;
-                      if (value) setYear(parseInt(value));
-                    }}
-                    variant="bordered"
-                    className="min-w-[160px]"
-                  >
-                    {yearOptions.map((option) => (
-                      <SelectItem key={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </Select>
-                  <Select
-                    label={isAm ? "በገጹ ቁጥር" : "Rows per page"}
-                    selectedKeys={new Set([pageSize.toString()])}
-                    onSelectionChange={(keys) => {
-                      const value = Array.from(keys)[0] as string;
-                      if (value) setPageSize(parseInt(value));
-                    }}
-                    variant="bordered"
-                    className="min-w-[160px]"
-                  >
-                    {pageSizeOptions.map((value) => (
-                      <SelectItem key={value}>{value}</SelectItem>
-                    ))}
-                  </Select>
-                </div>
-              </div>
+        <Card className="flex-1 overflow-hidden border border-default-200/70 shadow-sm">
+          <CardHeader className="p-4 border-b border-default-200 bg-default-50 dark:bg-default-900/30">
+            <div className="flex items-center gap-2 w-full">
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={
+                  isAm
+                    ? "ተማሪን በፍጥነት ለመፈለግ ይጻፉ..."
+                    : "Quick search for a student..."
+                }
+                variant="bordered"
+                size="sm"
+                startContent={<Search className="size-4 text-default-400" />}
+                className="flex-1 min-w-0"
+                classNames={{
+                  inputWrapper:
+                    "bg-white dark:bg-default-900/60 border border-default-200/60",
+                }}
+              />
+              <Select
+                aria-label="month"
+                selectedKeys={new Set([month.toString()])}
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0] as string;
+                  if (value) setMonth(parseInt(value));
+                }}
+                variant="bordered"
+                size="sm"
+                className="w-[115px] flex-shrink"
+              >
+                {monthOptions.map((option) => (
+                  <SelectItem key={option.value}>{option.label}</SelectItem>
+                ))}
+              </Select>
+              <Select
+                aria-label="year"
+                selectedKeys={new Set([year.toString()])}
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0] as string;
+                  if (value) setYear(parseInt(value));
+                }}
+                variant="bordered"
+                size="sm"
+                className="w-[95px] flex-shrink"
+              >
+                {yearOptions.map((option) => (
+                  <SelectItem key={option.value}>{option.label}</SelectItem>
+                ))}
+              </Select>
+              <Select
+                aria-label="rows per page"
+                selectedKeys={new Set([pageSize.toString()])}
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0] as string;
+                  if (value) setPageSize(parseInt(value));
+                }}
+                variant="bordered"
+                size="sm"
+                className="w-[110px] flex-shrink"
+              >
+                {pageSizeOptions.map((value) => (
+                  <SelectItem key={value}>{value}</SelectItem>
+                ))}
+              </Select>
             </div>
           </CardHeader>
 
-          <CardBody className="p-0 overflow-auto">
+          <CardBody className="p-0 bg-default-50 dark:bg-default-950">
             {isLoadingCalendar ? (
               <div className="p-4">
                 <Skeleton className="w-full h-96 rounded-lg" />
@@ -366,10 +304,10 @@ export default function Page() {
             ) : calendarData?.success && calendarData.data ? (
               <div className="flex flex-col gap-3">
                 <div className="overflow-auto">
-                  <table className="w-full border-collapse">
-                    <thead className="sticky top-0 bg-default-100 z-10">
+                  <table className="w-full border-collapse text-sm">
+                    <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
                       <tr>
-                        <th className="border border-default-200 p-2 text-left font-semibold min-w-[150px] sticky left-0 bg-default-100 z-20">
+                        <th className="border border-default-200/70 p-2 text-left font-semibold min-w-[180px] sticky left-0 bg-default-100 dark:bg-default-900/80 z-20">
                           {isAm ? "ተማሪ" : "Student"}
                         </th>
                         {Array.from(
@@ -378,7 +316,7 @@ export default function Page() {
                         ).map((day) => (
                           <th
                             key={day}
-                            className="border border-default-200 p-1 text-center font-semibold min-w-[50px] text-xs"
+                            className="border border-default-200/70 p-1 text-center font-semibold min-w-[50px] text-[11px] text-default-500"
                           >
                             {day}
                           </th>
@@ -387,67 +325,81 @@ export default function Page() {
                     </thead>
                     <tbody>
                       {paginatedCalendarData.length > 0 ? (
-                        paginatedCalendarData.map((item) => (
-                          <tr
-                            key={item.student.id}
-                            className="hover:bg-default-50"
-                          >
-                            <td className="border border-default-200 p-2 font-medium sticky left-0 bg-white dark:bg-default-50 z-10">
-                              <div className="flex flex-col">
-                                <span className="text-sm">
+                        paginatedCalendarData.map((item, rowIndex) => {
+                          const isEvenRow = rowIndex % 2 === 0;
+                          const rowBgClass = isEvenRow
+                            ? "bg-default-50 dark:bg-default-900/50"
+                            : "bg-white dark:bg-default-950";
+                          const stickyBgClass = isEvenRow
+                            ? "bg-default-100 dark:bg-default-900/70"
+                            : "bg-white dark:bg-default-950";
+
+                          return (
+                            <tr
+                              key={item.student.id}
+                              className={`${rowBgClass} hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors`}
+                            >
+                              <td
+                                className={`border border-default-200/70 p-2 font-medium sticky left-0 z-10 text-default-700 dark:text-default-200 ${stickyBgClass}`}
+                              >
+                                <span className="text-sm font-semibold">
                                   {item.student.firstName}{" "}
                                   {item.student.fatherName}{" "}
                                   {item.student.lastName}
                                 </span>
-                              </div>
-                            </td>
-                            {Array.from(
-                              { length: daysInMonth },
-                              (_, i) => i + 1
-                            ).map((day) => {
-                              const report = item.reportsByDate[day];
-                              return (
-                                <td
-                                  key={day}
-                                  className="border border-default-200 p-1 text-center"
-                                >
-                                  {report ? (
-                                    <div className="flex items-center justify-center">
-                                      <Chip
-                                        size="sm"
-                                        color={
-                                          report.learningProgress === "present"
-                                            ? "success"
+                              </td>
+                              {Array.from(
+                                { length: daysInMonth },
+                                (_, i) => i + 1
+                              ).map((day) => {
+                                const report = item.reportsByDate[day];
+                                return (
+                                  <td
+                                    key={day}
+                                    className="border border-default-200/60 p-1 text-center align-middle"
+                                  >
+                                    {report ? (
+                                      <div className="flex items-center justify-center">
+                                        <Chip
+                                          size="sm"
+                                          radius="sm"
+                                          color={
+                                            report.learningProgress ===
+                                            "present"
+                                              ? "success"
+                                              : report.learningProgress ===
+                                                "permission"
+                                              ? "primary"
+                                              : "danger"
+                                          }
+                                          variant="flat"
+                                          className="text-[10px] h-5 min-w-[46px] font-semibold bg-white/80 dark:bg-default-900/70"
+                                        >
+                                          {report.learningProgress === "present"
+                                            ? isAm
+                                              ? "ተገኝ"
+                                              : "P"
                                             : report.learningProgress ===
                                               "permission"
-                                            ? "primary"
-                                            : "danger"
-                                        }
-                                        variant="flat"
-                                        className="text-[10px] h-5 min-w-[45px]"
-                                      >
-                                        {report.learningProgress === "present"
-                                          ? isAm
-                                            ? "ተገኝ"
-                                            : "P"
-                                          : report.learningProgress ===
-                                            "permission"
-                                          ? isAm
-                                            ? "ፈቃድ"
-                                            : "PE"
-                                          : isAm
-                                          ? "ጠፋ"
-                                          : "A"}
-                                      </Chip>
-                                    </div>
-                                  ) : (
-                                    <span className="text-default-300">-</span>
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))
+                                            ? isAm
+                                              ? "ፈቃድ"
+                                              : "PE"
+                                            : isAm
+                                            ? "ጠፋ"
+                                            : "A"}
+                                        </Chip>
+                                      </div>
+                                    ) : (
+                                      <span className="text-default-300 text-xs">
+                                        —
+                                      </span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
                           <td
