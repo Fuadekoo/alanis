@@ -12,6 +12,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         Icon: <Home className="size-4" />,
       },
       {
+        english: "Daily Report",
+        amharic: "የቀንስ መረጃ",
+        url: "dailyReport",
+        Icon: <Home className="size-4" />,
+      },
+      {
+        english: "Salary",
+        amharic: "የመምህር ክፍያ",
+        url: "salary",
+        Icon: <Home className="size-4" />,
+      },
+      {
         english: "Chat",
         amharic: "ቻት",
         url: "chat",
