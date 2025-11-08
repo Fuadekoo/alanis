@@ -1,13 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Card,
   CardBody,
+  CardHeader,
   Input,
+  Autocomplete,
+  AutocompleteItem,
   Skeleton,
   Chip,
-  ScrollShadow,
+  Select,
+  SelectItem,
+  Pagination,
   Button,
   Modal,
   ModalContent,
@@ -15,106 +20,176 @@ import {
   ModalBody,
   ModalFooter,
 } from "@/components/ui/heroui";
-import { getAllReports, deleteReport } from "@/actions/controller/report";
 import {
-  Search,
-  Calendar,
-  User,
-  BookOpen,
-  FileText,
-  Trash2,
-} from "lucide-react";
+  getTeacherMonthlyCalendar,
+  getTeachersWithControllers,
+} from "@/actions/manager/reporter";
+import { deleteReport } from "@/actions/controller/report";
+import { Calendar, Search, Trash2 } from "lucide-react";
 import useData from "@/hooks/useData";
-import { highlight } from "@/lib/utils";
-import PaginationPlace from "@/components/paginationPlace";
 import useAmharic from "@/hooks/useAmharic";
 import useAlert from "@/hooks/useAlert";
 import CustomAlert from "@/components/customAlert";
 
+interface CalendarReport {
+  id: string;
+  studentId: string;
+  date: string | Date;
+  learningProgress: string | null;
+  learningSlot: string | null;
+  studentApproved: boolean | null;
+}
+
 export default function Page() {
-  const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedTeacher, setSelectedTeacher] = useState("");
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<{
     id: string;
     studentName: string;
-    teacherName: string;
     date: string;
+    learningSlot?: string | null;
+    learningProgress?: string | null;
   } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const isAm = useAmharic();
   const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
 
-  // Get reports data
-  const [reportsData, isLoadingReports, refreshReports] = useData(
-    getAllReports,
-    () => {},
-    currentPage,
-    10,
-    search
+  const [teachersData, isLoadingTeachers] = useData(
+    getTeachersWithControllers,
+    () => {}
   );
 
-  const handleDeleteClick = (report: {
-    id: string;
-    student: { firstName: string; lastName: string };
-    activeTeacher: { firstName: string; lastName: string };
-    date: string | Date;
-    teacherProgress: { progressStatus: string } | null;
-    shiftTeacherDataId?: string | null;
-  }) => {
-    // Check if report belongs to shifted teacher data
-    if (report.shiftTeacherDataId) {
-      showAlert({
-        message: isAm
-          ? "ይህ ሪፖርት ወደ ሌላ መምህር የተዛወረ ታሪካዊ መረጃ ነው። ታሪካዊ ሪፖርቶችን መሰረዝ አይችሉም።"
-          : "This report belongs to shifted teacher data (historical records). You cannot delete historical reports.",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-      return;
-    }
+  const [calendarData, isLoadingCalendar, refreshCalendar] = useData(
+    getTeacherMonthlyCalendar,
+    () => {},
+    selectedTeacher || "",
+    year,
+    month
+  );
 
-    // Check if teacherProgress exists
-    if (!report.teacherProgress) {
-      showAlert({
-        message: isAm
-          ? "የዚህ ሪፖርት የመምህር ሂደት አልተገኘም።"
-          : "Teacher progress not found for this report.",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-      return;
+  const filteredCalendarData = useMemo(() => {
+    if (!calendarData?.success || !calendarData.data) return [];
+    const normalized = searchTerm.trim().toLowerCase();
+    if (!normalized) {
+      return calendarData.data.calendarData;
     }
+    return calendarData.data.calendarData.filter((item) => {
+      const studentName =
+        `${item.student.firstName} ${item.student.fatherName} ${item.student.lastName}`
+          .toLowerCase()
+          .trim();
+      return studentName.includes(normalized);
+    });
+  }, [calendarData, searchTerm]);
 
-    // Check if progress is closed
-    if (report.teacherProgress.progressStatus !== "open") {
-      showAlert({
-        message: isAm
-          ? "የዚህ ሪፖርት የመምህር ሂደት ተዘግቷል። የተዘጉ ሂደቶችን ሪፖርቶች መሰረዝ አይችሉም።"
-          : "This report's teacher progress is closed. You cannot delete reports from closed progress records.",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-      return;
+  const daysInMonth = calendarData?.data?.daysInMonth ?? 0;
+  const totalStudents = filteredCalendarData.length;
+  const totalPages = Math.max(1, Math.ceil(totalStudents / pageSize));
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedTeacher, month, year, searchTerm, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
     }
+  }, [page, totalPages]);
 
+  const paginatedCalendarData = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredCalendarData.slice(start, start + pageSize);
+  }, [filteredCalendarData, page, pageSize]);
+
+  const pageSizeOptions = useMemo(
+    () => [10, 25, 50, 100].map((value) => value.toString()),
+    []
+  );
+
+  const paginationInfo = useMemo(() => {
+    if (totalStudents === 0) {
+      return { start: 0, end: 0 };
+    }
+    const start = (page - 1) * pageSize + 1;
+    const end = Math.min(page * pageSize, totalStudents);
+    return { start, end };
+  }, [page, pageSize, totalStudents]);
+
+  const monthOptions = useMemo(() => {
+    const monthNames = isAm
+      ? [
+          { value: "1", label: "መስከረም" },
+          { value: "2", label: "ጥቅምት" },
+          { value: "3", label: "ህዳር" },
+          { value: "4", label: "ታህሳስ" },
+          { value: "5", label: "ጥር" },
+          { value: "6", label: "የካቲት" },
+          { value: "7", label: "መጋቢት" },
+          { value: "8", label: "ሚያዝያ" },
+          { value: "9", label: "ግንቦት" },
+          { value: "10", label: "ሰኔ" },
+          { value: "11", label: "ሐምሌ" },
+          { value: "12", label: "ነሐሴ" },
+        ]
+      : [
+          { value: "1", label: "January" },
+          { value: "2", label: "February" },
+          { value: "3", label: "March" },
+          { value: "4", label: "April" },
+          { value: "5", label: "May" },
+          { value: "6", label: "June" },
+          { value: "7", label: "July" },
+          { value: "8", label: "August" },
+          { value: "9", label: "September" },
+          { value: "10", label: "October" },
+          { value: "11", label: "November" },
+          { value: "12", label: "December" },
+        ];
+    return monthNames;
+  }, [isAm]);
+
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, idx) => currentYear - 3 + idx).map(
+      (value) => ({
+        value: value.toString(),
+        label: value.toString(),
+      })
+    );
+  }, []);
+
+  const currentTeacher = useMemo(() => {
+    if (!teachersData?.data || !selectedTeacher) return null;
+    return teachersData.data.find(
+      (item: { teacher: { id: string } }) => item.teacher.id === selectedTeacher
+    )?.teacher;
+  }, [teachersData, selectedTeacher]);
+
+  const handleDeleteClick = (
+    student: { firstName: string; fatherName: string; lastName: string },
+    report: CalendarReport
+  ) => {
     setReportToDelete({
       id: report.id,
-      studentName: `${report.student.firstName} ${report.student.lastName}`,
-      teacherName: `${report.activeTeacher.firstName} ${report.activeTeacher.lastName}`,
+      studentName: `${student.firstName} ${student.fatherName} ${student.lastName}`,
       date: new Date(report.date).toLocaleDateString(),
+      learningSlot: report.learningSlot,
+      learningProgress: report.learningProgress,
     });
     setIsDeleteModalOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
     if (!reportToDelete) return;
-
     setIsDeleting(true);
     try {
       const result = await deleteReport(reportToDelete.id);
-
       if (result.success) {
         showAlert({
           message: isAm
@@ -125,9 +200,8 @@ export default function Page() {
         });
         setIsDeleteModalOpen(false);
         setReportToDelete(null);
-        // Refresh the reports list
-        if (refreshReports) {
-          refreshReports();
+        if (refreshCalendar) {
+          refreshCalendar();
         }
       } else {
         showAlert({
@@ -138,7 +212,8 @@ export default function Page() {
           title: isAm ? "ስህተት" : "Error",
         });
       }
-    } catch {
+    } catch (error) {
+      console.error("Failed to delete report", error);
       showAlert({
         message: isAm ? "ሪፖርት መሰረዝ አልተሳካም" : "Failed to delete report",
         type: "error",
@@ -150,166 +225,326 @@ export default function Page() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Content */}
-      <div className="p-2 lg:p-5 grid grid-rows-[auto_1fr_auto] gap-5 overflow-hidden">
-        {/* Search */}
-        <div className="flex gap-2">
-          <Input
-            placeholder={isAm ? "ፈልግ..." : "Search..."}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            startContent={<Search className="size-4" />}
-            className="flex-1"
-          />
-          <div className="px-3 py-2 bg-default-50/50 rounded-lg text-center content-center font-semibold">
-            {reportsData?.data?.totalCount ?? 0}
+    <div className="flex flex-col h-full overflow-hidden p-3 lg:p-6 gap-4">
+      <Card className="border border-default-200/60 shadow-sm">
+        <CardBody className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between p-3">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold flex items-center gap-2 text-default-900">
+              <Calendar className="size-6 text-primary" />
+              {isAm ? "የወር ሪፖርት አቀራረብ" : "Monthly Report View"}
+            </h1>
+            {currentTeacher && (
+              <p className="text-xs text-default-500">
+                {isAm ? "መምህር:" : "Teacher:"}{" "}
+                {`${currentTeacher.firstName} ${currentTeacher.fatherName} ${currentTeacher.lastName}`}
+              </p>
+            )}
           </div>
-        </div>
 
-        {/* Reports List */}
-        {isLoadingReports ? (
-          <Skeleton className="w-full h-full rounded-xl" />
-        ) : (
-          <ScrollShadow className="p-2 pb-20 bg-default-50/50 border border-default-100/20 rounded-xl grid gap-2 auto-rows-min xl:grid-cols-2">
-            {reportsData?.success &&
-            reportsData.data &&
-            reportsData.data.reports &&
-            reportsData.data.reports.length > 0 ? (
-              reportsData.data.reports.map((report, i) => (
-                <Card
-                  key={report.id}
-                  className="h-fit bg-default-50/30 backdrop-blur-sm border-2 border-default-400 hover:border-primary-400 transition-all"
+          <div className="w-full lg:max-w-sm">
+            <Autocomplete
+              placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
+              selectedKey={selectedTeacher || null}
+              onSelectionChange={(key: React.Key | null) => {
+                setSelectedTeacher((key as string) || "");
+              }}
+              defaultItems={teachersData?.data || []}
+              variant="bordered"
+              size="sm"
+              isClearable
+              isLoading={isLoadingTeachers}
+              listboxProps={{
+                emptyContent: isAm ? "ምንም መምህር አልተገኘም" : "No teachers found",
+              }}
+              classNames={{
+                base: selectedTeacher
+                  ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
+                  : "",
+                listbox: "text-sm",
+              }}
+            >
+              {(item: {
+                teacher: {
+                  id: string;
+                  firstName: string;
+                  fatherName: string;
+                  lastName: string;
+                };
+              }) => (
+                <AutocompleteItem
+                  key={item.teacher.id}
+                  textValue={`${item.teacher.firstName} ${item.teacher.fatherName} ${item.teacher.lastName}`}
+                  className="py-1 text-sm"
                 >
-                  <CardBody className="p-2">
-                    {/* Line 1: Student & Teacher */}
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                        {i + 1 + (currentPage - 1) * 10}
-                      </div>
-                      <User className="size-3 text-primary shrink-0" />
-                      <span className="font-semibold text-sm">
-                        {highlight(
-                          `${report.student.firstName} ${report.student.lastName}`,
-                          search
-                        )}
-                      </span>
-                      <BookOpen className="size-3 text-secondary shrink-0 ml-auto" />
-                      <span className="text-xs text-default-600">
-                        {highlight(
-                          `${report.activeTeacher.firstName} ${report.activeTeacher.lastName}`,
-                          search
-                        )}
-                      </span>
-                      {/* Delete Button - Only show if progress is open and not shifted data */}
-                      {!report.shiftTeacherDataId &&
-                        report.teacherProgress?.progressStatus === "open" && (
-                          <Button
-                            isIconOnly
-                            size="sm"
-                            color="danger"
-                            variant="light"
-                            onPress={() => handleDeleteClick(report)}
-                            className="min-w-unit-6 w-6 h-6"
-                          >
-                            <Trash2 className="size-3" />
-                          </Button>
-                        )}
-                    </div>
+                  {item.teacher.firstName} {item.teacher.fatherName}{" "}
+                  {item.teacher.lastName}
+                </AutocompleteItem>
+              )}
+            </Autocomplete>
+          </div>
+        </CardBody>
+      </Card>
 
-                    {/* Line 2: Date, Slot, Status & Student Approval */}
-                    <div className="flex items-center gap-2 text-xs">
-                      <Calendar className="size-3 text-secondary shrink-0" />
-                      <span className="text-default-500">
-                        {new Date(report.date).toLocaleDateString()}
-                      </span>
-                      <span className="text-default-400">•</span>
-                      <span className="text-default-600">
-                        {report.learningSlot}
-                      </span>
-                      <Chip
-                        color={
-                          report.learningProgress === "present"
-                            ? "success"
-                            : report.learningProgress === "permission"
-                            ? "primary"
-                            : "warning"
-                        }
-                        size="sm"
-                        variant="dot"
-                        className="h-5"
-                      >
-                        {report.learningProgress === "present"
-                          ? isAm
-                            ? "ተገኝቷል"
-                            : "Present"
-                          : report.learningProgress === "permission"
-                          ? isAm
-                            ? "ፈቃድ"
-                            : "Permission"
-                          : isAm
-                          ? "ጠፍቷል"
-                          : "Absent"}
-                      </Chip>
-                      {report.studentApproved !== null &&
-                      report.studentApproved !== undefined ? (
-                        <Chip
-                          size="sm"
-                          color={report.studentApproved ? "success" : "danger"}
-                          variant="flat"
-                          className="h-5 ml-auto"
-                        >
-                          {report.studentApproved
-                            ? isAm
-                              ? "ተማሪ ✓"
-                              : "Student ✓"
-                            : isAm
-                            ? "ተማሪ ✗"
-                            : "Student ✗"}
-                        </Chip>
+      {selectedTeacher && (
+        <Card className="flex-1 overflow-hidden border border-default-200/70 shadow-sm">
+          <CardHeader className="p-4 border-b border-default-200 bg-default-50 dark:bg-default-900/30">
+            <div className="flex items-center gap-2 w-full">
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={
+                  isAm
+                    ? "ተማሪን በፍጥነት ለመፈለግ ይጻፉ..."
+                    : "Quick search for a student..."
+                }
+                variant="bordered"
+                size="sm"
+                startContent={<Search className="size-4 text-default-400" />}
+                className="flex-1 min-w-0"
+                classNames={{
+                  inputWrapper:
+                    "bg-white dark:bg-default-900/60 border border-default-200/60",
+                }}
+              />
+              <Select
+                aria-label="month"
+                selectedKeys={new Set([month.toString()])}
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0] as string;
+                  if (value) setMonth(parseInt(value));
+                }}
+                variant="bordered"
+                size="sm"
+                className="w-[115px] flex-shrink"
+              >
+                {monthOptions.map((option) => (
+                  <SelectItem key={option.value}>{option.label}</SelectItem>
+                ))}
+              </Select>
+              <Select
+                aria-label="year"
+                selectedKeys={new Set([year.toString()])}
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0] as string;
+                  if (value) setYear(parseInt(value));
+                }}
+                variant="bordered"
+                size="sm"
+                className="w-[95px] flex-shrink"
+              >
+                {yearOptions.map((option) => (
+                  <SelectItem key={option.value}>{option.label}</SelectItem>
+                ))}
+              </Select>
+              <Select
+                aria-label="rows per page"
+                selectedKeys={new Set([pageSize.toString()])}
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0] as string;
+                  if (value) setPageSize(parseInt(value));
+                }}
+                variant="bordered"
+                size="sm"
+                className="w-[110px] flex-shrink"
+              >
+                {pageSizeOptions.map((value) => (
+                  <SelectItem key={value}>{value}</SelectItem>
+                ))}
+              </Select>
+            </div>
+          </CardHeader>
+
+          <CardBody className="p-0 bg-default-50 dark:bg-default-950">
+            {isLoadingCalendar ? (
+              <div className="p-4">
+                <Skeleton className="w-full h-96 rounded-lg" />
+              </div>
+            ) : calendarData?.success && calendarData.data ? (
+              <div className="flex flex-col gap-3">
+                <div className="overflow-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                      <tr>
+                        <th className="border border-default-200/70 p-2 text-left font-semibold min-w-[180px] sticky left-0 bg-default-100 dark:bg-default-900/80 z-20">
+                          {isAm ? "ተማሪ" : "Student"}
+                        </th>
+                        {Array.from(
+                          { length: daysInMonth },
+                          (_, i) => i + 1
+                        ).map((day) => (
+                          <th
+                            key={day}
+                            className="border border-default-200/70 p-1 text-center font-semibold min-w-[50px] text-[11px] text-default-500"
+                          >
+                            {day}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedCalendarData.length > 0 ? (
+                        paginatedCalendarData.map((item, rowIndex) => {
+                          const isEvenRow = rowIndex % 2 === 0;
+                          const rowBgClass = isEvenRow
+                            ? "bg-default-50 dark:bg-default-900/50"
+                            : "bg-white dark:bg-default-950";
+                          const stickyBgClass = isEvenRow
+                            ? "bg-default-100 dark:bg-default-900/70"
+                            : "bg-white dark:bg-default-950";
+
+                          return (
+                            <tr
+                              key={item.student.id}
+                              className={`${rowBgClass} hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors`}
+                            >
+                              <td
+                                className={`border border-default-200/70 p-2 font-medium sticky left-0 z-10 text-default-700 dark:text-default-200 ${stickyBgClass}`}
+                              >
+                                <span className="text-sm font-semibold">
+                                  {item.student.firstName}{" "}
+                                  {item.student.fatherName}{" "}
+                                  {item.student.lastName}
+                                </span>
+                              </td>
+                              {Array.from(
+                                { length: daysInMonth },
+                                (_, i) => i + 1
+                              ).map((day) => {
+                                const report = item.reportsByDate[day] as
+                                  | CalendarReport
+                                  | undefined;
+                                if (!report) {
+                                  return (
+                                    <td
+                                      key={day}
+                                      className="border border-default-200/60 p-1 text-center align-middle"
+                                    >
+                                      <span className="text-default-300 text-xs">
+                                        —
+                                      </span>
+                                    </td>
+                                  );
+                                }
+
+                                return (
+                                  <td
+                                    key={day}
+                                    className="border border-default-200/60 p-1 text-center align-middle"
+                                  >
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Chip
+                                        size="sm"
+                                        radius="sm"
+                                        color={
+                                          report.learningProgress === "present"
+                                            ? "success"
+                                            : report.learningProgress ===
+                                              "permission"
+                                            ? "primary"
+                                            : "danger"
+                                        }
+                                        variant="flat"
+                                        className="text-[10px] h-5 min-w-[46px] font-semibold bg-white/80 dark:bg-default-900/70"
+                                      >
+                                        {report.learningProgress === "present"
+                                          ? isAm
+                                            ? "ተገኝ"
+                                            : "P"
+                                          : report.learningProgress ===
+                                            "permission"
+                                          ? isAm
+                                            ? "ፈቃድ"
+                                            : "PE"
+                                          : isAm
+                                          ? "ጠፋ"
+                                          : "A"}
+                                      </Chip>
+                                      <Button
+                                        isIconOnly
+                                        size="sm"
+                                        color="danger"
+                                        variant="light"
+                                        className="min-w-unit-6 w-6 h-6"
+                                        onPress={() =>
+                                          handleDeleteClick(
+                                            item.student,
+                                            report
+                                          )
+                                        }
+                                      >
+                                        <Trash2 className="size-3" />
+                                      </Button>
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })
                       ) : (
-                        <Chip
-                          size="sm"
-                          color="warning"
-                          variant="flat"
-                          className="h-5 ml-auto"
-                        >
-                          {isAm ? "በመጠባበቅ ላይ" : "Pending"}
-                        </Chip>
+                        <tr>
+                          <td
+                            colSpan={daysInMonth + 1 || 2}
+                            className="border border-default-200 p-8 text-center text-default-500"
+                          >
+                            {searchTerm.trim().length > 0
+                              ? isAm
+                                ? "ተማሪ አልተገኘም። እባክዎ የፍለጋ ቃልን ይለውጡ።"
+                                : "No students match your search. Try a different keyword."
+                              : isAm
+                              ? "ለዚህ መምህር ምንም ተማሪዎች አልተገኙም"
+                              : "No students found for this teacher"}
+                          </td>
+                        </tr>
                       )}
-                    </div>
-                  </CardBody>
-                </Card>
-              ))
+                    </tbody>
+                  </table>
+                </div>
+                {totalStudents > 0 && (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 pb-4">
+                    <span className="text-xs text-default-500">
+                      {isAm
+                        ? `ውጤቶች ${paginationInfo.start}-${paginationInfo.end} ከ ${totalStudents} ጠቅላላ ተማሪዎች`
+                        : `Showing ${paginationInfo.start}-${paginationInfo.end} of ${totalStudents} students`}
+                    </span>
+                    <Pagination
+                      total={totalPages}
+                      page={page}
+                      onChange={setPage}
+                      showControls
+                      isCompact
+                      className="self-end"
+                    />
+                  </div>
+                )}
+              </div>
             ) : (
-              <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center">
-                <FileText className="size-20 text-default-300 mb-4" />
-                <h3 className="text-xl font-semibold text-default-600 mb-2">
-                  {isAm ? "ምንም ሪፖርት አልተገኘም" : "No Reports Found"}
-                </h3>
-                <p className="text-sm text-default-400 max-w-md">
-                  {isAm
-                    ? "ገና ምንም ዕለታዊ ሪፖርት አልተፈጠረም።"
-                    : "No daily reports have been created yet."}
-                </p>
+              <div className="p-8 text-center text-default-500">
+                {isAm ? "መረጃ ማግኘት አልተሳካም" : "Failed to load data"}
               </div>
             )}
-          </ScrollShadow>
-        )}
+          </CardBody>
+        </Card>
+      )}
 
-        {/* Pagination */}
-        <PaginationPlace
-          currentPage={currentPage}
-          totalPage={Math.ceil((reportsData?.data?.totalCount ?? 0) / 10) || 1}
-          onPageChange={setCurrentPage}
-          sort={false}
-          onSortChange={() => {}}
-          row={10}
-          onRowChange={() => {}}
-        />
-      </div>
+      {!selectedTeacher && (
+        <Card className="flex-1">
+          <CardBody className="flex items-center justify-center p-8">
+            <div className="text-center space-y-4">
+              <Calendar className="size-20 text-default-300 mx-auto" />
+              <h3 className="text-xl font-semibold text-default-600">
+                {isAm ? "መምህር ይምረጡ" : "Select a Teacher"}
+              </h3>
+              <p className="text-sm text-default-400 max-w-md">
+                {isAm
+                  ? "የወር ሪፖርት አቀራረብን ለማየት ከላይ ያለውን መምህር ይምረጡ።"
+                  : "Choose a teacher above to review their monthly calendar of daily reports."}
+              </p>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
-      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => {
@@ -321,43 +556,42 @@ export default function Page() {
         size="md"
       >
         <ModalContent>
-          <ModalHeader className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <Trash2 className="size-5 text-danger" />
-              <span>{isAm ? "ሪፖርት ይሰረዝ?" : "Delete Report?"}</span>
-            </div>
+          <ModalHeader className="flex items-center gap-2 text-danger">
+            <Trash2 className="size-5" />
+            <span>{isAm ? "ሪፖርት ይሰረዝ?" : "Delete Report?"}</span>
           </ModalHeader>
           <ModalBody>
-            {reportToDelete && (
-              <div className="space-y-3">
-                <p className="text-default-600">
+            {reportToDelete ? (
+              <div className="space-y-3 text-sm text-default-600">
+                <p>
                   {isAm
-                    ? "ይህን ሪፖርት መሰረዝ እርግጠኛ ኖት? ይህ ድርጊት መልሰው ማዋቀር አይቻልም።"
+                    ? "ይህን ሪፖርት መሰረዝ እርግጠኛ ነዎት? ይህ ተግባር መመለስ አይቻልም።"
                     : "Are you sure you want to delete this report? This action cannot be undone."}
                 </p>
-                <div className="p-3 bg-danger-50 dark:bg-danger-900/20 rounded-lg space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="size-4 text-danger" />
-                    <span className="font-semibold">
-                      {reportToDelete.studentName}
-                    </span>
+                <div className="p-3 rounded-lg bg-danger-50 dark:bg-danger-900/20 space-y-1">
+                  <div>
+                    <span className="font-semibold text-danger-600 dark:text-danger-300">
+                      {isAm ? "ተማሪ:" : "Student:"}
+                    </span>{" "}
+                    {reportToDelete.studentName}
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <BookOpen className="size-4 text-danger" />
-                    <span>{reportToDelete.teacherName}</span>
+                  <div>
+                    <span className="font-semibold text-danger-600 dark:text-danger-300">
+                      {isAm ? "ቀን:" : "Date:"}
+                    </span>{" "}
+                    {reportToDelete.date}
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="size-4 text-danger" />
-                    <span>{reportToDelete.date}</span>
-                  </div>
+                  {reportToDelete.learningSlot && (
+                    <div>
+                      <span className="font-semibold text-danger-600 dark:text-danger-300">
+                        {isAm ? "ሰዓት:" : "Slot:"}
+                      </span>{" "}
+                      {reportToDelete.learningSlot}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-warning-600">
-                  {isAm
-                    ? "⚠️ የመማሪያ/የጎደለ ቁጥር በራስ-ሰር ይቀንሳል።"
-                    : "⚠️ Learning/missing count will be automatically decremented."}
-                </p>
               </div>
-            )}
+            ) : null}
           </ModalBody>
           <ModalFooter>
             <Button
@@ -381,7 +615,6 @@ export default function Page() {
         </ModalContent>
       </Modal>
 
-      {/* Custom Alert */}
       <CustomAlert
         isOpen={isAlertOpen}
         onClose={closeAlert}
