@@ -24,6 +24,7 @@ import {
   X,
   AlertTriangle,
   Upload,
+  Eye,
 } from "lucide-react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
@@ -91,6 +92,8 @@ function Page() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string>("");
+  const [isPhotoPreviewOpen, setIsPhotoPreviewOpen] = useState(false);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string>("");
 
   // Fetch data
   const [salaries, salariesLoading, refreshSalaries] = useData(
@@ -152,7 +155,7 @@ function Page() {
       const chunk = file.slice(start, end);
 
       const formData = new FormData();
-      formData.append("file", chunk);
+      formData.append("chunk", chunk);
       formData.append("filename", uuidName);
       formData.append("chunkIndex", i.toString());
       formData.append("totalChunks", total.toString());
@@ -212,6 +215,17 @@ function Page() {
     setUploadedPhotoUrl("");
     setUploadingPhoto(null);
     setUploadProgress(0);
+  };
+
+  const openPhotoPreview = (photo: string) => {
+    if (!photo) return;
+    setPreviewPhotoUrl(photo);
+    setIsPhotoPreviewOpen(true);
+  };
+
+  const closePhotoPreview = () => {
+    setIsPhotoPreviewOpen(false);
+    setPreviewPhotoUrl("");
   };
 
   // Calculate totalDayForLearning and amount
@@ -323,6 +337,14 @@ function Page() {
   ) => {
     setSelectedSalaryId(salaryId);
     setSelectedSalaryData(salary);
+
+    if (action === "approve") {
+      removePhoto();
+      setConfirmAction(null);
+      setIsPhotoModalOpen(true);
+      return;
+    }
+
     setConfirmAction(action);
     setIsConfirmModalOpen(true);
   };
@@ -563,54 +585,73 @@ function Page() {
     {
       key: "actions",
       label: isAm ? "ድርጊቶች" : "Actions",
-      renderCell: (item: Record<string, unknown>) => (
-        <div className="flex gap-2">
-          {item.status === paymentStatus.pending && (
-            <>
+      renderCell: (item: Record<string, unknown>) => {
+        const paymentPhoto =
+          typeof item.paymentPhoto === "string" && item.paymentPhoto
+            ? (item.paymentPhoto as string)
+            : undefined;
+
+        return (
+          <div className="flex gap-2">
+            {paymentPhoto && (
               <Button
                 size="sm"
-                color="success"
                 variant="flat"
-                startContent={<Check className="size-3" />}
-                onPress={() =>
-                  openConfirmModal(
-                    item.id as string,
-                    item as TeacherSalaryData,
-                    "approve"
-                  )
-                }
+                color="default"
+                isIconOnly
+                aria-label={isAm ? "የክፍያ ፎቶ ይመልከቱ" : "View payment photo"}
+                onPress={() => openPhotoPreview(paymentPhoto)}
               >
-                {isAm ? "ጸድቅ" : "Approve"}
+                <Eye className="size-3" />
               </Button>
-              <Button
-                size="sm"
-                color="danger"
-                variant="flat"
-                startContent={<X className="size-3" />}
-                onPress={() =>
-                  openConfirmModal(
-                    item.id as string,
-                    item as TeacherSalaryData,
-                    "reject"
-                  )
-                }
-              >
-                {isAm ? "አትቀበል" : "Reject"}
-              </Button>
-            </>
-          )}
-          {item.status === paymentStatus.approved && (
-            <span className="text-xs text-success font-medium">
-              {isAm ? "ጸድቋል" : "Approved"}
-            </span>
-          )}
-          {item.status === paymentStatus.rejected && (
-            <span className="text-xs text-danger font-medium">
-              {isAm ? "ተቀባይነት አላገኘም" : "Rejected"}
-            </span>
-          )}
-        </div>
-      ),
+            )}
+            {item.status === paymentStatus.pending && (
+              <>
+                <Button
+                  size="sm"
+                  color="success"
+                  variant="flat"
+                  startContent={<Check className="size-3" />}
+                  onPress={() =>
+                    openConfirmModal(
+                      item.id as string,
+                      item as TeacherSalaryData,
+                      "approve"
+                    )
+                  }
+                >
+                  {isAm ? "ጸድቅ" : "Approve"}
+                </Button>
+                <Button
+                  size="sm"
+                  color="danger"
+                  variant="flat"
+                  startContent={<X className="size-3" />}
+                  onPress={() =>
+                    openConfirmModal(
+                      item.id as string,
+                      item as TeacherSalaryData,
+                      "reject"
+                    )
+                  }
+                >
+                  {isAm ? "አትቀበል" : "Reject"}
+                </Button>
+              </>
+            )}
+            {item.status === paymentStatus.approved && (
+              <span className="text-xs text-success font-medium">
+                {isAm ? "ጸድቋል" : "Approved"}
+              </span>
+            )}
+            {item.status === paymentStatus.rejected && (
+              <span className="text-xs text-danger font-medium">
+                {isAm ? "ተቀባይነት አላገኘም" : "Rejected"}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -1427,6 +1468,50 @@ function Page() {
               startContent={<Check className="size-4" />}
             >
               {isAm ? "ጸድቅ" : "Approve"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Payment Photo Preview Modal */}
+      <Modal
+        isOpen={isPhotoPreviewOpen}
+        onClose={closePhotoPreview}
+        size="md"
+        backdrop="blur"
+        classNames={{
+          backdrop: "bg-black/50 backdrop-blur-md",
+        }}
+      >
+        <ModalContent>
+          <ModalHeader className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-default-200/80 dark:bg-default-700/60">
+              <Eye className="size-6" />
+            </div>
+            <h3 className="text-xl font-bold">
+              {isAm ? "የክፍያ ፎቶ" : "Payment Photo"}
+            </h3>
+          </ModalHeader>
+          <ModalBody>
+            {previewPhotoUrl ? (
+              <div className="flex justify-center">
+                <Image
+                  src={formatImageUrl(previewPhotoUrl)}
+                  alt="Payment photo preview"
+                  width={320}
+                  height={320}
+                  className="max-h-[360px] w-auto object-contain rounded-lg border"
+                />
+              </div>
+            ) : (
+              <p className="text-center text-sm text-default-500">
+                {isAm ? "ፎቶ የለም" : "No photo available"}
+              </p>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={closePhotoPreview}>
+              {isAm ? "ዝጋ" : "Close"}
             </Button>
           </ModalFooter>
         </ModalContent>
