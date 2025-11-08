@@ -44,6 +44,7 @@ interface CalendarReport {
   learningProgress: "present" | "absent" | "permission" | null;
   learningSlot: string | null;
   studentApproved: boolean | null;
+  teacherApproved: boolean | null;
 }
 
 export default function Page() {

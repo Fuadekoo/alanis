@@ -63,6 +63,7 @@ export async function getTeacherMonthlyCalendar(
         learningProgress: true,
         learningSlot: true,
         studentApproved: true,
+        teacherApproved: true,
       },
     });
 
