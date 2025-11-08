@@ -300,6 +300,7 @@ model DailyReport {
   learningSlot       String
   learningProgress   String
   studentApproved    Boolean?
+  teacherApproved    Boolean?
 
   // RELATIONS
   student          user              @relation("DailyReportStudent", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
