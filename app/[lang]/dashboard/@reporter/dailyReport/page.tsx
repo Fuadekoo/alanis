@@ -21,8 +21,6 @@ import {
 import { Calendar, Search } from "lucide-react";
 import useData from "@/hooks/useData";
 import useAmharic from "@/hooks/useAmharic";
-import useAlert from "@/hooks/useAlert";
-import CustomAlert from "@/components/customAlert";
 
 export default function Page() {
   const [selectedTeacher, setSelectedTeacher] = useState("");
@@ -33,7 +31,6 @@ export default function Page() {
   const [pageSize, setPageSize] = useState(25);
 
   const isAm = useAmharic();
-  const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
 
   // Get teachers with controllers
   const [teachersData, isLoadingTeachers] = useData(
@@ -42,7 +39,7 @@ export default function Page() {
   );
 
   // Get calendar data when teacher is selected
-  const [calendarData, isLoadingCalendar, refreshCalendar] = useData(
+  const [calendarData, isLoadingCalendar] = useData(
     getTeacherMonthlyCalendar,
     () => {},
     selectedTeacher || "",
@@ -446,19 +443,6 @@ export default function Page() {
           </CardBody>
         </Card>
       )}
-
-      {/* Custom Alert */}
-      <CustomAlert
-        isOpen={isAlertOpen}
-        onClose={closeAlert}
-        title={alertOptions.title}
-        message={alertOptions.message}
-        type={alertOptions.type}
-        confirmText={alertOptions.confirmText || (isAm ? "እሺ" : "OK")}
-        cancelText={alertOptions.cancelText}
-        onConfirm={alertOptions.onConfirm}
-        showCancel={alertOptions.showCancel}
-      />
     </div>
   );
 }

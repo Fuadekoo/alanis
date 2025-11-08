@@ -67,7 +67,7 @@ export default function Page() {
     () => {}
   );
 
-  const [progressData, isLoadingProgress, refreshProgress] = useData(
+  const [progressData, isLoadingProgress] = useData(
     getTeacherProgressByTeacher,
     () => {},
     selectedTeacherId || ""

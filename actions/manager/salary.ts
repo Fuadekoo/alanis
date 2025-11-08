@@ -27,6 +27,40 @@ export async function getSalary() {
           lastName: true,
         },
       },
+      teacherProgresses: {
+        select: {
+          id: true,
+          learningCount: true,
+          missingCount: true,
+          totalCount: true,
+          paymentStatus: true,
+          createdAt: true,
+          student: {
+            select: {
+              firstName: true,
+              fatherName: true,
+              lastName: true,
+            },
+          },
+        },
+      },
+      shiftTeacherData: {
+        select: {
+          id: true,
+          learningCount: true,
+          missingCount: true,
+          totalCount: true,
+          paymentStatus: true,
+          createdAt: true,
+          student: {
+            select: {
+              firstName: true,
+              fatherName: true,
+              lastName: true,
+            },
+          },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });

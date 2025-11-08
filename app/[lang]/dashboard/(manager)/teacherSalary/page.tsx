@@ -663,31 +663,20 @@ function Page() {
     ];
   }, [salaries, isAm]);
 
-  const summaryStats = useMemo(() => {
-    const total = filteredSalaries.length;
-    const approved = filteredSalaries.filter(
-      (salary) => salary.status === paymentStatus.approved
-    ).length;
-    const pending = filteredSalaries.filter(
-      (salary) => salary.status === paymentStatus.pending
-    ).length;
-    const totalAmount = filteredSalaries.reduce(
-      (sum, salary) => sum + (salary.amount ?? 0),
-      0
-    );
-
-    return {
-      total,
-      approved,
-      pending,
-      totalAmount,
-    };
-  }, [filteredSalaries]);
-
   const totalPages = Math.max(1, Math.ceil(filteredSalaries.length / pageSize));
 
+  const monthOptions = useMemo(() => {
+    return [
+      { value: "all", label: isAm ? "ሁሉም ወራት" : "All months" },
+      ...Array.from({ length: 12 }, (_, index) => ({
+        value: (index + 1).toString(),
+        label: (index + 1).toString(),
+      })),
+    ];
+  }, [isAm]);
+
   // Table columns
-  const columns = [
+  const _columns = [
     {
       key: "teacher",
       label: isAm ? "መምህር" : "Teacher",
@@ -851,31 +840,13 @@ function Page() {
                 </Button>
               </>
             )}
-            {item.status === paymentStatus.approved && (
-              <span className="text-xs text-success font-medium">
-                {isAm ? "ጸድቋል" : "Approved"}
-              </span>
-            )}
-            {item.status === paymentStatus.rejected && (
-              <span className="text-xs text-danger font-medium">
-                {isAm ? "ተቀባይነት አላገኘም" : "Rejected"}
-              </span>
-            )}
           </div>
         );
       },
     },
   ];
 
-  const monthOptions = useMemo(() => {
-    return [
-      { value: "all", label: isAm ? "ሁሉም ወራት" : "All months" },
-      ...Array.from({ length: 12 }, (_, index) => ({
-        value: (index + 1).toString(),
-        label: (index + 1).toString(),
-      })),
-    ];
-  }, [isAm]);
+  void _columns;
 
   const [runAutoSalary, isAutoCreating] = useMutation(
     createAutomaticSalaries,
@@ -922,22 +893,22 @@ function Page() {
             <span>{isAm ? "የደሞዝ ኃላፊነት" : "Finance Management"}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-default-900">
-            {isAm ? "መምህር ደሞዝ" : "Teacher Salary"}
-          </h1>
+              {isAm ? "መምህር ደሞዝ" : "Teacher Salary"}
+            </h1>
           <p className="text-sm text-default-500 max-w-xl">
-            {isAm
+              {isAm
               ? "የወርና ዓመት ማጣሪያዎችን በመጠቀም የመምህሮችን ደሞዝ ይግብሩ እና ይተኩሩ፣ በክፍያ ሁኔታ ላይ ፈጣን ግምገማ ይድረሱ።"
               : "Track and approve teacher salary payouts with fast filters for month, year, and status."}
-          </p>
-        </div>
-        <Button
-          color="primary"
-          startContent={<Plus className="size-4" />}
-          onPress={() => setIsModalOpen(true)}
-          className="shrink-0"
-        >
-          {isAm ? "አዲስ ደሞዝ ይፍጠሩ" : "Create Salary"}
-        </Button>
+            </p>
+          </div>
+          <Button
+            color="primary"
+            startContent={<Plus className="size-4" />}
+            onPress={() => setIsModalOpen(true)}
+            className="shrink-0"
+          >
+            {isAm ? "አዲስ ደሞዝ ይፍጠሩ" : "Create Salary"}
+          </Button>
       </div> */}
 
       {/* Summary */}
@@ -950,7 +921,7 @@ function Page() {
             <span className="text-2xl font-semibold text-default-900">
               {summaryStats.total.toLocaleString()}
             </span>
-          </div>
+        </div>
           <div className="flex flex-col gap-1">
             <span className="text-sm text-default-500">
               {isAm ? "የጸድቁ" : "Approved"}
@@ -1034,6 +1005,24 @@ function Page() {
                 >
                   {yearOptions.map((option) => (
                     <SelectItem key={option.value}>{option.label}</SelectItem>
+                  ))}
+                </Select>
+                <Select
+                  aria-label="rows per page"
+                  selectedKeys={new Set([pageSize.toString()])}
+                  onSelectionChange={(keys) => {
+                    const value = Array.from(keys)[0] as string;
+                    if (value) {
+                      setPageSize(parseInt(value, 10));
+                      setPage(1);
+                    }
+                  }}
+                  variant="bordered"
+                  size="sm"
+                  className="sm:w-[150px]"
+                >
+                  {[10, 25, 50, 100].map((value) => (
+                    <SelectItem key={value.toString()}>{value}</SelectItem>
                   ))}
                 </Select>
               </div>
@@ -1124,7 +1113,6 @@ function Page() {
                       const paymentBadge = getPaymentBadge(
                         salary.status ?? "pending"
                       );
-                      const monthLabel = formatMonth(salary.month);
                       return (
                         <tr
                           key={salary.id}
@@ -1142,7 +1130,7 @@ function Page() {
                           </td>
                           <td className="border border-default-200 p-3 align-top text-sm">
                             <span className="font-medium text-default-800">
-                              {salary.month}
+                              {formatMonth(salary.month)}
                             </span>
                           </td>
                           <td className="border border-default-200 p-3 align-top text-sm">

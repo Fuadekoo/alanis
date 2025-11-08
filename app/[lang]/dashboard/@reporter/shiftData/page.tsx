@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/heroui";
 import { getAllShiftData } from "@/actions/manager/reporter";
 import { getAllTeachersForReporter } from "@/actions/manager/reporter";
-import { Calendar, Search, History } from "lucide-react";
+import { Search, History } from "lucide-react";
 import useData from "@/hooks/useData";
 import useAmharic from "@/hooks/useAmharic";
 
@@ -68,7 +68,7 @@ export default function Page() {
     () => {}
   );
 
-  const [shiftData, isLoadingShifts, refreshShiftData] = useData(
+  const [shiftData, isLoadingShifts] = useData(
     getAllShiftData,
     () => {},
     page,
