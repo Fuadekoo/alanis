@@ -1,114 +1,279 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Card,
   CardBody,
+  CardHeader,
   Input,
-  Select,
-  SelectItem,
   Autocomplete,
   AutocompleteItem,
   Skeleton,
   Chip,
+  Select,
+  SelectItem,
+  Pagination,
   Modal,
   ModalContent,
   ModalHeader,
   ModalBody,
   ModalFooter,
-  ScrollShadow,
+  DatePicker,
 } from "@/components/ui/heroui";
 import {
-  getAllReports,
+  getTeacherMonthlyCalendar,
+  getTeachersWithControllers,
+} from "@/actions/manager/reporter";
+import {
   getStudentsForReport,
-  getTeachersForReport,
   createReport,
   deleteReport,
 } from "@/actions/controller/report";
-import { Search, Plus, Calendar, User, BookOpen, Trash2 } from "lucide-react";
+import { Calendar, Search, Plus, Trash2 } from "lucide-react";
+import { parseDate, getLocalTimeZone } from "@internationalized/date";
 import useData from "@/hooks/useData";
-import { highlight } from "@/lib/utils";
-import PaginationPlace from "@/components/paginationPlace";
 import useAmharic from "@/hooks/useAmharic";
 import useAlert from "@/hooks/useAlert";
 import CustomAlert from "@/components/customAlert";
 
+interface CalendarReport {
+  id: string;
+  studentId: string;
+  date: string | Date;
+  learningProgress: "present" | "absent" | "permission" | null;
+  learningSlot: string | null;
+  studentApproved: boolean | null;
+}
+
 export default function Page() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [step, setStep] = useState(1); // 1: Select Teacher, 2: Select Student, 3: Fill Details
-  const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedStudent, setSelectedStudent] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState("");
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Create modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalTeacher, setModalTeacher] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState("");
   const [learningSlot, setLearningSlot] = useState("");
   const [learningProgress, setLearningProgress] = useState<
     "present" | "absent" | "permission" | ""
   >("");
   const [reportDate, setReportDate] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isWeekendAllowed, setIsWeekendAllowed] = useState(false);
+
+  // Delete modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<{
     id: string;
     studentName: string;
-    teacherName: string;
     date: string;
+    learningSlot?: string | null;
+    learningProgress?: string | null;
   } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const isAm = useAmharic();
   const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
 
-  // Get reports data
-  const [reportsData, isLoadingReports, refreshReports] = useData(
-    getAllReports,
-    () => {},
-    currentPage,
-    10,
-    search
+  const timeZone = useMemo(() => getLocalTimeZone(), []);
+  const todayValue = useMemo(
+    () => parseDate(new Date().toISOString().split("T")[0]),
+    []
+  );
+  const datePickerValue = useMemo(
+    () => (reportDate ? parseDate(reportDate) : undefined),
+    [reportDate]
   );
 
-  // Get students for selection - only when teacher is selected
-  const [studentsData, isLoadingStudents] = useData(
-    getStudentsForReport,
-    () => {},
-    selectedTeacher || ""
-  );
-
-  // Get teachers for selection
   const [teachersData, isLoadingTeachers] = useData(
-    getTeachersForReport,
+    getTeachersWithControllers,
     () => {}
   );
 
-  const resetForm = () => {
-    setStep(1);
+  const [studentsData, isLoadingStudents] = useData(
+    getStudentsForReport,
+    () => {},
+    modalTeacher || selectedTeacher || ""
+  );
+
+  const [calendarData, isLoadingCalendar, refreshCalendar] = useData(
+    getTeacherMonthlyCalendar,
+    () => {},
+    selectedTeacher || "",
+    year,
+    month
+  );
+
+  const filteredCalendarData = useMemo(() => {
+    if (!calendarData?.success || !calendarData.data) return [];
+    const normalized = searchTerm.trim().toLowerCase();
+    if (!normalized) return calendarData.data.calendarData;
+    return calendarData.data.calendarData.filter((item) => {
+      const studentName =
+        `${item.student.firstName} ${item.student.fatherName} ${item.student.lastName}`
+          .toLowerCase()
+          .trim();
+      return studentName.includes(normalized);
+    });
+  }, [calendarData, searchTerm]);
+
+  const daysInMonth = calendarData?.data?.daysInMonth ?? 0;
+  const totalStudents = filteredCalendarData.length;
+  const totalPages = Math.max(1, Math.ceil(totalStudents / pageSize));
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedTeacher, month, year, searchTerm, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    if (!isModalOpen) {
+      setModalTeacher(selectedTeacher);
+    }
+  }, [selectedTeacher, isModalOpen]);
+
+  const paginatedCalendarData = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredCalendarData.slice(start, start + pageSize);
+  }, [filteredCalendarData, page, pageSize]);
+
+  const pageSizeOptions = useMemo(
+    () => [10, 25, 50, 100].map((value) => value.toString()),
+    []
+  );
+
+  const paginationInfo = useMemo(() => {
+    if (totalStudents === 0) return { start: 0, end: 0 };
+    const start = (page - 1) * pageSize + 1;
+    const end = Math.min(page * pageSize, totalStudents);
+    return { start, end };
+  }, [page, pageSize, totalStudents]);
+
+  const monthOptions = useMemo(() => {
+    const monthNames = isAm
+      ? [
+          { value: "1", label: "መስከረም" },
+          { value: "2", label: "ጥቅምት" },
+          { value: "3", label: "ህዳር" },
+          { value: "4", label: "ታህሳስ" },
+          { value: "5", label: "ጥር" },
+          { value: "6", label: "የካቲት" },
+          { value: "7", label: "መጋቢት" },
+          { value: "8", label: "ሚያዝያ" },
+          { value: "9", label: "ግንቦት" },
+          { value: "10", label: "ሰኔ" },
+          { value: "11", label: "ሐምሌ" },
+          { value: "12", label: "ነሐሴ" },
+        ]
+      : [
+          { value: "1", label: "January" },
+          { value: "2", label: "February" },
+          { value: "3", label: "March" },
+          { value: "4", label: "April" },
+          { value: "5", label: "May" },
+          { value: "6", label: "June" },
+          { value: "7", label: "July" },
+          { value: "8", label: "August" },
+          { value: "9", label: "September" },
+          { value: "10", label: "October" },
+          { value: "11", label: "November" },
+          { value: "12", label: "December" },
+        ];
+    return monthNames;
+  }, [isAm]);
+
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, idx) => currentYear - 3 + idx).map(
+      (value) => ({
+        value: value.toString(),
+        label: value.toString(),
+      })
+    );
+  }, []);
+
+  const currentTeacher = useMemo(() => {
+    if (!teachersData?.data || !selectedTeacher) return null;
+    return teachersData.data.find(
+      (item: { teacher: { id: string } }) => item.teacher.id === selectedTeacher
+    )?.teacher;
+  }, [teachersData, selectedTeacher]);
+
+  const resetModalForm = () => {
+    setModalTeacher(selectedTeacher);
     setSelectedStudent("");
-    setSelectedTeacher("");
     setLearningSlot("");
     setLearningProgress("");
     setReportDate("");
+    setIsWeekendAllowed(false);
   };
 
-  const handleCreateReport = async () => {
-    // Check if learning slot was auto-filled from room data
-    if (!learningSlot) {
+  const openCreateModal = () => {
+    resetModalForm();
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteClick = (
+    student: { firstName: string; fatherName: string; lastName: string },
+    report: CalendarReport
+  ) => {
+    setReportToDelete({
+      id: report.id,
+      studentName: `${student.firstName} ${student.fatherName} ${student.lastName}`,
+      date: new Date(report.date).toLocaleDateString(),
+      learningSlot: report.learningSlot,
+      learningProgress: report.learningProgress ?? undefined,
+    });
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!reportToDelete) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteReport(reportToDelete.id);
+      if (result.success) {
+        showAlert({
+          message: isAm
+            ? "ሪፖርት በተሳካ ሁኔታ ተሰርዟል!"
+            : "Report deleted successfully!",
+          type: "success",
+          title: isAm ? "ተሳክቷል" : "Success",
+        });
+        setIsDeleteModalOpen(false);
+        setReportToDelete(null);
+        if (refreshCalendar) refreshCalendar();
+      } else {
+        showAlert({
+          message:
+            result.error ||
+            (isAm ? "ሪፖርት መሰረዝ አልተሳካም" : "Failed to delete report"),
+          type: "error",
+          title: isAm ? "ስህተት" : "Error",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete report", error);
       showAlert({
-        message: isAm
-          ? "የትምህርት ሰዓት አልተገኘም። እባክዎ ለዚህ መምህር እና ተማሪ የክፍል ምደባ (room assignment) እንዳለ ያረጋግጡ።"
-          : "Learning time not found. Please ensure there is a room assignment for this teacher and student.",
+        message: isAm ? "ሪፖርት መሰረዝ አልተሳካም" : "Failed to delete report",
         type: "error",
         title: isAm ? "ስህተት" : "Error",
       });
-      return;
+    } finally {
+      setIsDeleting(false);
     }
+  };
 
-    if (
-      !selectedStudent ||
-      !selectedTeacher ||
-      !reportDate ||
-      !learningProgress
-    ) {
+  const handleCreateReport = async () => {
+    if (!modalTeacher || !selectedStudent || !reportDate || !learningProgress) {
       showAlert({
         message: isAm
           ? "እባክዎ ሁሉንም መስኮች ይሙሉ"
@@ -119,44 +284,47 @@ export default function Page() {
       return;
     }
 
-    // Check if the selected date is in the future
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDateObj = new Date(reportDate);
-    selectedDateObj.setHours(0, 0, 0, 0);
-
-    if (selectedDateObj > today) {
+    if (!learningSlot) {
       showAlert({
         message: isAm
-          ? "ለወደፊት ቀናት ሪፖርት መፍጠር አይችሉም። እባክዎ ዛሬን ወይም ያለፈውን ቀን ይምረጡ"
-          : "You cannot create reports for future dates. Please select today or a past date",
+          ? "የትምህርት ሰዓት አልተገኘም። እባክዎ ለዚህ መምህር እና ተማሪ የክፍል ምደባ እንዳለ ያረጋግጡ"
+          : "Learning time not found. Please ensure this teacher and student have a room assignment.",
         type: "error",
         title: isAm ? "ስህተት" : "Error",
       });
       return;
     }
 
-    // Check for duplicate report (same teacher, student, and date)
-    if (reportsData?.data?.reports) {
-      const selectedDate = new Date(reportDate).toDateString();
-      const duplicate = reportsData.data.reports.find((report) => {
-        const reportDate = new Date(report.date).toDateString();
-        return (
-          report.student.id === selectedStudent &&
-          report.activeTeacher.id === selectedTeacher &&
-          reportDate === selectedDate
-        );
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDateObj = new Date(reportDate);
+    selectedDateObj.setHours(0, 0, 0, 0);
+    if (selectedDateObj > today) {
+      showAlert({
+        message: isAm
+          ? "ለወደፊት ቀናት ሪፖርት መፍጠር አይችሉም"
+          : "You cannot create reports for future dates.",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
       });
+      return;
+    }
 
+    // Simple duplicate check within current calendar view
+    if (
+      modalTeacher === selectedTeacher &&
+      selectedDateObj.getFullYear() === year &&
+      selectedDateObj.getMonth() + 1 === month
+    ) {
+      const day = selectedDateObj.getDate();
+      const duplicate = calendarData?.data?.calendarData?.find(
+        (item) => item.student.id === selectedStudent
+      )?.reportsByDate?.[day];
       if (duplicate) {
         showAlert({
           message: isAm
-            ? `ለዚህ መምህር እና ተማሪ በዚህ ቀን (${new Date(
-                reportDate
-              ).toLocaleDateString()}) ሪፖርት ቀድሞውኑ ተፈጥሯል። እባክዎ ሌላ ቀን ይምረጡ ወይም ያለውን ሪፖርት ያርትዑ።`
-            : `A report for this teacher and student already exists on ${new Date(
-                reportDate
-              ).toLocaleDateString()}. Please select a different date or edit the existing report.`,
+            ? "ለዚህ ቀን ሪፖርት አስቀድሞ አለ።"
+            : "A report already exists for this date.",
           type: "warning",
           title: isAm ? "ዳግም ሪፖርት" : "Duplicate Report",
         });
@@ -168,10 +336,10 @@ export default function Page() {
     try {
       const result = await createReport({
         studentId: selectedStudent,
-        activeTeacherId: selectedTeacher,
+        activeTeacherId: modalTeacher,
         learningSlot,
         learningProgress,
-        date: new Date(reportDate),
+        date: selectedDateObj,
       });
 
       if (result.success) {
@@ -183,9 +351,15 @@ export default function Page() {
           title: isAm ? "ተሳክቷል" : "Success",
         });
         setIsModalOpen(false);
-        resetForm();
-        // Refresh reports data
-        window.location.reload();
+        const newMonth = selectedDateObj.getMonth() + 1;
+        const newYear = selectedDateObj.getFullYear();
+        setMonth(newMonth);
+        setYear(newYear);
+        if (modalTeacher !== selectedTeacher) {
+          setSelectedTeacher(modalTeacher);
+        }
+        resetModalForm();
+        if (refreshCalendar) refreshCalendar();
       } else {
         showAlert({
           message:
@@ -195,7 +369,8 @@ export default function Page() {
           title: isAm ? "ስህተት" : "Error",
         });
       }
-    } catch {
+    } catch (error) {
+      console.error("Failed to create report", error);
       showAlert({
         message: isAm ? "ሪፖርት መፍጠር አልተሳካም" : "Failed to create report",
         type: "error",
@@ -206,670 +381,548 @@ export default function Page() {
     }
   };
 
-  const handleDeleteClick = (report: {
-    id: string;
-    student: { firstName: string; fatherName: string; lastName: string };
-    activeTeacher: { firstName: string; fatherName: string; lastName: string };
-    date: string | Date;
-    teacherProgress: { progressStatus: string } | null;
-    shiftTeacherDataId?: string | null;
-  }) => {
-    // Check if report belongs to shifted teacher data
-    if (report.shiftTeacherDataId) {
-      showAlert({
-        message: isAm
-          ? "ይህ ሪፖርት ወደ ሌላ መምህር የተዛወረ ታሪካዊ መረጃ ነው። ታሪካዊ ሪፖርቶችን መሰረዝ አይችሉም።"
-          : "This report belongs to shifted teacher data (historical records). You cannot delete historical reports.",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-      return;
-    }
-
-    // Check if teacherProgress exists
-    if (!report.teacherProgress) {
-      showAlert({
-        message: isAm
-          ? "የዚህ ሪፖርት የመምህር ሂደት አልተገኘም።"
-          : "Teacher progress not found for this report.",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-      return;
-    }
-
-    // Check if progress is closed
-    if (report.teacherProgress.progressStatus !== "open") {
-      showAlert({
-        message: isAm
-          ? "የዚህ ሪፖርት የመምህር ሂደት ተዘግቷል። የተዘጉ ሂደቶችን ሪፖርቶች መሰረዝ አይችሉም።"
-          : "This report's teacher progress is closed. You cannot delete reports from closed progress records.",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-      return;
-    }
-
-    setReportToDelete({
-      id: report.id,
-      studentName: `${report.student.firstName} ${report.student.fatherName} ${report.student.lastName}`,
-      teacherName: `${report.activeTeacher.firstName} ${report.activeTeacher.fatherName} ${report.activeTeacher.lastName}`,
-      date: new Date(report.date).toLocaleDateString(),
-    });
-    setIsDeleteModalOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!reportToDelete) return;
-
-    setIsDeleting(true);
-    try {
-      const result = await deleteReport(reportToDelete.id);
-
-      if (result.success) {
-        showAlert({
-          message: isAm
-            ? "ሪፖርት በተሳካ ሁኔታ ተሰርዟል!"
-            : "Report deleted successfully!",
-          type: "success",
-          title: isAm ? "ተሳክቷል" : "Success",
-        });
-        setIsDeleteModalOpen(false);
-        setReportToDelete(null);
-        // Refresh the reports list
-        if (refreshReports) {
-          refreshReports();
-        }
-      } else {
-        showAlert({
-          message:
-            result.error ||
-            (isAm ? "ሪፖርት መሰረዝ አልተሳካም" : "Failed to delete report"),
-          type: "error",
-          title: isAm ? "ስህተት" : "Error",
-        });
-      }
-    } catch {
-      showAlert({
-        message: isAm ? "ሪፖርት መሰረዝ አልተሳካም" : "Failed to delete report",
-        type: "error",
-        title: isAm ? "ስህተት" : "Error",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Content */}
-      <div className="p-2 lg:p-5 grid grid-rows-[auto_1fr_auto] gap-5 overflow-hidden">
-        {/* Search */}
-        <div className="flex gap-2">
-          <Input
-            placeholder={isAm ? "ፈልግ..." : "Search..."}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            startContent={<Search className="size-4" />}
-            variant="bordered"
-            className="flex-1"
-          />
-          <Button
-            color="primary"
-            startContent={<Plus className="size-4" />}
-            onPress={() => {
-              setIsModalOpen(true);
-              resetForm();
-            }}
-            className="shrink-0"
-          >
-            {isAm ? "አዲስ ሪፖርት" : "New Report"}
-          </Button>
-          <div className="px-3 py-2 bg-default-50/50 rounded-lg text-center content-center font-semibold">
-            {reportsData?.data?.totalCount ?? 0}
+    <div className="flex flex-col h-full overflow-hidden p-3 lg:p-6 gap-4">
+      <Card className="border border-default-200/60 shadow-sm">
+        <CardBody className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between p-3">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold flex items-center gap-2 text-default-900">
+              <Calendar className="size-6 text-primary" />
+              {isAm ? "የወር ሪፖርት አቀራረብ" : "Monthly Report View"}
+            </h1>
+            {currentTeacher && (
+              <p className="text-xs text-default-500">
+                {isAm ? "መምህር:" : "Teacher:"}{" "}
+                {`${currentTeacher.firstName} ${currentTeacher.fatherName} ${currentTeacher.lastName}`}
+              </p>
+            )}
           </div>
-        </div>
 
-        {/* Reports List */}
-        {isLoadingReports ? (
-          <Skeleton className="w-full h-full rounded-xl" />
-        ) : (
-          <ScrollShadow className="p-2 pb-20 bg-default-50/50 border border-default-100/20 rounded-xl grid gap-2 auto-rows-min xl:grid-cols-2">
-            {reportsData?.success &&
-            reportsData.data &&
-            reportsData.data.reports &&
-            reportsData.data.reports.length > 0 ? (
-              reportsData.data.reports.map((report, i) => (
-                <Card
-                  key={report.id}
-                  className="h-fit bg-default-50/30 backdrop-blur-sm border-2 border-default-400 hover:border-primary-400 transition-all"
-                >
-                  <CardBody className="p-2">
-                    {/* Line 1: Student & Teacher */}
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                        {i + 1 + (currentPage - 1) * 10}
-                      </div>
-                      <User className="size-3 text-primary shrink-0" />
-                      <span className="font-semibold text-sm">
-                        {highlight(
-                          `${report.student.firstName} ${report.student.fatherName} ${report.student.lastName}`,
-                          search
-                        )}
-                      </span>
-                      <BookOpen className="size-3 text-secondary shrink-0 ml-auto" />
-                      <span className="text-xs text-default-600">
-                        {highlight(
-                          `${report.activeTeacher.firstName} ${report.activeTeacher.fatherName} ${report.activeTeacher.lastName}`,
-                          search
-                        )}
-                      </span>
-                      {/* Delete Button - Only show if progress is open and not shifted data */}
-                      {!report.shiftTeacherDataId &&
-                        report.teacherProgress?.progressStatus === "open" && (
-                          <Button
-                            isIconOnly
-                            size="sm"
-                            color="danger"
-                            variant="light"
-                            onPress={() => handleDeleteClick(report)}
-                            className="min-w-unit-6 w-6 h-6"
-                          >
-                            <Trash2 className="size-3" />
-                          </Button>
-                        )}
-                    </div>
+          <div className="flex items-center gap-3 w-full lg:w-auto">
+            <Button
+              color="primary"
+              startContent={<Plus className="size-4" />}
+              onPress={openCreateModal}
+            >
+              {isAm ? "አዲስ ሪፖርት" : "Add Report"}
+            </Button>
+            <div className="w-full lg:w-60">
+              <Autocomplete
+                placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
+                selectedKey={selectedTeacher || null}
+                onSelectionChange={(key: React.Key | null) => {
+                  const value = (key as string) || "";
+                  setSelectedTeacher(value);
+                  setModalTeacher(value);
+                }}
+                defaultItems={teachersData?.data || []}
+                variant="bordered"
+                size="sm"
+                isClearable
+                isLoading={isLoadingTeachers}
+                listboxProps={{
+                  emptyContent: isAm ? "ምንም መምህር አልተገኘም" : "No teachers found",
+                }}
+                classNames={{
+                  base: selectedTeacher
+                    ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
+                    : "",
+                  listbox: "text-sm",
+                }}
+              >
+                {(item: {
+                  teacher: {
+                    id: string;
+                    firstName: string;
+                    fatherName: string;
+                    lastName: string;
+                  };
+                }) => (
+                  <AutocompleteItem
+                    key={item.teacher.id}
+                    textValue={`${item.teacher.firstName} ${item.teacher.fatherName} ${item.teacher.lastName}`}
+                    className="py-1 text-sm"
+                  >
+                    {item.teacher.firstName} {item.teacher.fatherName}{" "}
+                    {item.teacher.lastName}
+                  </AutocompleteItem>
+                )}
+              </Autocomplete>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
 
-                    {/* Line 2: Date, Slot, Status & Student Approval */}
-                    <div className="flex items-center gap-2 text-xs">
-                      <Calendar className="size-3 text-secondary shrink-0" />
-                      <span className="text-default-500">
-                        {new Date(report.date).toLocaleDateString()}
-                      </span>
-                      <span className="text-default-400">•</span>
-                      <span className="text-default-600">
-                        {report.learningSlot}
-                      </span>
-                      <Chip
-                        color={
-                          report.learningProgress === "present"
-                            ? "success"
-                            : report.learningProgress === "permission"
-                            ? "primary"
-                            : "warning"
-                        }
-                        size="sm"
-                        variant="dot"
-                        className="h-5"
-                      >
-                        {report.learningProgress === "present"
-                          ? isAm
-                            ? "ተገኝቷል"
-                            : "Present"
-                          : report.learningProgress === "permission"
-                          ? isAm
-                            ? "ፈቃድ"
-                            : "Permission"
-                          : isAm
-                          ? "ጠፍቷል"
-                          : "Absent"}
-                      </Chip>
-                      {report.studentApproved !== null &&
-                        report.studentApproved !== undefined && (
-                          <Chip
-                            size="sm"
-                            color={
-                              report.studentApproved ? "success" : "danger"
-                            }
-                            variant="flat"
-                            className="h-5 ml-auto"
+      {selectedTeacher && (
+        <Card className="flex-1 overflow-hidden border border-default-200/70 shadow-sm">
+          <CardHeader className="p-4 border-b border-default-200 bg-default-50 dark:bg-default-900/30">
+            <div className="flex items-center gap-2 w-full">
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={
+                  isAm
+                    ? "ተማሪን በፍጥነት ለመፈለግ ይጻፉ..."
+                    : "Quick search for a student..."
+                }
+                variant="bordered"
+                size="sm"
+                startContent={<Search className="size-4 text-default-400" />}
+                className="flex-1 min-w-0"
+                classNames={{
+                  inputWrapper:
+                    "bg-white dark:bg-default-900/60 border border-default-200/60",
+                }}
+              />
+              <Select
+                aria-label="month"
+                selectedKeys={new Set([month.toString()])}
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0] as string;
+                  if (value) setMonth(parseInt(value));
+                }}
+                variant="bordered"
+                size="sm"
+                className="w-[115px] flex-shrink"
+              >
+                {monthOptions.map((option) => (
+                  <SelectItem key={option.value}>{option.label}</SelectItem>
+                ))}
+              </Select>
+              <Select
+                aria-label="year"
+                selectedKeys={new Set([year.toString()])}
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0] as string;
+                  if (value) setYear(parseInt(value));
+                }}
+                variant="bordered"
+                size="sm"
+                className="w-[95px] flex-shrink"
+              >
+                {yearOptions.map((option) => (
+                  <SelectItem key={option.value}>{option.label}</SelectItem>
+                ))}
+              </Select>
+              <Select
+                aria-label="rows per page"
+                selectedKeys={new Set([pageSize.toString()])}
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0] as string;
+                  if (value) setPageSize(parseInt(value));
+                }}
+                variant="bordered"
+                size="sm"
+                className="w-[110px] flex-shrink"
+              >
+                {pageSizeOptions.map((value) => (
+                  <SelectItem key={value}>{value}</SelectItem>
+                ))}
+              </Select>
+            </div>
+          </CardHeader>
+
+          <CardBody className="p-0 bg-default-50 dark:bg-default-950">
+            {isLoadingCalendar ? (
+              <div className="p-4">
+                <Skeleton className="w-full h-96 rounded-lg" />
+              </div>
+            ) : calendarData?.success && calendarData.data ? (
+              <div className="flex flex-col gap-3">
+                <div className="overflow-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                      <tr>
+                        <th className="border border-default-200/70 p-2 text-left font-semibold min-w-[180px] sticky left-0 bg-default-100 dark:bg-default-900/80 z-20">
+                          {isAm ? "ተማሪ" : "Student"}
+                        </th>
+                        {Array.from(
+                          { length: daysInMonth },
+                          (_, i) => i + 1
+                        ).map((day) => (
+                          <th
+                            key={day}
+                            className="border border-default-200/70 p-1 text-center font-semibold min-w-[50px] text-[11px] text-default-500"
                           >
-                            {report.studentApproved
+                            {day}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedCalendarData.length > 0 ? (
+                        paginatedCalendarData.map((item, rowIndex) => {
+                          const isEvenRow = rowIndex % 2 === 0;
+                          const rowBgClass = isEvenRow
+                            ? "bg-default-50 dark:bg-default-900/50"
+                            : "bg-white dark:bg-default-950";
+                          const stickyBgClass = isEvenRow
+                            ? "bg-default-100 dark:bg-default-900/70"
+                            : "bg-white dark:bg-default-950";
+
+                          return (
+                            <tr
+                              key={item.student.id}
+                              className={`${rowBgClass} hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors`}
+                            >
+                              <td
+                                className={`border border-default-200/70 p-2 font-medium sticky left-0 z-10 text-default-700 dark:text-default-200 ${stickyBgClass}`}
+                              >
+                                <span className="text-sm font-semibold">
+                                  {item.student.firstName}{" "}
+                                  {item.student.fatherName}{" "}
+                                  {item.student.lastName}
+                                </span>
+                              </td>
+                              {Array.from(
+                                { length: daysInMonth },
+                                (_, i) => i + 1
+                              ).map((day) => {
+                                const report = item.reportsByDate[day] as
+                                  | CalendarReport
+                                  | undefined;
+
+                                if (!report) {
+                                  return (
+                                    <td
+                                      key={day}
+                                      className="border border-default-200/60 p-1 text-center align-middle"
+                                    >
+                                      <span className="text-default-300 text-xs">
+                                        —
+                                      </span>
+                                    </td>
+                                  );
+                                }
+
+                                return (
+                                  <td
+                                    key={day}
+                                    className="border border-default-200/60 p-1 text-center align-middle"
+                                  >
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Chip
+                                        size="sm"
+                                        radius="sm"
+                                        color={
+                                          report.learningProgress === "present"
+                                            ? "success"
+                                            : report.learningProgress ===
+                                              "permission"
+                                            ? "primary"
+                                            : "danger"
+                                        }
+                                        variant="flat"
+                                        className="text-[10px] h-5 min-w-[46px] font-semibold bg-white/80 dark:bg-default-900/70"
+                                      >
+                                        {report.learningProgress === "present"
+                                          ? isAm
+                                            ? "ተገኝ"
+                                            : "P"
+                                          : report.learningProgress ===
+                                            "permission"
+                                          ? isAm
+                                            ? "ፈቃድ"
+                                            : "PE"
+                                          : isAm
+                                          ? "ጠፋ"
+                                          : "A"}
+                                      </Chip>
+                                      <Button
+                                        isIconOnly
+                                        size="sm"
+                                        color="danger"
+                                        variant="light"
+                                        className="min-w-unit-6 w-6 h-6"
+                                        onPress={() =>
+                                          handleDeleteClick(
+                                            item.student,
+                                            report
+                                          )
+                                        }
+                                      >
+                                        <Trash2 className="size-3" />
+                                      </Button>
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={daysInMonth + 1 || 2}
+                            className="border border-default-200 p-8 text-center text-default-500"
+                          >
+                            {searchTerm.trim().length > 0
                               ? isAm
-                                ? "ተማሪ ጸድቋል"
-                                : "Student ✓"
+                                ? "ተማሪ አልተገኘም። እባክዎ የፍለጋ ቃልን ይለውጡ።"
+                                : "No students match your search. Try a different keyword."
                               : isAm
-                              ? "ተማሪ አልተቀበለም"
-                              : "Student ✗"}
-                          </Chip>
-                        )}
-                      {(report.studentApproved === null ||
-                        report.studentApproved === undefined) && (
-                        <Chip
-                          size="sm"
-                          color="warning"
-                          variant="flat"
-                          className="h-5 ml-auto"
-                        >
-                          {isAm ? "በመጠባበቅ ላይ" : "Pending"}
-                        </Chip>
+                              ? "ለዚህ መምህር ምንም ተማሪዎች አልተገኙም"
+                              : "No students found for this teacher"}
+                          </td>
+                        </tr>
                       )}
-                    </div>
-                  </CardBody>
-                </Card>
-              ))
+                    </tbody>
+                  </table>
+                </div>
+                {totalStudents > 0 && (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 pb-4">
+                    <span className="text-xs text-default-500">
+                      {isAm
+                        ? `ውጤቶች ${paginationInfo.start}-${paginationInfo.end} ከ ${totalStudents} ጠቅላላ ተማሪዎች`
+                        : `Showing ${paginationInfo.start}-${paginationInfo.end} of ${totalStudents} students`}
+                    </span>
+                    <Pagination
+                      total={totalPages}
+                      page={page}
+                      onChange={setPage}
+                      showControls
+                      isCompact
+                      className="self-end"
+                    />
+                  </div>
+                )}
+              </div>
             ) : (
-              <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center">
-                <BookOpen className="size-20 text-default-300 mb-4" />
-                <h3 className="text-xl font-semibold text-default-600 mb-2">
-                  {isAm ? "ምንም ሪፖርት አልተገኘም" : "No Reports Found"}
-                </h3>
-                <p className="text-sm text-default-400 max-w-md">
-                  {isAm
-                    ? "ገና ምንም ዕለታዊ ሪፖርት አልተፈጠረም። አዲስ ሪፖርት ለመፍጠር ከላይ ያለውን ቁልፍ ይጫኑ።"
-                    : "No daily reports have been created yet. Click the New Report button above to create one."}
-                </p>
+              <div className="p-8 text-center text-default-500">
+                {isAm ? "መረጃ ማግኘት አልተሳካም" : "Failed to load data"}
               </div>
             )}
-          </ScrollShadow>
-        )}
+          </CardBody>
+        </Card>
+      )}
 
-        {/* Pagination */}
-        <PaginationPlace
-          currentPage={currentPage}
-          totalPage={Math.ceil((reportsData?.data?.totalCount ?? 0) / 10) || 1}
-          onPageChange={setCurrentPage}
-          sort={false}
-          onSortChange={() => {}}
-          row={10}
-          onRowChange={() => {}}
-        />
-      </div>
+      {!selectedTeacher && (
+        <Card className="flex-1">
+          <CardBody className="flex items-center justify-center p-8">
+            <div className="text-center space-y-4">
+              <Calendar className="size-20 text-default-300 mx-auto" />
+              <h3 className="text-xl font-semibold text-default-600">
+                {isAm ? "መምህር ይምረጡ" : "Select a Teacher"}
+              </h3>
+              <p className="text-sm text-default-400 max-w-md">
+                {isAm
+                  ? "የወር ሪፖርት አቀራረብን ለማየት ከላይ ያለውን መምህር ይምረጡ።"
+                  : "Choose a teacher above to review their monthly calendar of daily reports."}
+              </p>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
-      {/* Create Report Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          resetForm();
+          resetModalForm();
         }}
-        size="2xl"
+        size="lg"
         backdrop="blur"
         scrollBehavior="inside"
-        classNames={{
-          backdrop: "bg-black/50 backdrop-blur-md",
-        }}
+        classNames={{ backdrop: "bg-black/50 backdrop-blur-md" }}
       >
         <ModalContent>
-          <ModalHeader className="flex flex-col gap-1">
-            <h2 className="text-xl font-bold">
-              {isAm ? "አዲስ ሪፖርት ይፍጠሩ" : "Create New Report"}
-            </h2>
-            <p className="text-sm text-default-500 font-normal">
-              {isAm
-                ? "ሪፖርት ለመፍጠር ደረጃዎቹን ይከተሉ"
-                : "Follow the steps to create a report"}
-            </p>
-          </ModalHeader>
-          <ModalBody>
-            {/* Step Indicator */}
-            <div className="flex items-center gap-2 p-4 bg-default-50 rounded-lg mb-4">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  step >= 1
-                    ? "bg-primary text-white"
-                    : "bg-default-200 text-default-500"
-                }`}
-              >
-                1
-              </div>
-              <span
-                className={
-                  step >= 1 ? "text-primary font-semibold" : "text-default-500"
-                }
-              >
-                {isAm ? "መምህር" : "Teacher"}
-              </span>
-              <div className="flex-1 h-0.5 bg-default-200"></div>
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  step >= 2
-                    ? "bg-primary text-white"
-                    : "bg-default-200 text-default-500"
-                }`}
-              >
-                2
-              </div>
-              <span
-                className={
-                  step >= 2 ? "text-primary font-semibold" : "text-default-500"
-                }
-              >
-                {isAm ? "ተማሪ" : "Student"}
-              </span>
-              <div className="flex-1 h-0.5 bg-default-200"></div>
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  step >= 3
-                    ? "bg-primary text-white"
-                    : "bg-default-200 text-default-500"
-                }`}
-              >
-                3
-              </div>
-              <span
-                className={
-                  step >= 3 ? "text-primary font-semibold" : "text-default-500"
-                }
-              >
-                {isAm ? "ዝርዝሮች" : "Details"}
-              </span>
+          <ModalHeader className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">
+                {isAm ? "አዲስ ዕለታዊ ሪፖርት" : "Create Daily Report"}
+              </h2>
+              <p className="text-sm text-default-500">
+                {isAm
+                  ? "መምህር፣ ተማሪ፣ ቀን እና ሁኔታ በአንድ ገጽ ይምረጡ"
+                  : "Select teacher, student, date, and status on one page."}
+              </p>
             </div>
-
-            {/* Step 1: Select Teacher */}
-            {step === 1 && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">
-                    {isAm ? "መምህር ይምረጡ" : "Select Teacher"}
-                  </h3>
-                  <p className="text-sm text-default-500 mb-4">
-                    {isAm
-                      ? "ሪፖርት ለመፍጠር መምህር ይምረጡ"
-                      : "Choose a teacher to create a report for"}
-                  </p>
-                </div>
-                <Autocomplete
-                  placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
-                  selectedKey={selectedTeacher}
-                  onSelectionChange={(key: React.Key | null) => {
-                    setSelectedTeacher(key as string);
-                  }}
-                  isLoading={isLoadingTeachers}
-                  label={isAm ? "መምህር *" : "Teacher *"}
-                  defaultItems={teachersData?.data || []}
-                  listboxProps={{
-                    emptyContent: isAm
-                      ? "ምንም መምህር አልተገኘም"
-                      : "No teachers found",
-                  }}
-                  classNames={{
-                    base: selectedTeacher
-                      ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
-                      : "",
-                  }}
-                  description={
-                    selectedTeacher
-                      ? isAm
-                        ? "✓ መምህር ተመርጧል"
-                        : "✓ Teacher selected"
-                      : isAm
-                      ? "መምህርን ለመፈለግ መታየብ ይጀምሩ"
-                      : "Start typing to search for teachers"
-                  }
-                  isClearable
-                >
-                  {(teacher: {
+          </ModalHeader>
+          <ModalBody className="space-y-4">
+            <div className="grid gap-3">
+              <Autocomplete
+                placeholder={isAm ? "መምህር ይፈልጉ..." : "Search teacher..."}
+                label={isAm ? "መምህር *" : "Teacher *"}
+                selectedKey={modalTeacher || null}
+                onSelectionChange={(key: React.Key | null) => {
+                  const value = (key as string) || "";
+                  setModalTeacher(value);
+                  setSelectedTeacher(value);
+                  setSelectedStudent("");
+                  setLearningSlot("");
+                }}
+                isLoading={isLoadingTeachers}
+                defaultItems={teachersData?.data || []}
+                listboxProps={{
+                  emptyContent: isAm ? "ምንም መምህር አልተገኘም" : "No teachers found",
+                }}
+                variant="bordered"
+                isClearable
+              >
+                {(item: {
+                  teacher: {
                     id: string;
                     firstName: string;
                     fatherName: string;
                     lastName: string;
-                    username: string;
-                  }) => (
-                    <AutocompleteItem
-                      key={teacher.id}
-                      textValue={`${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`}
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {teacher.firstName} {teacher.fatherName}{" "}
-                          {teacher.lastName}
-                        </span>
-                      </div>
-                    </AutocompleteItem>
-                  )}
-                </Autocomplete>
-              </div>
-            )}
-
-            {/* Step 2: Select Student */}
-            {step === 2 && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">
-                    {isAm ? "ተማሪ ይምረጡ" : "Select Student"}
-                  </h3>
-                  <p className="text-sm text-default-500 mb-4">
-                    {isAm
-                      ? "ሪፖርት የሚፈጠርለት ተማሪ ይምረጡ"
-                      : "Choose the student for this report"}
-                  </p>
-                </div>
-                <Autocomplete
-                  placeholder={isAm ? "ተማሪ ይፈልጉ..." : "Search for student..."}
-                  selectedKey={selectedStudent}
-                  onSelectionChange={(key: React.Key | null) => {
-                    setSelectedStudent(key as string);
-
-                    // Auto-fill learning slot from student's room data FOR THE SELECTED TEACHER
-                    const studentData = studentsData?.data?.find(
-                      (student: Record<string, unknown>) => student.id === key
-                    ) as Record<string, unknown> | undefined;
-
-                    if (studentData && Array.isArray(studentData.roomStudent)) {
-                      // Find the room that matches the selected teacher
-                      const teacherRoom = studentData.roomStudent.find(
-                        (room: Record<string, unknown>) =>
-                          room.teacherId === selectedTeacher
-                      ) as Record<string, unknown> | undefined;
-
-                      if (teacherRoom) {
-                        setLearningSlot((teacherRoom.time as string) || "");
-                      } else {
-                        setLearningSlot("");
-                      }
-                    } else {
-                      setLearningSlot("");
-                    }
-                  }}
-                  isLoading={isLoadingStudents}
-                  label={isAm ? "ተማሪ *" : "Student *"}
-                  defaultItems={studentsData?.data || []}
-                  listboxProps={{
-                    emptyContent: isAm
-                      ? "ምንም ተማሪ አልተገኘም"
-                      : "No students found for this teacher",
-                  }}
-                  classNames={{
-                    base: selectedStudent
-                      ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
-                      : "",
-                  }}
-                  description={
-                    selectedStudent
-                      ? isAm
-                        ? "✓ ተማሪ ተመርጧል"
-                        : "✓ Student selected"
-                      : isAm
-                      ? "ተማሪውን ለመፈለግ መታየብ ይጀምሩ"
-                      : "Start typing to search for students"
-                  }
-                  isClearable
-                >
-                  {(student: {
-                    id: string;
-                    firstName: string;
-                    fatherName: string;
-                    lastName: string;
-                    username: string;
-                    roomStudent?: Array<{ time: string; teacherId: string }>;
-                  }) => {
-                    // Find the room for the selected teacher
-                    const teacherRoom = Array.isArray(student.roomStudent)
-                      ? student.roomStudent.find(
-                          (room) => room.teacherId === selectedTeacher
-                        )
-                      : undefined;
-
-                    return (
-                      <AutocompleteItem
-                        key={student.id}
-                        textValue={`${student.firstName} ${student.fatherName} ${student.lastName}`}
-                      >
-                        <div className="flex flex-col py-1">
-                          <span className="font-medium">
-                            {student.firstName} {student.fatherName}{" "}
-                            {student.lastName}
-                          </span>
-                          {teacherRoom && (
-                            <span className="text-xs text-primary mt-1 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                              {isAm ? "ሰዓት" : "Time"}: {teacherRoom.time}
-                            </span>
-                          )}
-                        </div>
-                      </AutocompleteItem>
-                    );
-                  }}
-                </Autocomplete>
-              </div>
-            )}
-
-            {/* Step 3: Fill Details */}
-            {step === 3 && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">
-                    {isAm ? "ዝርዝሮች ይሙሉ" : "Fill Details"}
-                  </h3>
-                  <p className="text-sm text-default-500 mb-4">
-                    {isAm
-                      ? "ሪፖርቱን ለመጠናቀቅ ዝርዝሮች ይሙሉ"
-                      : "Complete the report details"}
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  <Input
-                    type="date"
-                    label={isAm ? "ቀን *" : "Date *"}
-                    value={reportDate}
-                    onChange={(e) => setReportDate(e.target.value)}
-                    max={new Date().toISOString().split("T")[0]}
-                    variant="bordered"
-                    description={
-                      isAm
-                        ? "ለዛሬ ወይም ለያለፉ ቀናት ብቻ ሪፖርት መፍጠር ይችላሉ"
-                        : "You can only create reports for today or past dates"
-                    }
-                    classNames={{
-                      input: reportDate
-                        ? "border-2 border-success-300 dark:border-success-600"
-                        : "",
-                    }}
-                  />
-
-                  {/* Learning Slot is hidden - auto-filled in background from room data */}
-
-                  <Select
-                    label={isAm ? "የትምህርት ሁኔታ *" : "Learning Status *"}
-                    placeholder={isAm ? "ሁኔታ ይምረጡ" : "Select status"}
-                    selectedKeys={learningProgress ? [learningProgress] : []}
-                    onSelectionChange={(keys) => {
-                      const selected = Array.from(keys)[0] as
-                        | "present"
-                        | "absent"
-                        | "permission";
-                      setLearningProgress(selected);
-                    }}
-                    description={
-                      learningProgress
-                        ? isAm
-                          ? "✓ ሁኔታ ተመርጧል"
-                          : "✓ Status selected"
-                        : isAm
-                        ? "ተማሪው በትምህርቱ ላይ ሁኔታውን ይምረጡ"
-                        : "Select the student's attendance status"
-                    }
-                    classNames={{
-                      trigger: learningProgress
-                        ? "border-2 border-success-300 dark:border-success-600"
-                        : "",
-                      value: "text-foreground",
-                    }}
-                    disallowEmptySelection
+                  };
+                }) => (
+                  <AutocompleteItem
+                    key={item.teacher.id}
+                    textValue={`${item.teacher.firstName} ${item.teacher.fatherName} ${item.teacher.lastName}`}
                   >
-                    <SelectItem key="present" textValue="Present">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        <span>{isAm ? "ተገኝቷል" : "Present"}</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem key="absent" textValue="Absent">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                        <span>{isAm ? "ጠፍቷል" : "Absent"}</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem key="permission" textValue="Permission">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        <span>{isAm ? "ፈቃድ" : "Permission"}</span>
-                      </div>
-                    </SelectItem>
-                  </Select>
+                    {item.teacher.firstName} {item.teacher.fatherName}{" "}
+                    {item.teacher.lastName}
+                  </AutocompleteItem>
+                )}
+              </Autocomplete>
 
-                  {/* Show auto-filled info */}
-                  {learningSlot && (
-                    <div className="p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
-                      <p className="text-sm text-primary-700 dark:text-primary-300 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary-500"></span>
-                        <span>
-                          {isAm ? "የትምህርት ሰዓት" : "Learning Time"}:{" "}
-                          <strong>{learningSlot}</strong>
-                        </span>
-                      </p>
+              <Autocomplete
+                placeholder={isAm ? "ተማሪ ይፈልጉ..." : "Search student..."}
+                label={isAm ? "ተማሪ *" : "Student *"}
+                selectedKey={selectedStudent || null}
+                onSelectionChange={(key: React.Key | null) => {
+                  const value = (key as string) || "";
+                  setSelectedStudent(value);
+                  const studentData = studentsData?.data?.find(
+                    (student: Record<string, unknown>) => student.id === value
+                  ) as Record<string, unknown> | undefined;
+                  if (studentData && Array.isArray(studentData.roomStudent)) {
+                    const teacherRoom = studentData.roomStudent.find(
+                      (room: Record<string, unknown>) =>
+                        room.teacherId === modalTeacher
+                    ) as Record<string, unknown> | undefined;
+                    setLearningSlot((teacherRoom?.time as string) || "");
+                  } else {
+                    setLearningSlot("");
+                  }
+                }}
+                isLoading={isLoadingStudents}
+                defaultItems={studentsData?.data || []}
+                listboxProps={{
+                  emptyContent: isAm ? "ምንም ተማሪ አልተገኘም" : "No students found",
+                }}
+                variant="bordered"
+                isClearable
+                isDisabled={!modalTeacher}
+              >
+                {(student: {
+                  id: string;
+                  firstName: string;
+                  fatherName: string;
+                  lastName: string;
+                  roomStudent?: Array<{ time: string; teacherId: string }>;
+                }) => (
+                  <AutocompleteItem
+                    key={student.id}
+                    textValue={`${student.firstName} ${student.fatherName} ${student.lastName}`}
+                  >
+                    <div className="py-1 font-medium">
+                      {student.firstName} {student.fatherName}{" "}
+                      {student.lastName}
                     </div>
-                  )}
-                </div>
+                  </AutocompleteItem>
+                )}
+              </Autocomplete>
+
+              <div className="grid gap-2">
+                <label className="flex items-center justify-between gap-3 text-sm text-default-500">
+                  <span>
+                    {isAm
+                      ? "ሰንበት እና እሁድ ማስገባት እንዳይቻል"
+                      : "Block Saturday & Sunday"}
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-primary"
+                    checked={isWeekendAllowed}
+                    onChange={(e) => setIsWeekendAllowed(e.target.checked)}
+                  />
+                </label>
+                <DatePicker
+                  label={isAm ? "ቀን *" : "Date *"}
+                  variant="bordered"
+                  value={datePickerValue}
+                  onChange={(value) =>
+                    setReportDate(value ? value.toString() : "")
+                  }
+                  maxValue={todayValue}
+                  isDateUnavailable={(date) => {
+                    if (isWeekendAllowed) return false;
+                    const weekday = date.toDate(timeZone).getDay();
+                    return weekday === 0 || weekday === 6;
+                  }}
+                />
               </div>
-            )}
+
+              <Select
+                label={isAm ? "የትምህርት ሁኔታ *" : "Learning Status *"}
+                placeholder={isAm ? "ሁኔታ ይምረጡ" : "Select status"}
+                selectedKeys={learningProgress ? [learningProgress] : []}
+                onSelectionChange={(keys) => {
+                  const selected = Array.from(keys)[0] as
+                    | "present"
+                    | "absent"
+                    | "permission";
+                  setLearningProgress(selected);
+                }}
+                classNames={{ value: "text-foreground" }}
+                disallowEmptySelection
+              >
+                <SelectItem key="present" textValue="Present">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    <span>{isAm ? "ተገኝቷል" : "Present"}</span>
+                  </div>
+                </SelectItem>
+                <SelectItem key="absent" textValue="Absent">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                    <span>{isAm ? "ጠፍቷል" : "Absent"}</span>
+                  </div>
+                </SelectItem>
+                <SelectItem key="permission" textValue="Permission">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span>{isAm ? "ፈቃድ" : "Permission"}</span>
+                  </div>
+                </SelectItem>
+              </Select>
+
+              {learningSlot && (
+                <input type="hidden" value={learningSlot} readOnly />
+              )}
+            </div>
           </ModalBody>
           <ModalFooter>
-            {step > 1 && (
-              <Button
-                variant="light"
-                onPress={() => setStep(step - 1)}
-                isDisabled={isCreating}
-              >
-                {isAm ? "ተመለስ" : "Back"}
-              </Button>
-            )}
             <Button
               variant="light"
               onPress={() => {
                 setIsModalOpen(false);
-                resetForm();
+                resetModalForm();
               }}
               isDisabled={isCreating}
             >
               {isAm ? "ይቅር" : "Cancel"}
             </Button>
-            {step < 3 ? (
-              <Button
-                color="primary"
-                onPress={() => setStep(step + 1)}
-                isDisabled={
-                  (step === 1 && !selectedTeacher) ||
-                  (step === 2 && !selectedStudent)
-                }
-              >
-                {isAm ? "ቀጥል" : "Next"}
-              </Button>
-            ) : (
-              <Button
-                color="primary"
-                onPress={handleCreateReport}
-                isLoading={isCreating}
-                isDisabled={!learningSlot || !reportDate || !learningProgress}
-              >
-                {isAm ? "ሪፖርት ይፍጠሩ" : "Create Report"}
-              </Button>
-            )}
+            <Button
+              color="primary"
+              onPress={handleCreateReport}
+              isLoading={isCreating}
+              isDisabled={
+                !modalTeacher ||
+                !selectedStudent ||
+                !reportDate ||
+                !learningProgress ||
+                !learningSlot
+              }
+            >
+              {isAm ? "ሪፖርት ይፍጠሩ" : "Create Report"}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => {
@@ -881,41 +934,40 @@ export default function Page() {
         size="md"
       >
         <ModalContent>
-          <ModalHeader className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <Trash2 className="size-5 text-danger" />
-              <span>{isAm ? "ሪፖርት ይሰረዝ?" : "Delete Report?"}</span>
-            </div>
+          <ModalHeader className="flex items-center gap-2 text-danger">
+            <Trash2 className="size-5" />
+            <span>{isAm ? "ሪፖርት ይሰረዝ?" : "Delete Report?"}</span>
           </ModalHeader>
           <ModalBody>
             {reportToDelete && (
-              <div className="space-y-3">
-                <p className="text-default-600">
+              <div className="space-y-3 text-sm text-default-600">
+                <p>
                   {isAm
-                    ? "ይህን ሪፖርት መሰረዝ እርግጠኛ ኖት? ይህ ድርጊት መልሰው ማዋቀር አይቻልም።"
-                    : "Are you sure you want to delete this report? This action cannot be undone."}
+                    ? "ይህን ሪፖርት መሰረዝ እርግጠኛ ነዎት?"
+                    : "Are you sure you want to delete this report?"}
                 </p>
-                <div className="p-3 bg-danger-50 dark:bg-danger-900/20 rounded-lg space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="size-4 text-danger" />
-                    <span className="font-semibold">
-                      {reportToDelete.studentName}
-                    </span>
+                <div className="p-3 rounded-lg bg-danger-50 dark:bg-danger-900/20 space-y-1">
+                  <div>
+                    <span className="font-semibold text-danger-600 dark:text-danger-300">
+                      {isAm ? "ተማሪ:" : "Student:"}
+                    </span>{" "}
+                    {reportToDelete.studentName}
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <BookOpen className="size-4 text-danger" />
-                    <span>{reportToDelete.teacherName}</span>
+                  <div>
+                    <span className="font-semibold text-danger-600 dark:text-danger-300">
+                      {isAm ? "ቀን:" : "Date:"}
+                    </span>{" "}
+                    {reportToDelete.date}
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="size-4 text-danger" />
-                    <span>{reportToDelete.date}</span>
-                  </div>
+                  {reportToDelete.learningSlot && (
+                    <div>
+                      <span className="font-semibold text-danger-600 dark:text-danger-300">
+                        {isAm ? "ሰዓት:" : "Slot:"}
+                      </span>{" "}
+                      {reportToDelete.learningSlot}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-warning-600">
-                  {isAm
-                    ? "⚠️ የመማሪያ/የጎደለ ቁጥር በራስ-ሰር ይቀንሳል።"
-                    : "⚠️ Learning/missing count will be automatically decremented."}
-                </p>
               </div>
             )}
           </ModalBody>
@@ -941,7 +993,6 @@ export default function Page() {
         </ModalContent>
       </Modal>
 
-      {/* Custom Alert */}
       <CustomAlert
         isOpen={isAlertOpen}
         onClose={closeAlert}
