@@ -327,9 +327,6 @@ export default function Page() {
                           <th className="border border-default-200 p-3 text-left font-semibold min-w-[120px]">
                             {isAm ? "ተፈጥሯበት" : "Created"}
                           </th>
-                          <th className="border border-default-200 p-3 text-center font-semibold min-w-[140px]">
-                            {isAm ? "የትምህርት ሰዓት" : "Learning Slot"}
-                          </th>
                           <th className="border border-default-200 p-3 text-center font-semibold">
                             {isAm ? "መማሪያ" : "Learning"}
                           </th>
@@ -377,9 +374,6 @@ export default function Page() {
                                 {createdAt
                                   ? createdAt.toLocaleDateString()
                                   : "-"}
-                              </td>
-                              <td className="border border-default-200 p-3 text-center text-sm">
-                                {progress.learningSlot || "-"}
                               </td>
                               <td className="border border-default-200 p-3 text-center">
                                 <Chip color="success" size="sm" variant="flat">

@@ -283,9 +283,6 @@ export default function Page() {
                       <th className="border border-default-200 p-3 text-left font-semibold min-w-[120px]">
                         {isAm ? "ተፈጥሯበት" : "Created"}
                       </th>
-                      <th className="border border-default-200 p-3 text-center font-semibold min-w-[140px]">
-                        {isAm ? "የትምህርት ሰዓት" : "Learning Slot"}
-                      </th>
                       <th className="border border-default-200 p-3 text-center font-semibold">
                         {isAm ? "መማሪያ" : "Learning"}
                       </th>
@@ -329,9 +326,6 @@ export default function Page() {
                           </td>
                           <td className="border border-default-200 p-3 text-sm">
                             {createdAt.toLocaleDateString()}
-                          </td>
-                          <td className="border border-default-200 p-3 text-center text-sm">
-                            {shift.learningSlot || "-"}
                           </td>
                           <td className="border border-default-200 p-3 text-center">
                             <Chip color="success" size="sm" variant="flat">
@@ -413,7 +407,7 @@ export default function Page() {
               </h3>
               <p className="text-sm text-default-400">
                 {isAm
-                  ? "የፍለጋ እና ወር/ዓመት ማጣሪያዎችን ያስተካክሉ"
+                  ? "የፈለጋ እና ወር/ዓመት ማጣሪያዎችን ያስተካክሉ"
                   : "Adjust your search or month/year filters."}
               </p>
             </div>
