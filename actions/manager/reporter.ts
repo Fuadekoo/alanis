@@ -1,6 +1,7 @@
 "use server";
 import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
 
 /**
  * Get calendar-style report for a teacher for a specific month
@@ -181,7 +182,10 @@ export async function getTeachersWithControllers() {
 export async function getAllShiftData(
   page: number = 1,
   pageSize: number = 10,
-  search: string = ""
+  search: string = "",
+  teacherId?: string,
+  month?: number,
+  year?: number
 ) {
   try {
     const session = await auth();
@@ -191,21 +195,46 @@ export async function getAllShiftData(
 
     const skip = (page - 1) * pageSize;
 
+    const baseWhere: Prisma.ShiftTeacherDataWhereInput = {
+      OR: [
+        { student: { firstName: { contains: search, mode: "insensitive" } } },
+        { student: { fatherName: { contains: search, mode: "insensitive" } } },
+        { student: { lastName: { contains: search, mode: "insensitive" } } },
+        { teacher: { firstName: { contains: search, mode: "insensitive" } } },
+        { teacher: { fatherName: { contains: search, mode: "insensitive" } } },
+        { teacher: { lastName: { contains: search, mode: "insensitive" } } },
+      ],
+    };
+
+    const extraFilters: Prisma.ShiftTeacherDataWhereInput[] = [];
+    if (teacherId) {
+      extraFilters.push({ teacherId });
+    }
+
+    if (month || year) {
+      const filterYear = year ?? new Date().getFullYear();
+      let startDate = new Date(filterYear, 0, 1);
+      let endDate = new Date(filterYear + 1, 0, 1);
+
+      if (month) {
+        startDate = new Date(filterYear, month - 1, 1);
+        endDate = new Date(filterYear, month, 1);
+      }
+
+      extraFilters.push({
+        createdAt: {
+          gte: startDate,
+          lt: endDate,
+        },
+      });
+    }
+
+    const where: Prisma.ShiftTeacherDataWhereInput = {
+      AND: [baseWhere, ...extraFilters],
+    };
+
     const shiftData = await prisma.shiftTeacherData.findMany({
-      where: {
-        OR: [
-          { student: { firstName: { contains: search, mode: "insensitive" } } },
-          {
-            student: { fatherName: { contains: search, mode: "insensitive" } },
-          },
-          { student: { lastName: { contains: search, mode: "insensitive" } } },
-          { teacher: { firstName: { contains: search, mode: "insensitive" } } },
-          {
-            teacher: { fatherName: { contains: search, mode: "insensitive" } },
-          },
-          { teacher: { lastName: { contains: search, mode: "insensitive" } } },
-        ],
-      },
+      where,
       include: {
         student: {
           select: {
@@ -244,20 +273,7 @@ export async function getAllShiftData(
     });
 
     const totalCount = await prisma.shiftTeacherData.count({
-      where: {
-        OR: [
-          { student: { firstName: { contains: search, mode: "insensitive" } } },
-          {
-            student: { fatherName: { contains: search, mode: "insensitive" } },
-          },
-          { student: { lastName: { contains: search, mode: "insensitive" } } },
-          { teacher: { firstName: { contains: search, mode: "insensitive" } } },
-          {
-            teacher: { fatherName: { contains: search, mode: "insensitive" } },
-          },
-          { teacher: { lastName: { contains: search, mode: "insensitive" } } },
-        ],
-      },
+      where,
     });
 
     return {
