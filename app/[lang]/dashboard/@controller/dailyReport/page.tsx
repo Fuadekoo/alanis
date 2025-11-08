@@ -64,7 +64,7 @@ export default function Page() {
   >("");
   const [reportDate, setReportDate] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [isWeekendAllowed, setIsWeekendAllowed] = useState(false);
+  const [weekendOnly, setWeekendOnly] = useState(false);
 
   // Delete modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -213,7 +213,7 @@ export default function Page() {
     setLearningSlot("");
     setLearningProgress("");
     setReportDate("");
-    setIsWeekendAllowed(false);
+    setWeekendOnly(false);
   };
 
   const openCreateModal = () => {
@@ -829,14 +829,14 @@ export default function Page() {
                 <label className="flex items-center justify-between gap-3 text-sm text-default-500">
                   <span>
                     {isAm
-                      ? "ሰንበት እና እሁድ ማስገባት እንዳይቻል"
-                      : "Block Saturday & Sunday"}
+                      ? "ሰንበት እና እሁድ ብቻ ይፈቀድ"
+                      : "Allow only Saturday & Sunday"}
                   </span>
                   <input
                     type="checkbox"
                     className="size-4 accent-primary"
-                    checked={isWeekendAllowed}
-                    onChange={(e) => setIsWeekendAllowed(e.target.checked)}
+                    checked={weekendOnly}
+                    onChange={(e) => setWeekendOnly(e.target.checked)}
                   />
                 </label>
                 <DatePicker
@@ -848,8 +848,10 @@ export default function Page() {
                   }
                   maxValue={todayValue}
                   isDateUnavailable={(date) => {
-                    if (isWeekendAllowed) return false;
                     const weekday = date.toDate(timeZone).getDay();
+                    if (weekendOnly) {
+                      return !(weekday === 0 || weekday === 6);
+                    }
                     return weekday === 0 || weekday === 6;
                   }}
                 />
