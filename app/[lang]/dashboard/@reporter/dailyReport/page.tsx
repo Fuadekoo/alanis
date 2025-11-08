@@ -145,7 +145,7 @@ export default function Page() {
     <div className="flex flex-col h-full overflow-hidden p-3 lg:p-6 gap-4">
       {/* Header with Teacher Selection */}
       <Card className="border border-default-200/60 shadow-sm">
-        <CardBody className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <CardBody className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between p-3">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold flex items-center gap-2 text-default-900">
               <Calendar className="size-6 text-primary" />
@@ -159,9 +159,8 @@ export default function Page() {
           </div>
 
           {/* Teacher Selection */}
-          <div className="w-full lg:max-w-md">
+          <div className="w-full lg:max-w-sm">
             <Autocomplete
-              label={isAm ? "መምህር ይምረጡ" : "Select Teacher"}
               placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
               selectedKey={selectedTeacher || null}
               onSelectionChange={(key: React.Key | null) => {
@@ -169,24 +168,17 @@ export default function Page() {
               }}
               defaultItems={teachersData?.data || []}
               variant="bordered"
+              size="sm"
               isClearable
               isLoading={isLoadingTeachers}
               listboxProps={{
                 emptyContent: isAm ? "ምንም መምህር አልተገኘም" : "No teachers found",
               }}
-              description={
-                selectedTeacher
-                  ? isAm
-                    ? "✓ መምህር ተመርጧል"
-                    : "✓ Teacher selected"
-                  : isAm
-                  ? "ለመፈለግ መታየብ ይጀምሩ"
-                  : "Start typing to search"
-              }
               classNames={{
                 base: selectedTeacher
                   ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
                   : "",
+                listbox: "text-sm",
               }}
             >
               {(item: {
@@ -205,20 +197,10 @@ export default function Page() {
                 <AutocompleteItem
                   key={item.teacher.id}
                   textValue={`${item.teacher.firstName} ${item.teacher.fatherName} ${item.teacher.lastName}`}
+                  className="py-1 text-sm"
                 >
-                  <div className="flex flex-col py-1">
-                    <span className="font-semibold text-default-700">
-                      {item.teacher.firstName} {item.teacher.fatherName}{" "}
-                      {item.teacher.lastName}
-                    </span>
-                    {item.controller && (
-                      <span className="text-xs text-primary mt-1">
-                        {isAm ? "ተቆጣጣሪ" : "Controller"}:{" "}
-                        {item.controller.firstName} {item.controller.fatherName}{" "}
-                        {item.controller.lastName}
-                      </span>
-                    )}
-                  </div>
+                  {item.teacher.firstName} {item.teacher.fatherName}{" "}
+                  {item.teacher.lastName}
                 </AutocompleteItem>
               )}
             </Autocomplete>
