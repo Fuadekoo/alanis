@@ -44,7 +44,7 @@ interface CreateReportData {
   activeTeacherId: string;
   learningSlot: string;
   learningProgress: "present" | "absent" | "permission";
-  date?: Date;
+  date?: Date | string;
 }
 
 export async function createReport(data: CreateReportData) {
@@ -54,13 +54,8 @@ export async function createReport(data: CreateReportData) {
       throw new Error("Unauthorized");
     }
 
-    const {
-      studentId,
-      activeTeacherId,
-      learningSlot,
-      learningProgress,
-      date = new Date(),
-    } = data;
+    const { studentId, activeTeacherId, learningSlot, learningProgress, date } =
+      data;
 
     // Validate input
     if (!studentId || !activeTeacherId || !learningSlot || !learningProgress) {
@@ -71,11 +66,51 @@ export async function createReport(data: CreateReportData) {
       throw new Error("Invalid learning progress value");
     }
 
-    // Validate that the date is not in the future
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const reportDate = new Date(date);
-    reportDate.setHours(0, 0, 0, 0);
+    // Normalize dates to UTC midnight to avoid timezone shifts
+    let reportDate: Date;
+    if (typeof date === "string") {
+      const parts = date.split("-");
+      if (parts.length !== 3) {
+        throw new Error("Invalid date format. Expected YYYY-MM-DD");
+      }
+      const [yearStr, monthStr, dayStr] = parts;
+      const year = Number(yearStr);
+      const month = Number(monthStr);
+      const day = Number(dayStr);
+      if (
+        Number.isNaN(year) ||
+        Number.isNaN(month) ||
+        Number.isNaN(day) ||
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > 31
+      ) {
+        throw new Error("Invalid date value provided");
+      }
+      reportDate = new Date(Date.UTC(year, month - 1, day));
+    } else {
+      const sourceDate = date ? new Date(date) : new Date();
+      if (Number.isNaN(sourceDate.getTime())) {
+        throw new Error("Invalid date value provided");
+      }
+      reportDate = new Date(
+        Date.UTC(
+          sourceDate.getUTCFullYear(),
+          sourceDate.getUTCMonth(),
+          sourceDate.getUTCDate()
+        )
+      );
+    }
+
+    const currentDate = new Date();
+    const today = new Date(
+      Date.UTC(
+        currentDate.getUTCFullYear(),
+        currentDate.getUTCMonth(),
+        currentDate.getUTCDate()
+      )
+    );
 
     if (reportDate > today) {
       throw new Error("Cannot create reports for future dates");
@@ -133,7 +168,7 @@ export async function createReport(data: CreateReportData) {
           studentId: studentId,
           activeTeacherId: activeTeacherId,
           teacherProgressId: teacherProgress.id,
-          date: date,
+          date: reportDate,
           learningSlot: learningSlot,
           learningProgress: learningProgress,
         },

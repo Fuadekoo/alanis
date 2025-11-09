@@ -376,7 +376,11 @@ export default function Page() {
         activeTeacherId: selectedTeacher,
         learningSlot,
         learningProgress,
-        date: selectedDateObj,
+        date: [
+          selectedDateObj.getFullYear(),
+          `${selectedDateObj.getMonth() + 1}`.padStart(2, "0"),
+          `${selectedDateObj.getDate()}`.padStart(2, "0"),
+        ].join("-"),
       });
 
       if (result.success) {
