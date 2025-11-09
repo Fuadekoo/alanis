@@ -116,8 +116,24 @@ export async function getTeachersWithControllers() {
       throw new Error("Unauthorized");
     }
 
+    const isController = session.user.role === "controller";
+
+    const teacherWhere: Prisma.userWhereInput = {
+      role: "teacher",
+    };
+
+    if (isController) {
+      teacherWhere.roomTeacher = {
+        some: {
+          student: {
+            controllerId: session.user.id,
+          },
+        },
+      };
+    }
+
     const teachers = await prisma.user.findMany({
-      where: { role: "teacher" },
+      where: teacherWhere,
       select: {
         id: true,
         firstName: true,
@@ -125,6 +141,15 @@ export async function getTeachersWithControllers() {
         lastName: true,
         username: true,
         roomTeacher: {
+          ...(isController
+            ? {
+                where: {
+                  student: {
+                    controllerId: session.user.id,
+                  },
+                },
+              }
+            : {}),
           select: {
             student: {
               select: {

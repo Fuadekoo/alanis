@@ -297,7 +297,7 @@ model DailyReport {
   teacherProgressId  String?
   shiftTeacherDataId String?
   date               DateTime @default(now())
-  learningSlot       String
+  learningSlot       String?
   learningProgress   String
   studentApproved    Boolean?
   teacherApproved    Boolean?
