@@ -216,9 +216,17 @@ export async function createSalary(
     if (shiftTeacherDataIds && shiftTeacherDataIds.length > 0) {
       const sData = await tx.shiftTeacherData.findMany({
         where: { id: { in: shiftTeacherDataIds } },
-        select: { learningCount: true },
+        select: { learningCount: true, totalCount: true },
       });
-      const sumShift = sData.reduce((s, p) => s + (p.learningCount ?? 0), 0);
+      const sumShift = sData.reduce((sum, record) => {
+        if (typeof record.learningCount === "number") {
+          return sum + record.learningCount;
+        }
+        if (typeof record.totalCount === "number") {
+          return sum + record.totalCount;
+        }
+        return sum;
+      }, 0);
       totalDayForLearning += sumShift;
     }
 
@@ -244,7 +252,7 @@ export async function createSalary(
       await tx.shiftTeacherData.updateMany({
         where: { id: { in: shiftTeacherDataIds } },
         data: {
-          paymentStatus: paymentStatus.pending,
+          paymentStatus: paymentStatus.approved,
           progressStatus: progressStatus.closed,
           teacherSalaryId: teacherSalary.id,
         },
@@ -256,7 +264,7 @@ export async function createSalary(
       await tx.teacherProgress.updateMany({
         where: { id: { in: teacherProgressIds } },
         data: {
-          paymentStatus: paymentStatus.pending,
+          paymentStatus: paymentStatus.approved,
           progressStatus: progressStatus.closed,
           teacherSalaryId: teacherSalary.id,
         },
@@ -287,18 +295,12 @@ export async function createAutomaticSalaries(
     throw new Error("Unauthorized");
   }
 
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 1);
   const roundedUnitPrice = Math.round(unitPrice);
 
   try {
     const result = await prisma.$transaction(async (tx) => {
       const teacherProgressRecords = await tx.teacherProgress.findMany({
         where: {
-          createdAt: {
-            gte: startDate,
-            lt: endDate,
-          },
           paymentStatus: paymentStatus.pending,
           progressStatus: progressStatus.open,
           teacherSalaryId: null,
@@ -306,56 +308,75 @@ export async function createAutomaticSalaries(
         select: {
           id: true,
           teacherId: true,
+          studentId: true,
           learningCount: true,
+          missingCount: true,
+          totalCount: true,
         },
       });
 
       const shiftRecords = await tx.shiftTeacherData.findMany({
         where: {
-          createdAt: {
-            gte: startDate,
-            lt: endDate,
-          },
           paymentStatus: paymentStatus.pending,
           teacherSalaryId: null,
         },
         select: {
           id: true,
           teacherId: true,
+          studentId: true,
           learningCount: true,
+          missingCount: true,
+          totalCount: true,
         },
       });
 
       const grouped = new Map<
         string,
-        {
-          progressIds: string[];
-          shiftIds: string[];
-          totalDays: number;
-        }
+        Map<
+          string,
+          {
+            progressIds: string[];
+            shiftIds: string[];
+            progressLearning: number;
+            shiftLearning: number;
+          }
+        >
       >();
 
-      const ensureGroup = (teacherId: string) => {
+      const ensureGroup = (teacherId: string, studentId: string) => {
         if (!grouped.has(teacherId)) {
-          grouped.set(teacherId, {
+          grouped.set(teacherId, new Map());
+        }
+        const studentMap = grouped.get(teacherId)!;
+        if (!studentMap.has(studentId)) {
+          studentMap.set(studentId, {
             progressIds: [],
             shiftIds: [],
-            totalDays: 0,
+            progressLearning: 0,
+            shiftLearning: 0,
           });
         }
-        return grouped.get(teacherId)!;
+        return studentMap.get(studentId)!;
       };
 
       teacherProgressRecords.forEach((progress) => {
-        const group = ensureGroup(progress.teacherId);
+        const group = ensureGroup(progress.teacherId, progress.studentId);
         group.progressIds.push(progress.id);
-        group.totalDays += progress.learningCount ?? 0;
+        const learning =
+          typeof progress.learningCount === "number"
+            ? progress.learningCount
+            : progress.totalCount ?? 0;
+        group.progressLearning += learning;
       });
 
       shiftRecords.forEach((shift) => {
-        const group = ensureGroup(shift.teacherId);
+        const group = ensureGroup(shift.teacherId, shift.studentId);
         group.shiftIds.push(shift.id);
-        group.totalDays += shift.learningCount ?? 0;
+        const learning =
+          typeof shift.learningCount === "number"
+            ? shift.learningCount
+            : shift.totalCount ?? 0;
+        group.shiftLearning += learning;
       });
 
       if (grouped.size === 0) {
@@ -405,22 +426,29 @@ export async function createAutomaticSalaries(
         amount: number;
         progressCount: number;
         shiftCount: number;
+        progressLearning?: number;
+        shiftLearning?: number;
       }> = [];
 
       const skipped: Array<{ teacherId: string; reason: string }> = [];
 
-      for (const [teacherId, group] of grouped.entries()) {
+      for (const [teacherId, studentMap] of grouped.entries()) {
         if (existingMap.has(teacherId)) {
           skipped.push({ teacherId, reason: "existing-salary" });
           continue;
         }
 
-        if (group.totalDays <= 0) {
+        let totalDays = 0;
+        studentMap.forEach((entry) => {
+          totalDays += entry.progressLearning + entry.shiftLearning;
+        });
+
+        if (totalDays <= 0) {
           skipped.push({ teacherId, reason: "no-learning-days" });
           continue;
         }
 
-        const amount = group.totalDays * roundedUnitPrice;
+        const amount = totalDays * roundedUnitPrice;
 
         const salary = await tx.teacherSalary.create({
           data: {
@@ -428,27 +456,41 @@ export async function createAutomaticSalaries(
             month,
             year,
             unitPrice: roundedUnitPrice,
-            totalDayForLearning: group.totalDays,
+            totalDayForLearning: totalDays,
             amount,
             status: paymentStatus.pending,
           },
         });
 
-        if (group.progressIds.length > 0) {
+        const allProgressIds: string[] = [];
+        const allShiftIds: string[] = [];
+        let progressLearning = 0;
+        let shiftLearning = 0;
+
+        studentMap.forEach((entry) => {
+          allProgressIds.push(...entry.progressIds);
+          allShiftIds.push(...entry.shiftIds);
+          progressLearning += entry.progressLearning;
+          shiftLearning += entry.shiftLearning;
+        });
+
+        if (allProgressIds.length > 0) {
           await tx.teacherProgress.updateMany({
-            where: { id: { in: group.progressIds } },
+            where: { id: { in: allProgressIds } },
             data: {
               teacherSalaryId: salary.id,
               progressStatus: progressStatus.closed,
+              paymentStatus: paymentStatus.approved,
             },
           });
         }
 
-        if (group.shiftIds.length > 0) {
+        if (allShiftIds.length > 0) {
           await tx.shiftTeacherData.updateMany({
-            where: { id: { in: group.shiftIds } },
+            where: { id: { in: allShiftIds } },
             data: {
               teacherSalaryId: salary.id,
+              paymentStatus: paymentStatus.approved,
             },
           });
         }
@@ -460,10 +502,12 @@ export async function createAutomaticSalaries(
           teacherName: teacher
             ? `${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`
             : teacherId,
-          totalDays: group.totalDays,
+          totalDays,
           amount,
-          progressCount: group.progressIds.length,
-          shiftCount: group.shiftIds.length,
+          progressCount: allProgressIds.length,
+          shiftCount: allShiftIds.length,
+          progressLearning,
+          shiftLearning,
         });
       }
 
