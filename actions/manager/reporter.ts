@@ -27,16 +27,24 @@ export async function getTeacherMonthlyCalendar(
     const endDate = new Date(year, month, 0); // Last day of month
     const daysInMonth = endDate.getDate();
 
-    // Get all students who have room assignments with this teacher
-    const students = await prisma.user.findMany({
-      where: {
-        role: "student",
-        roomStudent: {
-          some: {
-            teacherId: teacherId,
-          },
+    const isController = session.user.role === "controller";
+
+    const studentWhere: Prisma.userWhereInput = {
+      role: "student",
+      roomStudent: {
+        some: {
+          teacherId: teacherId,
         },
       },
+    };
+
+    if (isController) {
+      studentWhere.controllerId = session.user.id;
+    }
+
+    // Get all students who have room assignments with this teacher
+    const students = await prisma.user.findMany({
+      where: studentWhere,
       select: {
         id: true,
         firstName: true,
@@ -47,25 +55,33 @@ export async function getTeacherMonthlyCalendar(
       orderBy: { firstName: "asc" },
     });
 
+    const studentIds = students.map((student) => student.id);
+
     // Get all daily reports for this teacher in this month
-    const reports = await prisma.dailyReport.findMany({
-      where: {
-        activeTeacherId: teacherId,
-        date: {
-          gte: startDate,
-          lte: new Date(year, month, 0, 23, 59, 59), // End of last day
-        },
-      },
-      select: {
-        id: true,
-        studentId: true,
-        date: true,
-        learningProgress: true,
-        learningSlot: true,
-        studentApproved: true,
-        teacherApproved: true,
-      },
-    });
+    const reports =
+      studentIds.length === 0
+        ? []
+        : await prisma.dailyReport.findMany({
+            where: {
+              activeTeacherId: teacherId,
+              studentId: {
+                in: studentIds,
+              },
+              date: {
+                gte: startDate,
+                lte: new Date(year, month, 0, 23, 59, 59), // End of last day
+              },
+            },
+            select: {
+              id: true,
+              studentId: true,
+              date: true,
+              learningProgress: true,
+              learningSlot: true,
+              studentApproved: true,
+              teacherApproved: true,
+            },
+          });
 
     // Organize reports by student and date
     const calendarData = students.map((student) => {
