@@ -29,8 +29,6 @@ function Page() {
   const [page, setPage] = useState(1);
   const [month, setMonth] = useState<string | undefined>(undefined);
   const [year, setYear] = useState<string | undefined>(undefined);
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [pageSize, setPageSize] = useState(10);
 
   // Unpaid tab states
@@ -58,14 +56,11 @@ function Page() {
     pageSize,
     month,
     year,
-    startDate,
-    endDate
+    undefined,
+    undefined
   );
 
-  const [yearsData, isLoadingYears] = useData(
-    getControllerYearsPayment,
-    () => {}
-  );
+  const [yearsData] = useData(getControllerYearsPayment, () => {});
 
   // Get unpaid students data
   const [unpaidData, isLoadingUnpaid] = useData(
