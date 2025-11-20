@@ -293,11 +293,14 @@ export async function getUnpaidStudents(month: number, year: number) {
       throw new Error("Month and year are required");
     }
 
-    // Get all active students
-    const allStudents = await prisma.user.findMany({
+    // Step 1: Get all students who have a teacher assigned (students with at least one room)
+    const studentsWithTeachers = await prisma.user.findMany({
       where: {
         role: "student",
         status: "active",
+        roomStudent: {
+          some: {}, // At least one room exists (meaning teacher is assigned)
+        },
       },
       select: {
         id: true,
@@ -312,13 +315,13 @@ export async function getUnpaidStudents(month: number, year: number) {
             duration: true,
             teacher: {
               select: {
+                id: true,
                 firstName: true,
                 fatherName: true,
                 lastName: true,
               },
             },
           },
-          take: 1,
         },
       },
       orderBy: {
@@ -326,7 +329,7 @@ export async function getUnpaidStudents(month: number, year: number) {
       },
     });
 
-    // Get all students who have paid for this month/year
+    // Step 2: Get all student IDs who have paid for this specific month/year
     const paidStudents = await prisma.payment.findMany({
       where: {
         month: month,
@@ -335,12 +338,15 @@ export async function getUnpaidStudents(month: number, year: number) {
       select: {
         studentId: true,
       },
+      distinct: ["studentId"], // Ensure unique student IDs
     });
 
+    // Create a Set of paid student IDs for efficient lookup
     const paidStudentIds = new Set(paidStudents.map((p) => p.studentId));
 
-    // Filter out students who have already paid
-    const unpaidStudents = allStudents.filter(
+    // Step 3: Filter out students who have already paid from students with teachers
+    // This gives us unpaid students who have teachers assigned
+    const unpaidStudents = studentsWithTeachers.filter(
       (student) => !paidStudentIds.has(student.id)
     );
 
