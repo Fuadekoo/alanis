@@ -5,6 +5,7 @@ import {
   MessageCircle,
   User,
   Users,
+  CreditCard,
 } from "lucide-react";
 import React from "react";
 
@@ -37,7 +38,13 @@ export default async function Layout({
         english: "deposit",
         amharic: "ተቀማጭ",
         url: "deposit",
-        Icon: <BadgeDollarSignIcon className="size-6" />, // You can replace with a more suitable icon if needed
+        Icon: <BadgeDollarSignIcon className="size-6" />,
+      },
+      {
+        english: "payment",
+        amharic: "ክፍያ",
+        url: "payment",
+        Icon: <CreditCard className="size-6" />,
       },
       {
         english: "chat",

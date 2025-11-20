@@ -409,6 +409,311 @@ export async function getBalance(studentId: string): Promise<number | null> {
   }
 }
 
+// Get all payments for controller's students with filters
+export async function getControllerMonthsPayment(
+  search?: string,
+  page?: number,
+  pageSize?: number,
+  month?: string,
+  year?: string,
+  startDate?: Date,
+  endDate?: Date
+) {
+  // Set default pagination values
+  page = page && page > 0 ? page : 1;
+  pageSize = pageSize && pageSize > 0 ? pageSize : 50;
+
+  // Get current controller from session
+  const { auth } = await import("@/lib/auth");
+  const session = await auth();
+  const controllerId = session?.user?.id;
+
+  if (!controllerId) {
+    return {
+      error: "Unauthorized access",
+      data: [],
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        itemsPerPage: pageSize,
+        totalRecords: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    };
+  }
+
+  try {
+    // Build the where clause
+    const where: any = {
+      user: {
+        controllerId: controllerId,
+      },
+      ...(month && { month: Number(month) }),
+      ...(year && { year: Number(year) }),
+      ...(startDate &&
+        endDate && {
+          createdAt: {
+            gte: startDate,
+            lte: new Date(new Date(endDate).setUTCHours(23, 59, 59, 999)),
+          },
+        }),
+      ...(search && search.trim()
+        ? {
+            OR: [
+              {
+                user: {
+                  firstName: { contains: search.trim(), mode: "insensitive" },
+                },
+              },
+              {
+                user: {
+                  fatherName: { contains: search.trim(), mode: "insensitive" },
+                },
+              },
+              {
+                user: {
+                  lastName: { contains: search.trim(), mode: "insensitive" },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const totalRows = await prisma.payment.count({
+      where,
+    });
+
+    // Fetch the paginated data
+    const payments = await prisma.payment.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            phoneNumber: true,
+            roomStudent: {
+              select: {
+                teacher: {
+                  select: {
+                    firstName: true,
+                    fatherName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    const totalPages = Math.ceil(totalRows / pageSize);
+
+    // Format the data for the client
+    const data = payments.map((item) => ({
+      ...item,
+      createdAt: item.createdAt.toISOString(),
+    }));
+
+    return {
+      data,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        itemsPerPage: pageSize,
+        totalRecords: totalRows,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to get payments:", error);
+    return {
+      error: "Failed to retrieve data.",
+      data: [],
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        itemsPerPage: pageSize,
+        totalRecords: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    };
+  }
+}
+
+// Get unpaid students for controller's students
+export async function getControllerUnpaidStudents(
+  month: number,
+  year: number,
+  page?: number,
+  pageSize?: number
+) {
+  // Get current controller from session
+  const { auth } = await import("@/lib/auth");
+  const session = await auth();
+  const controllerId = session?.user?.id;
+
+  if (!controllerId) {
+    return {
+      success: false,
+      error: "Unauthorized access",
+      data: [],
+      totalCount: 0,
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        itemsPerPage: pageSize || 10,
+        totalRecords: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    };
+  }
+
+  try {
+    if (month == null || year == null) {
+      throw new Error("Month and year are required");
+    }
+
+    // Set default pagination values
+    page = page && page > 0 ? page : 1;
+    pageSize = pageSize && pageSize > 0 ? pageSize : 10;
+
+    // Build the where clause
+    const where = {
+      role: "student" as const,
+      status: "active" as const,
+      controllerId: controllerId,
+      // Must have teacher
+      roomStudent: {
+        some: {},
+      },
+      // Must NOT have a payment for this month/year
+      payment: {
+        none: {
+          month,
+          year,
+        },
+      },
+    };
+
+    // Get total count for pagination
+    const totalRows = await prisma.user.count({
+      where,
+    });
+
+    // Fetch paginated unpaid students
+    const unpaidStudents = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        username: true,
+        phoneNumber: true,
+        roomStudent: {
+          select: {
+            time: true,
+            duration: true,
+            teacher: {
+              select: {
+                id: true,
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        firstName: "asc",
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    const totalPages = Math.ceil(totalRows / pageSize);
+
+    return {
+      success: true,
+      data: unpaidStudents,
+      totalCount: totalRows,
+      month,
+      year,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        itemsPerPage: pageSize,
+        totalRecords: totalRows,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to get unpaid students:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get unpaid students",
+      data: [],
+      totalCount: 0,
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        itemsPerPage: pageSize || 10,
+        totalRecords: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    };
+  }
+}
+
+// Get years with payments for controller's students
+export async function getControllerYearsPayment() {
+  // Get current controller from session
+  const { auth } = await import("@/lib/auth");
+  const session = await auth();
+  const controllerId = session?.user?.id;
+
+  if (!controllerId) {
+    return [];
+  }
+
+  try {
+    const data = await prisma.payment.findMany({
+      where: {
+        user: {
+          controllerId: controllerId,
+        },
+      },
+      orderBy: { year: "desc" },
+      select: { year: true },
+      distinct: ["year"],
+    });
+
+    return data.map((item) => item.year.toString());
+  } catch (error) {
+    console.error("Failed to get years:", error);
+    return [];
+  }
+}
+
 // Controller Payment Analytics Dashboard
 export async function controllerPaymentDashboard() {
   try {
