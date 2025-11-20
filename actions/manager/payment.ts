@@ -286,30 +286,46 @@ export async function rollbackMonthlyPayment(
   }
 }
 
-export async function getUnpaidStudents(month: number, year: number) {
+export async function getUnpaidStudents(
+  month: number,
+  year: number,
+  page?: number,
+  pageSize?: number
+) {
   try {
     if (month == null || year == null) {
       throw new Error("Month and year are required");
     }
 
-    const unpaidStudents = await prisma.user.findMany({
-      where: {
-        role: "student",
-        status: "active",
+    // Set default pagination values
+    page = page && page > 0 ? page : 1;
+    pageSize = pageSize && pageSize > 0 ? pageSize : 10;
 
-        // Must have teacher
-        roomStudent: {
-          some: {},
-        },
-
-        // Must NOT have a payment for this month/year
-        payment: {
-          none: {
-            month,
-            year,
-          },
+    // Build the where clause
+    const where = {
+      role: "student" as const,
+      status: "active" as const,
+      // Must have teacher
+      roomStudent: {
+        some: {},
+      },
+      // Must NOT have a payment for this month/year
+      payment: {
+        none: {
+          month,
+          year,
         },
       },
+    };
+
+    // Get total count for pagination
+    const totalRows = await prisma.user.count({
+      where,
+    });
+
+    // Fetch paginated unpaid students
+    const unpaidStudents = await prisma.user.findMany({
+      where,
       select: {
         id: true,
         firstName: true,
@@ -335,14 +351,26 @@ export async function getUnpaidStudents(month: number, year: number) {
       orderBy: {
         firstName: "asc",
       },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     });
+
+    const totalPages = Math.ceil(totalRows / pageSize);
 
     return {
       success: true,
       data: unpaidStudents,
-      totalCount: unpaidStudents.length,
+      totalCount: totalRows,
       month,
       year,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        itemsPerPage: pageSize,
+        totalRecords: totalRows,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
     };
   } catch (error) {
     console.error("Failed to get unpaid students:", error);
@@ -352,6 +380,16 @@ export async function getUnpaidStudents(month: number, year: number) {
         error instanceof Error
           ? error.message
           : "Failed to get unpaid students",
+      data: [],
+      totalCount: 0,
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        itemsPerPage: pageSize || 10,
+        totalRecords: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
     };
   }
 }

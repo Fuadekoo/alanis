@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CustomTable from "@/components/customTable";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
@@ -92,8 +92,15 @@ function Page() {
     getUnpaidStudents,
     () => {},
     unpaidMonth,
-    unpaidYear
+    unpaidYear,
+    unpaidPage,
+    unpaidPageSize
   );
+
+  // Reset page to 1 when month or year changes
+  useEffect(() => {
+    setUnpaidPage(1);
+  }, [unpaidMonth, unpaidYear]);
 
   // Delete/Rollback payment mutation
   const [deleteAction, isLoadingDelete] = useMutation(
@@ -748,12 +755,16 @@ function Page() {
               </div>
 
               <div className="p-6 bg-white dark:bg-gray-900">
-                {unpaidRows.length > 0 ? (
+                {unpaidRows.length > 0 || (unpaidData?.data && unpaidData.data.length > 0) ? (
                   <>
                     <CustomTable
                       columns={unpaidColumns}
                       rows={unpaidRows}
-                      totalRows={unpaidRows.length}
+                      totalRows={
+                        unpaidSearch
+                          ? unpaidRows.length
+                          : unpaidData?.pagination?.totalRecords || unpaidData?.totalCount || 0
+                      }
                       page={unpaidPage}
                       pageSize={unpaidPageSize}
                       onPageChange={setUnpaidPage}
