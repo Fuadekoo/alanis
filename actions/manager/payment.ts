@@ -286,20 +286,28 @@ export async function rollbackMonthlyPayment(
   }
 }
 
-// Get unpaid students for a specific month and year
 export async function getUnpaidStudents(month: number, year: number) {
   try {
-    if (!month || !year) {
+    if (month == null || year == null) {
       throw new Error("Month and year are required");
     }
 
-    // Step 1: Get all students who have a teacher assigned (students with at least one room)
-    const studentsWithTeachers = await prisma.user.findMany({
+    const unpaidStudents = await prisma.user.findMany({
       where: {
         role: "student",
         status: "active",
+
+        // Must have teacher
         roomStudent: {
-          some: {}, // At least one room exists (meaning teacher is assigned)
+          some: {},
+        },
+
+        // Must NOT have a payment for this month/year
+        payment: {
+          none: {
+            month,
+            year,
+          },
         },
       },
       select: {
@@ -328,27 +336,6 @@ export async function getUnpaidStudents(month: number, year: number) {
         firstName: "asc",
       },
     });
-
-    // Step 2: Get all student IDs who have paid for this specific month/year
-    const paidStudents = await prisma.payment.findMany({
-      where: {
-        month: month,
-        year: year,
-      },
-      select: {
-        studentId: true,
-      },
-      distinct: ["studentId"], // Ensure unique student IDs
-    });
-
-    // Create a Set of paid student IDs for efficient lookup
-    const paidStudentIds = new Set(paidStudents.map((p) => p.studentId));
-
-    // Step 3: Filter out students who have already paid from students with teachers
-    // This gives us unpaid students who have teachers assigned
-    const unpaidStudents = studentsWithTeachers.filter(
-      (student) => !paidStudentIds.has(student.id)
-    );
 
     return {
       success: true,
