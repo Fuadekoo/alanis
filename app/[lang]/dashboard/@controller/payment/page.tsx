@@ -6,21 +6,10 @@ import { Tabs, Tab, Skeleton, Chip } from "@heroui/react";
 import {
   getControllerMonthsPayment,
   getControllerYearsPayment,
-  controllerPaymentDashboard,
   getControllerUnpaidStudents,
 } from "@/actions/controller/payment";
 import { useLocalization } from "@/hooks/useLocalization";
-import {
-  TrendingUp,
-  Calendar as CalendarIcon,
-  CreditCard,
-  BarChart3,
-  Users,
-  DollarSign,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-} from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle } from "lucide-react";
 
 function Page() {
   const { t, getMonthName, formatCurrency } = useLocalization();
@@ -41,11 +30,6 @@ function Page() {
   const [unpaidSearch, setUnpaidSearch] = useState("");
   const [unpaidPage, setUnpaidPage] = useState(1);
   const [unpaidPageSize, setUnpaidPageSize] = useState(10);
-
-  const [dashboardData, isLoadingDashboard] = useData(
-    controllerPaymentDashboard,
-    () => {}
-  );
 
   // Data fetching for paid payments
   const [data, isLoading] = useData(
@@ -302,175 +286,6 @@ function Page() {
               <p className="text-gray-600 dark:text-gray-400 mt-1">
                 {t("payment.subtitle")}
               </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Dashboard Analytics - ETB Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Total Payment ETB */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl shadow-lg border border-blue-200 dark:border-blue-800 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 dark:text-blue-200 text-sm font-medium">
-                  {t("analytics.payment.totalETB")}
-                </p>
-                <p className="text-3xl font-bold text-white">
-                  {isLoadingDashboard
-                    ? "..."
-                    : formatCurrency(Number(dashboardData?.totalAmount || 0))}
-                </p>
-                <p className="text-blue-100 dark:text-blue-200 text-xs mt-1">
-                  {t("analytics.payment.allTime")}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
-                <DollarSign className="h-8 w-8 text-white" />
-              </div>
-            </div>
-          </div>
-
-          {/* This Month Payment ETB */}
-          <div className="bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-xl shadow-lg border border-green-200 dark:border-green-800 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 dark:text-green-200 text-sm font-medium">
-                  {t("analytics.payment.thisMonthETB")}
-                </p>
-                <p className="text-3xl font-bold text-white">
-                  {isLoadingDashboard
-                    ? "..."
-                    : formatCurrency(
-                        Number(dashboardData?.thisMonthAmount || 0)
-                      )}
-                </p>
-                <p className="text-green-100 dark:text-green-200 text-xs mt-1">
-                  {t("analytics.payment.currentMonth")}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
-                <TrendingUp className="h-8 w-8 text-white" />
-              </div>
-            </div>
-          </div>
-
-          {/* Total Students */}
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-xl shadow-lg border border-purple-200 dark:border-purple-800 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 dark:text-purple-200 text-sm font-medium">
-                  {t("payment.totalStudents") || "Total Students"}
-                </p>
-                <p className="text-3xl font-bold text-white">
-                  {isLoadingDashboard
-                    ? "..."
-                    : dashboardData?.totalStudents || 0}
-                </p>
-                <p className="text-purple-100 dark:text-purple-200 text-xs mt-1">
-                  {t("payment.assignedToYou") || "Assigned to you"}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
-                <Users className="h-8 w-8 text-white" />
-              </div>
-            </div>
-          </div>
-
-          {/* Payment Rate */}
-          <div className="bg-gradient-to-br from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700 rounded-xl shadow-lg border border-amber-200 dark:border-amber-800 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-amber-100 dark:text-amber-200 text-sm font-medium">
-                  {t("payment.paymentRate") || "Payment Rate"}
-                </p>
-                <p className="text-3xl font-bold text-white">
-                  {isLoadingDashboard
-                    ? "..."
-                    : `${(dashboardData?.paymentRate || 0).toFixed(1)}%`}
-                </p>
-                <p className="text-amber-100 dark:text-amber-200 text-xs mt-1">
-                  {dashboardData?.studentsWithPayments || 0} /{" "}
-                  {dashboardData?.totalStudents || 0}{" "}
-                  {t("payment.paid") || "paid"}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
-                <BarChart3 className="h-8 w-8 text-white" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Payment Count Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Total Payments Card */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl shadow-lg border border-blue-200 dark:border-blue-800 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 dark:text-blue-200 text-sm font-medium">
-                  {t("payment.totalPayments")}
-                </p>
-                <p className="text-3xl font-bold text-white">
-                  {isLoadingDashboard
-                    ? "..."
-                    : typeof dashboardData?.totalPayments === "number"
-                    ? dashboardData.totalPayments
-                    : 0}
-                </p>
-                <p className="text-blue-100 dark:text-blue-200 text-xs mt-1">
-                  {t("payment.monthlyPaymentsMade")}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
-                <CreditCard className="h-8 w-8 text-white" />
-              </div>
-            </div>
-          </div>
-
-          {/* This Month Payment Card */}
-          <div className="bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-xl shadow-lg border border-green-200 dark:border-green-800 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 dark:text-green-200 text-sm font-medium">
-                  {t("payment.thisMonth")}
-                </p>
-                <p className="text-3xl font-bold text-white">
-                  {isLoadingDashboard
-                    ? "..."
-                    : typeof dashboardData?.thisMonthPayments === "number"
-                    ? dashboardData.thisMonthPayments
-                    : 0}
-                </p>
-                <p className="text-green-100 dark:text-green-200 text-xs mt-1">
-                  {t("payment.currentMonth")}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
-                <CalendarIcon className="h-8 w-8 text-white" />
-              </div>
-            </div>
-          </div>
-
-          {/* Students With Payments */}
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-xl shadow-lg border border-purple-200 dark:border-purple-800 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 dark:text-purple-200 text-sm font-medium">
-                  {t("payment.studentsWithPayments") ||
-                    "Students With Payments"}
-                </p>
-                <p className="text-3xl font-bold text-white">
-                  {isLoadingDashboard
-                    ? "..."
-                    : dashboardData?.studentsWithPayments || 0}
-                </p>
-                <p className="text-purple-100 dark:text-purple-200 text-xs mt-1">
-                  {t("payment.havePaymentRecords") || "Have payment records"}
-                </p>
-              </div>
-              <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
-                <CheckCircle className="h-8 w-8 text-white" />
-              </div>
             </div>
           </div>
         </div>
