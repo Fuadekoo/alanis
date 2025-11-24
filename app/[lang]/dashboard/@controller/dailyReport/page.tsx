@@ -7,8 +7,6 @@ import {
   CardBody,
   CardHeader,
   Input,
-  Autocomplete,
-  AutocompleteItem,
   Skeleton,
   Chip,
   Select,
@@ -21,14 +19,8 @@ import {
   ModalFooter,
 } from "@/components/ui/heroui";
 import {
-  getTeacherMonthlyCalendar,
-  getTeachersWithControllers,
-} from "@/actions/manager/reporter";
-import {
-  getStudentsForReport,
   createReport,
   deleteReport,
-  getControllerStudentsWithSchedule,
   getControllerStudentsCalendar,
 } from "@/actions/controller/report";
 import { Calendar, Search, PenSquare, Trash2 } from "lucide-react";
@@ -64,18 +56,6 @@ interface CalendarRow {
   timeSlot: string;
   duration: number | null;
   reportsByDate: Record<number, CalendarReport | undefined>;
-}
-
-interface StudentAssignment {
-  id: string;
-  firstName: string;
-  fatherName: string;
-  lastName: string;
-  roomStudent?: Array<{
-    time?: string | null;
-    duration?: string | null;
-    teacherId: string;
-  }>;
 }
 
 export default function Page() {
@@ -233,14 +213,6 @@ export default function Page() {
       );
     },
     [calendarData]
-  );
-
-  const resolveLearningSlot = useCallback(
-    (studentId: string) => {
-      const student = getCurrentStudent(studentId);
-      return student?.timeSlot ?? "";
-    },
-    [getCurrentStudent]
   );
 
   const resetModalForm = () => {
