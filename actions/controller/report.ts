@@ -797,6 +797,256 @@ export async function getTeachersForReport() {
   }
 }
 
+// Get all controller's students with calendar data for a month
+export async function getControllerStudentsCalendar(
+  year: number,
+  month: number
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const controllerId = session.user.id;
+
+    if (!year || !month) {
+      return {
+        success: true,
+        data: {
+          calendarData: [],
+          daysInMonth: 0,
+          year,
+          month,
+        },
+      };
+    }
+
+    // Get the first and last day of the month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0); // Last day of month
+    const daysInMonth = endDate.getDate();
+
+    // Get all students assigned to this controller with their room assignments
+    const students = await prisma.user.findMany({
+      where: {
+        role: "student",
+        controllerId: controllerId,
+        roomStudent: {
+          some: {},
+        },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        username: true,
+        roomStudent: {
+          select: {
+            time: true,
+            duration: true,
+            teacher: {
+              select: {
+                id: true,
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+              },
+            },
+          },
+          orderBy: {
+            time: "asc",
+          },
+          take: 1,
+        },
+      },
+      orderBy: { firstName: "asc" },
+    });
+
+    const studentIds = students.map((student) => student.id);
+
+    // Get all daily reports for students under this controller in this month
+    const reports =
+      studentIds.length === 0
+        ? []
+        : await prisma.dailyReport.findMany({
+            where: {
+              studentId: {
+                in: studentIds,
+              },
+              date: {
+                gte: startDate,
+                lte: new Date(year, month, 0, 23, 59, 59), // End of last day
+              },
+            },
+            select: {
+              id: true,
+              studentId: true,
+              activeTeacherId: true,
+              date: true,
+              learningProgress: true,
+              learningSlot: true,
+              studentApproved: true,
+              teacherApproved: true,
+            },
+          });
+
+    // Organize reports by student and date, include teacher and time slot
+    const calendarData = students
+      .map((student) => {
+        const studentReports = reports.filter(
+          (r) => r.studentId === student.id
+        );
+        const firstRoom = student.roomStudent[0];
+
+        // Create a map of date -> report
+        const reportsByDate: Record<number, (typeof studentReports)[0]> = {};
+        studentReports.forEach((report) => {
+          const day = new Date(report.date).getDate();
+          reportsByDate[day] = report;
+        });
+
+        return {
+          student,
+          teacher: firstRoom?.teacher || null,
+          timeSlot: firstRoom?.time || "",
+          duration: firstRoom?.duration || null,
+          reportsByDate,
+        };
+      })
+      .sort((a, b) => {
+        // Sort by time slot (ascending)
+        if (!a.timeSlot && !b.timeSlot) return 0;
+        if (!a.timeSlot) return 1;
+        if (!b.timeSlot) return -1;
+        return a.timeSlot.localeCompare(b.timeSlot);
+      });
+
+    return {
+      success: true,
+      data: {
+        calendarData,
+        daysInMonth,
+        year,
+        month,
+      },
+    };
+  } catch (error) {
+    console.error("Error getting controller students calendar:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get students calendar",
+      data: {
+        calendarData: [],
+        daysInMonth: 0,
+        year,
+        month,
+      },
+    };
+  }
+}
+
+// Get all controller's students with teacher and time slot info, sorted by time
+export async function getControllerStudentsWithSchedule() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const controllerId = session.user.id;
+
+    // Get all students assigned to this controller with their room assignments
+    const students = await prisma.user.findMany({
+      where: {
+        role: "student",
+        controllerId: controllerId,
+        roomStudent: {
+          some: {},
+        },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        username: true,
+        roomStudent: {
+          select: {
+            time: true,
+            duration: true,
+            teacher: {
+              select: {
+                id: true,
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+              },
+            },
+          },
+          orderBy: {
+            time: "asc",
+          },
+        },
+      },
+      orderBy: { firstName: "asc" },
+    });
+
+    // Flatten students with their first room assignment (sorted by time)
+    const studentsWithSchedule = students
+      .map((student) => {
+        if (!student.roomStudent || student.roomStudent.length === 0) {
+          return null;
+        }
+
+        // Get the first room assignment (earliest time)
+        const firstRoom = student.roomStudent[0];
+
+        return {
+          id: student.id,
+          firstName: student.firstName,
+          fatherName: student.fatherName,
+          lastName: student.lastName,
+          username: student.username,
+          teacher: firstRoom.teacher
+            ? {
+                id: firstRoom.teacher.id,
+                firstName: firstRoom.teacher.firstName,
+                fatherName: firstRoom.teacher.fatherName,
+                lastName: firstRoom.teacher.lastName,
+              }
+            : null,
+          timeSlot: firstRoom.time,
+          duration: firstRoom.duration,
+        };
+      })
+      .filter((student) => student !== null)
+      .sort((a, b) => {
+        // Sort by time slot (ascending)
+        if (!a?.timeSlot || !b?.timeSlot) return 0;
+        return a.timeSlot.localeCompare(b.timeSlot);
+      });
+
+    return {
+      success: true,
+      data: studentsWithSchedule,
+    };
+  } catch (error) {
+    console.error("Error getting controller students with schedule:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get students with schedule",
+    };
+  }
+}
+
 // Update report status (approve/reject)
 export async function updateReportStatus(
   reportId: string,

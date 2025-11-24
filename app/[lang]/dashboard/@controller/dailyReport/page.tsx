@@ -28,6 +28,8 @@ import {
   getStudentsForReport,
   createReport,
   deleteReport,
+  getControllerStudentsWithSchedule,
+  getControllerStudentsCalendar,
 } from "@/actions/controller/report";
 import { Calendar, Search, PenSquare, Trash2 } from "lucide-react";
 import useData from "@/hooks/useData";
@@ -53,6 +55,14 @@ interface CalendarRow {
     lastName: string;
     username?: string | null;
   };
+  teacher: {
+    id: string;
+    firstName: string;
+    fatherName: string;
+    lastName: string;
+  } | null;
+  timeSlot: string;
+  duration: number | null;
   reportsByDate: Record<number, CalendarReport | undefined>;
 }
 
@@ -102,25 +112,24 @@ export default function Page() {
   const isAm = useAmharic();
   const { isAlertOpen, alertOptions, showAlert, closeAlert } = useAlert();
 
-  const [teachersData, isLoadingTeachers] = useData(
-    getTeachersWithControllers,
-    () => {}
-  );
-
-  const [studentsData, isLoadingStudents] = useData(
-    getStudentsForReport,
-    () => {},
-    selectedTeacher || ""
-  );
-
+  // Get all controller's students with calendar data
   const [calendarData, isLoadingCalendar, refreshCalendar] = useData(
-    getTeacherMonthlyCalendar,
+    getControllerStudentsCalendar,
     () => {},
-    selectedTeacher || "",
     year,
     month
   );
 
+  // Helper function to convert 24-hour time to 12-hour AM/PM format
+  const formatTimeToAMPM = (time24: string): string => {
+    if (!time24) return "";
+    const [hours, minutes] = time24.split(":").map(Number);
+    const period = hours >= 12 ? "PM" : "AM";
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
+  };
+
+  // Filter calendar data by search term
   const filteredCalendarData = useMemo(() => {
     if (!calendarData?.success || !calendarData.data)
       return [] as CalendarRow[];
@@ -132,7 +141,14 @@ export default function Page() {
         `${item.student.firstName} ${item.student.fatherName} ${item.student.lastName}`
           .toLowerCase()
           .trim();
-      return studentName.includes(normalized);
+      const teacherName = item.teacher
+        ? `${item.teacher.firstName} ${item.teacher.fatherName} ${item.teacher.lastName}`
+            .toLowerCase()
+            .trim()
+        : "";
+      return (
+        studentName.includes(normalized) || teacherName.includes(normalized)
+      );
     });
   }, [calendarData, searchTerm]);
 
@@ -142,7 +158,7 @@ export default function Page() {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedTeacher, month, year, searchTerm, pageSize]);
+  }, [month, year, searchTerm, pageSize]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -208,26 +224,23 @@ export default function Page() {
     );
   }, []);
 
-  const currentTeacher = useMemo(() => {
-    if (!teachersData?.data || !selectedTeacher) return null;
-    return teachersData.data.find(
-      (item: { teacher: { id: string } }) => item.teacher.id === selectedTeacher
-    )?.teacher;
-  }, [teachersData, selectedTeacher]);
+  // Get current student from calendar data when needed
+  const getCurrentStudent = useCallback(
+    (studentId: string) => {
+      if (!calendarData?.success || !calendarData.data) return null;
+      return (calendarData.data.calendarData as CalendarRow[]).find(
+        (row) => row.student.id === studentId
+      );
+    },
+    [calendarData]
+  );
 
   const resolveLearningSlot = useCallback(
     (studentId: string) => {
-      const studentList = studentsData?.data as StudentAssignment[] | undefined;
-      const studentRecord = studentList?.find(
-        (student) => student.id === studentId
-      );
-      if (!studentRecord?.roomStudent) return "";
-      const assignment = studentRecord.roomStudent.find(
-        (room) => room.teacherId === selectedTeacher
-      );
-      return assignment?.time ?? "";
+      const student = getCurrentStudent(studentId);
+      return student?.timeSlot ?? "";
     },
-    [studentsData, selectedTeacher]
+    [getCurrentStudent]
   );
 
   const resetModalForm = () => {
@@ -425,44 +438,41 @@ export default function Page() {
     },
     day: number
   ) => {
-    if (!selectedTeacher) {
-      showAlert({
-        message: isAm ? "መጀመሪያ መምህር ይምረጡ" : "Please select a teacher first",
-        type: "warning",
-        title: isAm ? "ማስጠንቀቂያ" : "Warning",
-      });
-      return;
-    }
-
-    if (isLoadingStudents) {
-      showAlert({
-        message: isAm ? "የተማሪ መረጃ በመጫን ላይ ነው" : "Student data is still loading",
-        type: "warning",
-        title: isAm ? "ቆይታ" : "Please wait",
-      });
-      return;
-    }
-
     const calendarRows = calendarData?.data?.calendarData as
       | CalendarRow[]
       | undefined;
 
-    let slot = resolveLearningSlot(student.id);
-    if (!slot && calendarRows) {
-      const row = calendarRows.find((entry) => entry.student.id === student.id);
-      if (row) {
-        const firstReportWithSlot = Object.values(row.reportsByDate).find(
-          (r) => r?.learningSlot
-        );
-        slot = firstReportWithSlot?.learningSlot ?? "";
-      }
+    // Get student's teacher and time slot from calendar data
+    const studentRow = calendarRows?.find(
+      (row) => row.student.id === student.id
+    );
+
+    if (!studentRow) {
+      showAlert({
+        message: isAm ? "የተማሪ መረጃ አልተገኘም" : "Student information not found",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+      return;
     }
 
+    if (!studentRow.teacher) {
+      showAlert({
+        message: isAm
+          ? "ለዚህ ተማሪ መምህር አልተገኘም"
+          : "No teacher assigned to this student",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+      return;
+    }
+
+    const slot = studentRow.timeSlot || "";
     if (!slot) {
       showAlert({
         message: isAm
-          ? "ለዚህ ተማሪ እና መምህር የትምህርት ጊዜ አልተገኘም"
-          : "No learning slot found for this teacher and student",
+          ? "ለዚህ ተማሪ የትምህርት ጊዜ አልተገኘም"
+          : "No learning slot found for this student",
         type: "error",
         title: isAm ? "ስህተት" : "Error",
       });
@@ -472,8 +482,7 @@ export default function Page() {
     const dateObj = new Date(year, month - 1, day);
     dateObj.setHours(0, 0, 0, 0);
 
-    const duplicate = calendarRows?.find((row) => row.student.id === student.id)
-      ?.reportsByDate?.[day];
+    const duplicate = studentRow.reportsByDate?.[day];
 
     if (duplicate) {
       showAlert({
@@ -490,6 +499,7 @@ export default function Page() {
     setSelectedStudentName(
       `${student.firstName} ${student.fatherName} ${student.lastName}`
     );
+    setSelectedTeacher(studentRow.teacher.id);
     setLearningSlot(slot);
     setLearningProgress("");
     setModalDate(dateObj);
@@ -528,335 +538,301 @@ export default function Page() {
               <Calendar className="size-6 text-primary" />
               {isAm ? "የወር ሪፖርት አቀራረብ" : "Monthly Report View"}
             </h1>
-            {currentTeacher && (
-              <p className="text-xs text-default-500">
-                {isAm ? "መምህር:" : "Teacher:"}{" "}
-                {`${currentTeacher.firstName} ${currentTeacher.fatherName} ${currentTeacher.lastName}`}
-              </p>
-            )}
-          </div>
-
-          <div className="w-full lg:w-60">
-            <Autocomplete
-              placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
-              selectedKey={selectedTeacher || null}
-              onSelectionChange={(key: React.Key | null) => {
-                const value = (key as string) || "";
-                setSelectedTeacher(value);
-                resetModalForm();
-              }}
-              defaultItems={teachersData?.data || []}
-              variant="bordered"
-              size="sm"
-              isClearable
-              isLoading={isLoadingTeachers}
-              listboxProps={{
-                emptyContent: isAm ? "ምንም መምህር አልተገኘም" : "No teachers found",
-              }}
-              classNames={{
-                base: selectedTeacher
-                  ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
-                  : "",
-                listbox: "text-sm",
-              }}
-            >
-              {(item: {
-                teacher: {
-                  id: string;
-                  firstName: string;
-                  fatherName: string;
-                  lastName: string;
-                };
-              }) => (
-                <AutocompleteItem
-                  key={item.teacher.id}
-                  textValue={`${item.teacher.firstName} ${item.teacher.fatherName} ${item.teacher.lastName}`}
-                  className="py-1 text-sm"
-                >
-                  {item.teacher.firstName} {item.teacher.fatherName}{" "}
-                  {item.teacher.lastName}
-                </AutocompleteItem>
-              )}
-            </Autocomplete>
           </div>
         </CardBody>
       </Card>
 
-      {selectedTeacher && (
-        <Card className="flex-1 overflow-hidden border border-default-200/70 shadow-sm">
-          <CardHeader className="p-4 border-b border-default-200 bg-default-50 dark:bg-default-900/30">
-            <div className="flex items-center gap-2 w-full">
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={
-                  isAm
-                    ? "ተማሪን በፍጥነት ለመፈለግ ይጻፉ..."
-                    : "Quick search for a student..."
-                }
-                variant="bordered"
-                size="sm"
-                startContent={<Search className="size-4 text-default-400" />}
-                className="flex-1 min-w-0"
-                classNames={{
-                  inputWrapper:
-                    "bg-white dark:bg-default-900/60 border border-default-200/60",
-                }}
-              />
-              <Select
-                aria-label="month"
-                selectedKeys={new Set([month.toString()])}
-                onSelectionChange={(keys) => {
-                  const value = Array.from(keys)[0] as string;
-                  if (value) setMonth(parseInt(value));
-                }}
-                variant="bordered"
-                size="sm"
-                className="w-[115px] flex-shrink"
-              >
-                {monthOptions.map((option) => (
-                  <SelectItem key={option.value}>{option.label}</SelectItem>
-                ))}
-              </Select>
-              <Select
-                aria-label="year"
-                selectedKeys={new Set([year.toString()])}
-                onSelectionChange={(keys) => {
-                  const value = Array.from(keys)[0] as string;
-                  if (value) setYear(parseInt(value));
-                }}
-                variant="bordered"
-                size="sm"
-                className="w-[95px] flex-shrink"
-              >
-                {yearOptions.map((option) => (
-                  <SelectItem key={option.value}>{option.label}</SelectItem>
-                ))}
-              </Select>
-              <Select
-                aria-label="rows per page"
-                selectedKeys={new Set([pageSize.toString()])}
-                onSelectionChange={(keys) => {
-                  const value = Array.from(keys)[0] as string;
-                  if (value) setPageSize(parseInt(value));
-                }}
-                variant="bordered"
-                size="sm"
-                className="w-[110px] flex-shrink"
-              >
-                {pageSizeOptions.map((value) => (
-                  <SelectItem key={value}>{value}</SelectItem>
-                ))}
-              </Select>
+      {/* Calendar View - Horizontal Display */}
+      <Card className="flex-1 overflow-hidden border border-default-200/70 shadow-sm">
+        <CardHeader className="p-4 border-b border-default-200 bg-default-50 dark:bg-default-900/30">
+          <div className="flex items-center gap-2 w-full">
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={
+                isAm
+                  ? "ተማሪን ወይም መምህርን በፍጥነት ለመፈለግ ይጻፉ..."
+                  : "Quick search for a student or teacher..."
+              }
+              variant="bordered"
+              size="sm"
+              startContent={<Search className="size-4 text-default-400" />}
+              className="flex-1 min-w-0"
+              classNames={{
+                inputWrapper:
+                  "bg-white dark:bg-default-900/60 border border-default-200/60",
+              }}
+            />
+            <Select
+              aria-label="month"
+              selectedKeys={new Set([month.toString()])}
+              onSelectionChange={(keys) => {
+                const value = Array.from(keys)[0] as string;
+                if (value) setMonth(parseInt(value));
+              }}
+              variant="bordered"
+              size="sm"
+              className="w-[115px] flex-shrink"
+            >
+              {monthOptions.map((option) => (
+                <SelectItem key={option.value}>{option.label}</SelectItem>
+              ))}
+            </Select>
+            <Select
+              aria-label="year"
+              selectedKeys={new Set([year.toString()])}
+              onSelectionChange={(keys) => {
+                const value = Array.from(keys)[0] as string;
+                if (value) setYear(parseInt(value));
+              }}
+              variant="bordered"
+              size="sm"
+              className="w-[95px] flex-shrink"
+            >
+              {yearOptions.map((option) => (
+                <SelectItem key={option.value}>{option.label}</SelectItem>
+              ))}
+            </Select>
+            <Select
+              aria-label="rows per page"
+              selectedKeys={new Set([pageSize.toString()])}
+              onSelectionChange={(keys) => {
+                const value = Array.from(keys)[0] as string;
+                if (value) setPageSize(parseInt(value));
+              }}
+              variant="bordered"
+              size="sm"
+              className="w-[110px] flex-shrink"
+            >
+              {pageSizeOptions.map((value) => (
+                <SelectItem key={value}>{value}</SelectItem>
+              ))}
+            </Select>
+          </div>
+        </CardHeader>
+        <CardBody className="p-0 bg-default-50 dark:bg-default-950">
+          {isLoadingCalendar ? (
+            <div className="p-4">
+              <Skeleton className="w-full h-96 rounded-lg" />
             </div>
-          </CardHeader>
-
-          <CardBody className="p-0 bg-default-50 dark:bg-default-950">
-            {isLoadingCalendar ? (
-              <div className="p-4">
-                <Skeleton className="w-full h-96 rounded-lg" />
-              </div>
-            ) : calendarData?.success && calendarData.data ? (
-              <div className="flex flex-col gap-3">
-                <div className="overflow-auto">
-                  <table className="w-full border-collapse text-sm">
-                    <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
-                      <tr>
-                        <th className="border border-default-200/70 p-2 text-left font-semibold min-w-[180px] sticky left-0 bg-default-100 dark:bg-default-900/80 z-20">
-                          {isAm ? "ተማሪ" : "Student"}
-                        </th>
-                        {Array.from(
-                          { length: daysInMonth },
-                          (_, i) => i + 1
-                        ).map((day) => (
+          ) : calendarData?.success && calendarData.data ? (
+            <div className="flex flex-col gap-3">
+              <div className="overflow-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                    <tr>
+                      <th className="border border-default-200/70 p-2 text-left font-semibold min-w-[180px] sticky left-0 bg-default-100 dark:bg-default-900/80 z-20">
+                        {isAm ? "ተማሪ" : "Student"}
+                      </th>
+                      <th className="border border-default-200/70 p-2 text-left font-semibold min-w-[180px] sticky left-[180px] bg-default-100 dark:bg-default-900/80 z-20">
+                        {isAm ? "መምህር" : "Teacher"}
+                      </th>
+                      <th className="border border-default-200/70 p-2 text-left font-semibold min-w-[120px] sticky left-[360px] bg-default-100 dark:bg-default-900/80 z-20">
+                        {isAm ? "የትምህርት ሰዓት" : "Time Slot"}
+                      </th>
+                      {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
+                        (day) => (
                           <th
                             key={day}
                             className="border border-default-200/70 p-1 text-center font-semibold min-w-[50px] text-[11px] text-default-500"
                           >
                             {day}
                           </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedCalendarData.length > 0 ? (
-                        paginatedCalendarData.map(
-                          (item: CalendarRow, rowIndex: number) => {
-                            const isEvenRow = rowIndex % 2 === 0;
-                            const rowBgClass = isEvenRow
-                              ? "bg-default-50 dark:bg-default-900/50"
-                              : "bg-white dark:bg-default-950";
-                            const stickyBgClass = isEvenRow
-                              ? "bg-default-100 dark:bg-default-900/70"
-                              : "bg-white dark:bg-default-950";
+                        )
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedCalendarData.length > 0 ? (
+                      paginatedCalendarData.map(
+                        (item: CalendarRow, rowIndex: number) => {
+                          const isEvenRow = rowIndex % 2 === 0;
+                          const rowBgClass = isEvenRow
+                            ? "bg-default-50 dark:bg-default-900/50"
+                            : "bg-white dark:bg-default-950";
+                          const stickyBgClass = isEvenRow
+                            ? "bg-default-100 dark:bg-default-900/70"
+                            : "bg-white dark:bg-default-950";
 
-                            return (
-                              <tr
-                                key={item.student.id}
-                                className={`${rowBgClass} hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors`}
+                          return (
+                            <tr
+                              key={item.student.id}
+                              className={`${rowBgClass} hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors`}
+                            >
+                              <td
+                                className={`border border-default-200/70 p-2 font-medium sticky left-0 z-10 text-default-700 dark:text-default-200 ${stickyBgClass}`}
                               >
-                                <td
-                                  className={`border border-default-200/70 p-2 font-medium sticky left-0 z-10 text-default-700 dark:text-default-200 ${stickyBgClass}`}
-                                >
-                                  <span className="text-sm font-semibold">
-                                    {item.student.firstName}{" "}
-                                    {item.student.fatherName}{" "}
-                                    {item.student.lastName}
+                                <span className="text-sm font-semibold">
+                                  {item.student.firstName}{" "}
+                                  {item.student.fatherName}{" "}
+                                  {item.student.lastName}
+                                </span>
+                              </td>
+                              <td
+                                className={`border border-default-200/70 p-2 text-default-600 dark:text-default-300 sticky left-[180px] z-10 ${stickyBgClass}`}
+                              >
+                                {item.teacher ? (
+                                  <span className="text-sm">
+                                    {item.teacher.firstName}{" "}
+                                    {item.teacher.fatherName}{" "}
+                                    {item.teacher.lastName}
                                   </span>
-                                </td>
-                                {Array.from(
-                                  { length: daysInMonth },
-                                  (_, i) => i + 1
-                                ).map((day) => {
-                                  const report = item.reportsByDate[day] as
-                                    | CalendarReport
-                                    | undefined;
+                                ) : (
+                                  <span className="text-sm text-default-400">
+                                    {isAm ? "የለም" : "N/A"}
+                                  </span>
+                                )}
+                              </td>
+                              <td
+                                className={`border border-default-200/70 p-2 text-default-600 dark:text-default-300 sticky left-[360px] z-10 ${stickyBgClass}`}
+                              >
+                                {item.timeSlot ? (
+                                  <Chip
+                                    size="sm"
+                                    variant="flat"
+                                    color="primary"
+                                  >
+                                    {formatTimeToAMPM(item.timeSlot)}
+                                  </Chip>
+                                ) : (
+                                  <span className="text-sm text-default-400">
+                                    {isAm ? "የለም" : "N/A"}
+                                  </span>
+                                )}
+                              </td>
+                              {Array.from(
+                                { length: daysInMonth },
+                                (_, i) => i + 1
+                              ).map((day) => {
+                                const report = item.reportsByDate[day] as
+                                  | CalendarReport
+                                  | undefined;
 
-                                  if (!report) {
-                                    return (
-                                      <td
-                                        key={day}
-                                        className="border border-default-200/60 p-1 text-center align-middle"
-                                      >
-                                        <Button
-                                          isIconOnly
-                                          size="sm"
-                                          color="primary"
-                                          variant="light"
-                                          className="min-w-unit-6 w-6 h-6"
-                                          onPress={() =>
-                                            handleOpenStatusModal(
-                                              item.student,
-                                              day
-                                            )
-                                          }
-                                        >
-                                          <PenSquare className="size-3" />
-                                        </Button>
-                                      </td>
-                                    );
-                                  }
-
+                                if (!report) {
                                   return (
                                     <td
                                       key={day}
                                       className="border border-default-200/60 p-1 text-center align-middle"
                                     >
-                                      <div className="flex items-center justify-center gap-2">
-                                        <Chip
-                                          size="sm"
-                                          radius="sm"
-                                          color={
-                                            report.learningProgress ===
-                                            "present"
-                                              ? "success"
-                                              : report.learningProgress ===
-                                                "permission"
-                                              ? "primary"
-                                              : "danger"
-                                          }
-                                          variant="flat"
-                                          className="text-[10px] h-5 min-w-[46px] font-semibold bg-white/80 dark:bg-default-900/70"
-                                        >
-                                          {report.learningProgress === "present"
-                                            ? isAm
-                                              ? "ተገኝ"
-                                              : "P"
-                                            : report.learningProgress ===
-                                              "permission"
-                                            ? isAm
-                                              ? "ፈቃድ"
-                                              : "PE"
-                                            : isAm
-                                            ? "ጠፋ"
-                                            : "A"}
-                                        </Chip>
-                                        <Button
-                                          isIconOnly
-                                          size="sm"
-                                          color="danger"
-                                          variant="light"
-                                          className="min-w-unit-6 w-6 h-6"
-                                          onPress={() =>
-                                            handleDeleteClick(
-                                              item.student,
-                                              report
-                                            )
-                                          }
-                                        >
-                                          <Trash2 className="size-3" />
-                                        </Button>
-                                      </div>
+                                      <Button
+                                        isIconOnly
+                                        size="sm"
+                                        color="primary"
+                                        variant="light"
+                                        className="min-w-unit-6 w-6 h-6"
+                                        onPress={() =>
+                                          handleOpenStatusModal(
+                                            item.student,
+                                            day
+                                          )
+                                        }
+                                      >
+                                        <PenSquare className="size-3" />
+                                      </Button>
                                     </td>
                                   );
-                                })}
-                              </tr>
-                            );
-                          }
-                        )
-                      ) : (
-                        <tr>
-                          <td
-                            colSpan={daysInMonth + 1 || 2}
-                            className="border border-default-200 p-8 text-center text-default-500"
-                          >
-                            {searchTerm.trim().length > 0
-                              ? isAm
-                                ? "ተማሪ አልተገኘም። እባክዎ የፍለጋ ቃልን ይለውጡ።"
-                                : "No students match your search. Try a different keyword."
-                              : isAm
-                              ? "ለዚህ መምህር ምንም ተማሪዎች አልተገኙም"
-                              : "No students found for this teacher"}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                {totalStudents > 0 && (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 pb-4">
-                    <span className="text-xs text-default-500">
-                      {isAm
-                        ? `ውጤቶች ${paginationInfo.start}-${paginationInfo.end} ከ ${totalStudents} ጠቅላላ ተማሪዎች`
-                        : `Showing ${paginationInfo.start}-${paginationInfo.end} of ${totalStudents} students`}
-                    </span>
-                    <Pagination
-                      total={totalPages}
-                      page={page}
-                      onChange={setPage}
-                      showControls
-                      isCompact
-                      className="self-end"
-                    />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="p-8 text-center text-default-500">
-                {isAm ? "መረጃ ማግኘት አልተሳካም" : "Failed to load data"}
-              </div>
-            )}
-          </CardBody>
-        </Card>
-      )}
+                                }
 
-      {!selectedTeacher && (
-        <Card className="flex-1">
-          <CardBody className="flex items-center justify-center p-8">
-            <div className="text-center space-y-4">
-              <Calendar className="size-20 text-default-300 mx-auto" />
-              <h3 className="text-xl font-semibold text-default-600">
-                {isAm ? "መምህር ይምረጡ" : "Select a Teacher"}
-              </h3>
-              <p className="text-sm text-default-400 max-w-md">
-                {isAm
-                  ? "የወር ሪፖርት አቀራረብን ለማየት ከላይ ያለውን መምህር ይምረጡ።"
-                  : "Choose a teacher above to review their monthly calendar of daily reports."}
-              </p>
+                                return (
+                                  <td
+                                    key={day}
+                                    className="border border-default-200/60 p-1 text-center align-middle"
+                                  >
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Chip
+                                        size="sm"
+                                        radius="sm"
+                                        color={
+                                          report.learningProgress === "present"
+                                            ? "success"
+                                            : report.learningProgress ===
+                                              "permission"
+                                            ? "primary"
+                                            : "danger"
+                                        }
+                                        variant="flat"
+                                        className="text-[10px] h-5 min-w-[46px] font-semibold bg-white/80 dark:bg-default-900/70"
+                                      >
+                                        {report.learningProgress === "present"
+                                          ? isAm
+                                            ? "ተገኝ"
+                                            : "P"
+                                          : report.learningProgress ===
+                                            "permission"
+                                          ? isAm
+                                            ? "ፈቃድ"
+                                            : "PE"
+                                          : isAm
+                                          ? "ጠፋ"
+                                          : "A"}
+                                      </Chip>
+                                      <Button
+                                        isIconOnly
+                                        size="sm"
+                                        color="danger"
+                                        variant="light"
+                                        className="min-w-unit-6 w-6 h-6"
+                                        onPress={() =>
+                                          handleDeleteClick(
+                                            item.student,
+                                            report
+                                          )
+                                        }
+                                      >
+                                        <Trash2 className="size-3" />
+                                      </Button>
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        }
+                      )
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={daysInMonth + 3 || 3}
+                          className="border border-default-200 p-8 text-center text-default-500"
+                        >
+                          {searchTerm.trim().length > 0
+                            ? isAm
+                              ? "ተማሪ አልተገኘም። እባክዎ የፍለጋ ቃልን ይለውጡ።"
+                              : "No students match your search. Try a different keyword."
+                            : isAm
+                            ? "ምንም ተማሪዎች አልተገኙም"
+                            : "No students found"}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {totalStudents > 0 && (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 pb-4">
+                  <span className="text-xs text-default-500">
+                    {isAm
+                      ? `ውጤቶች ${paginationInfo.start}-${paginationInfo.end} ከ ${totalStudents} ጠቅላላ ተማሪዎች`
+                      : `Showing ${paginationInfo.start}-${paginationInfo.end} of ${totalStudents} students`}
+                  </span>
+                  <Pagination
+                    total={totalPages}
+                    page={page}
+                    onChange={setPage}
+                    showControls
+                    isCompact
+                    className="self-end"
+                  />
+                </div>
+              )}
             </div>
-          </CardBody>
-        </Card>
-      )}
+          ) : (
+            <div className="p-8 text-center text-default-500">
+              {isAm ? "መረጃ ማግኘት አልተሳካም" : "Failed to load data"}
+            </div>
+          )}
+        </CardBody>
+      </Card>
 
       <Modal
         isOpen={isStatusModalOpen}
@@ -883,8 +859,15 @@ export default function Page() {
                   {isAm ? "መምህር" : "Teacher"}
                 </span>
                 <span className="font-semibold text-default-900 dark:text-default-100">
-                  {currentTeacher
-                    ? `${currentTeacher.firstName} ${currentTeacher.fatherName} ${currentTeacher.lastName}`
+                  {selectedTeacher
+                    ? (() => {
+                        const studentRow = getCurrentStudent(selectedStudent);
+                        return studentRow?.teacher
+                          ? `${studentRow.teacher.firstName} ${studentRow.teacher.fatherName} ${studentRow.teacher.lastName}`
+                          : isAm
+                          ? "መምህር አልተገኘም"
+                          : "Teacher not found";
+                      })()
                     : isAm
                     ? "መምህር ይምረጡ"
                     : "Select a teacher"}
