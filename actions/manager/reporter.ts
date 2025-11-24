@@ -350,8 +350,12 @@ export async function getTeacherProgressByTeacher(teacherId: string) {
       throw new Error("Unauthorized");
     }
 
-    if (!teacherId) {
-      throw new Error("Teacher ID is required");
+    // Return empty data if no teacherId is provided (instead of throwing error)
+    if (!teacherId || teacherId.trim() === "") {
+      return {
+        success: true,
+        data: [],
+      };
     }
 
     const teacherProgress = await prisma.teacherProgress.findMany({
@@ -447,6 +451,226 @@ export async function getAllTeachersForReporter() {
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to get teachers",
+    };
+  }
+}
+
+/**
+ * Get list of controllers with their teachers
+ * For reporter to select which controller to view
+ */
+export async function getControllersWithTeachers() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    // Get all controllers who have students assigned
+    const controllers = await prisma.user.findMany({
+      where: {
+        role: "controller",
+        students: {
+          some: {},
+        },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        username: true,
+        students: {
+          select: {
+            roomStudent: {
+              select: {
+                teacher: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    fatherName: true,
+                    lastName: true,
+                    username: true,
+                  },
+                },
+              },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: { firstName: "asc" },
+    });
+
+    // Get unique controller-teacher pairs
+    const controllerTeacherPairs = controllers.map((controller) => {
+      // Get unique teachers from all students
+      const teachersMap = new Map();
+      controller.students.forEach((student) => {
+        student.roomStudent.forEach((room) => {
+          if (room.teacher) {
+            teachersMap.set(room.teacher.id, room.teacher);
+          }
+        });
+      });
+
+      return {
+        controller: {
+          id: controller.id,
+          firstName: controller.firstName,
+          fatherName: controller.fatherName,
+          lastName: controller.lastName,
+          username: controller.username,
+        },
+        teachers: Array.from(teachersMap.values()),
+      };
+    });
+
+    return {
+      success: true,
+      data: controllerTeacherPairs,
+    };
+  } catch (error) {
+    console.error("Error getting controllers with teachers:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get controllers with teachers",
+    };
+  }
+}
+
+/**
+ * Get calendar-style report for a controller for a specific month
+ * Returns all students under this controller with their daily reports organized by date and teacher
+ */
+export async function getControllerMonthlyCalendar(
+  controllerId: string,
+  year: number,
+  month: number
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!controllerId || !year || !month) {
+      throw new Error("Controller ID, year, and month are required");
+    }
+
+    // Get the first and last day of the month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0); // Last day of month
+    const daysInMonth = endDate.getDate();
+
+    // Get all students assigned to this controller
+    const students = await prisma.user.findMany({
+      where: {
+        role: "student",
+        controllerId: controllerId,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        username: true,
+        roomStudent: {
+          select: {
+            teacher: {
+              select: {
+                id: true,
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+              },
+            },
+          },
+          take: 1,
+        },
+      },
+      orderBy: { firstName: "asc" },
+    });
+
+    const studentIds = students.map((student) => student.id);
+
+    // Get all daily reports for students under this controller in this month
+    const reports =
+      studentIds.length === 0
+        ? []
+        : await prisma.dailyReport.findMany({
+            where: {
+              studentId: {
+                in: studentIds,
+              },
+              date: {
+                gte: startDate,
+                lte: new Date(year, month, 0, 23, 59, 59), // End of last day
+              },
+            },
+            select: {
+              id: true,
+              studentId: true,
+              activeTeacherId: true,
+              date: true,
+              learningProgress: true,
+              learningSlot: true,
+              studentApproved: true,
+              teacherApproved: true,
+              activeTeacher: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  fatherName: true,
+                  lastName: true,
+                },
+              },
+            },
+          });
+
+    // Organize reports by student and date
+    const calendarData = students.map((student) => {
+      const studentReports = reports.filter((r) => r.studentId === student.id);
+
+      // Create a map of date -> report
+      const reportsByDate: Record<
+        number,
+        (typeof studentReports)[0] & { teacherName?: string }
+      > = {};
+      studentReports.forEach((report) => {
+        const day = new Date(report.date).getDate();
+        const teacherName = report.activeTeacher
+          ? `${report.activeTeacher.firstName} ${report.activeTeacher.fatherName} ${report.activeTeacher.lastName}`
+          : "";
+        reportsByDate[day] = { ...report, teacherName };
+      });
+
+      return {
+        student,
+        reportsByDate,
+      };
+    });
+
+    return {
+      success: true,
+      data: {
+        calendarData,
+        daysInMonth,
+        year,
+        month,
+      },
+    };
+  } catch (error) {
+    console.error("Error getting controller monthly calendar:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get controller monthly calendar",
     };
   }
 }

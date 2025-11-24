@@ -15,15 +15,15 @@ import {
   Pagination,
 } from "@/components/ui/heroui";
 import {
-  getTeacherMonthlyCalendar,
-  getTeachersWithControllers,
+  getControllerMonthlyCalendar,
+  getControllersWithTeachers,
 } from "@/actions/manager/reporter";
 import { Calendar, Search } from "lucide-react";
 import useData from "@/hooks/useData";
 import useAmharic from "@/hooks/useAmharic";
 
 export default function Page() {
-  const [selectedTeacher, setSelectedTeacher] = useState("");
+  const [selectedController, setSelectedController] = useState("");
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,17 +32,17 @@ export default function Page() {
 
   const isAm = useAmharic();
 
-  // Get teachers with controllers
-  const [teachersData, isLoadingTeachers] = useData(
-    getTeachersWithControllers,
+  // Get controllers with teachers
+  const [controllersData, isLoadingControllers] = useData(
+    getControllersWithTeachers,
     () => {}
   );
 
-  // Get calendar data when teacher is selected
+  // Get calendar data when controller is selected
   const [calendarData, isLoadingCalendar] = useData(
-    getTeacherMonthlyCalendar,
+    getControllerMonthlyCalendar,
     () => {},
-    selectedTeacher || "",
+    selectedController || "",
     year,
     month
   );
@@ -68,7 +68,7 @@ export default function Page() {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedTeacher, month, year, searchTerm, pageSize]);
+  }, [selectedController, month, year, searchTerm, pageSize]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -140,7 +140,7 @@ export default function Page() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden p-3 lg:p-6 gap-4">
-      {/* Header with Teacher Selection */}
+      {/* Header with Controller Selection */}
       <Card className="border border-default-200/60 shadow-sm">
         <CardBody className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between p-3">
           <div className="space-y-1">
@@ -148,56 +148,65 @@ export default function Page() {
               <Calendar className="size-6 text-primary" />
               {isAm ? "የወር ሪፖርት አቀራረብ" : "Monthly Report View"}
             </h1>
-            {/* <p className="text-sm text-default-500">
-              {isAm
-                ? "መምህሩን ይምረጡ እና የተመረጠውን ወር ሪፖርት በግልጽ እና ታላቅ ንድፍ ይመልከቱ።"
-                : "Choose a teacher to explore their monthly learning progress in a clean, focused layout."}
-            </p> */}
           </div>
 
-          {/* Teacher Selection */}
+          {/* Controller Selection */}
           <div className="w-full lg:max-w-sm">
             <Autocomplete
-              placeholder={isAm ? "መምህር ይፈልጉ..." : "Search for teacher..."}
-              selectedKey={selectedTeacher || null}
+              placeholder={isAm ? "ኮንትሮለር ይፈልጉ..." : "Search for controller..."}
+              selectedKey={selectedController || null}
               onSelectionChange={(key: React.Key | null) => {
-                setSelectedTeacher((key as string) || "");
+                setSelectedController((key as string) || "");
               }}
-              defaultItems={teachersData?.data || []}
+              defaultItems={controllersData?.data || []}
               variant="bordered"
               size="sm"
               isClearable
-              isLoading={isLoadingTeachers}
+              isLoading={isLoadingControllers}
               listboxProps={{
-                emptyContent: isAm ? "ምንም መምህር አልተገኘም" : "No teachers found",
+                emptyContent: isAm
+                  ? "ምንም ኮንትሮለር አልተገኘም"
+                  : "No controllers found",
               }}
               classNames={{
-                base: selectedTeacher
+                base: selectedController
                   ? "border-2 border-success-300 dark:border-success-600 rounded-lg"
                   : "",
                 listbox: "text-sm",
               }}
             >
               {(item: {
-                teacher: {
+                controller: {
                   id: string;
                   firstName: string;
                   fatherName: string;
                   lastName: string;
                 };
-                controller: {
+                teachers: Array<{
+                  id: string;
                   firstName: string;
                   fatherName: string;
                   lastName: string;
-                } | null;
+                }>;
               }) => (
                 <AutocompleteItem
-                  key={item.teacher.id}
-                  textValue={`${item.teacher.firstName} ${item.teacher.fatherName} ${item.teacher.lastName}`}
+                  key={item.controller.id}
+                  textValue={`${item.controller.firstName} ${item.controller.fatherName} ${item.controller.lastName}`}
                   className="py-1 text-sm"
                 >
-                  {item.teacher.firstName} {item.teacher.fatherName}{" "}
-                  {item.teacher.lastName}
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {item.controller.firstName} {item.controller.fatherName}{" "}
+                      {item.controller.lastName}
+                    </span>
+                    {item.teachers.length > 0 && (
+                      <span className="text-xs text-default-500">
+                        {isAm
+                          ? `${item.teachers.length} መምህሮች`
+                          : `${item.teachers.length} teachers`}
+                      </span>
+                    )}
+                  </div>
                 </AutocompleteItem>
               )}
             </Autocomplete>
@@ -206,7 +215,7 @@ export default function Page() {
       </Card>
 
       {/* Month/Year Navigation and Calendar */}
-      {selectedTeacher && (
+      {selectedController && (
         <Card className="flex-1 overflow-hidden border border-default-200/70 shadow-sm">
           <CardHeader className="p-4 border-b border-default-200 bg-default-50 dark:bg-default-900/30">
             <div className="flex items-center gap-2 w-full">
@@ -338,7 +347,7 @@ export default function Page() {
                                     className="border border-default-200/60 p-1 text-center align-middle"
                                   >
                                     {report ? (
-                                      <div className="flex items-center justify-center">
+                                      <div className="flex flex-col items-center justify-center gap-0.5">
                                         <Chip
                                           size="sm"
                                           radius="sm"
@@ -367,6 +376,11 @@ export default function Page() {
                                             ? "ጠፋ"
                                             : "A"}
                                         </Chip>
+                                        {report.teacherName && (
+                                          <span className="text-[9px] text-default-400 truncate max-w-[50px]">
+                                            {report.teacherName.split(" ")[0]}
+                                          </span>
+                                        )}
                                       </div>
                                     ) : (
                                       <span className="text-default-300 text-xs">
@@ -390,8 +404,8 @@ export default function Page() {
                                 ? "ተማሪ አልተገኘም። እባክዎ የፍለጋ ቃልን ይለውጡ።"
                                 : "No students match your search. Try a different keyword."
                               : isAm
-                              ? "ለዚህ መምህር ምንም ተማሪዎች አልተገኙም"
-                              : "No students found for this teacher"}
+                              ? "ለዚህ ኮንትሮለር ምንም ተማሪዎች አልተገኙም"
+                              : "No students found for this controller"}
                           </td>
                         </tr>
                       )}
@@ -425,19 +439,19 @@ export default function Page() {
         </Card>
       )}
 
-      {/* Instructions when no teacher selected */}
-      {!selectedTeacher && (
+      {/* Instructions when no controller selected */}
+      {!selectedController && (
         <Card className="flex-1">
           <CardBody className="flex items-center justify-center p-8">
             <div className="text-center space-y-4">
               <Calendar className="size-20 text-default-300 mx-auto" />
               <h3 className="text-xl font-semibold text-default-600">
-                {isAm ? "መምህር ይምረጡ" : "Select a Teacher"}
+                {isAm ? "ኮንትሮለር ይምረጡ" : "Select a Controller"}
               </h3>
               <p className="text-sm text-default-400 max-w-md">
                 {isAm
-                  ? "የወር ሪፖርት አቀራረብን ለማየት ከላይ ያለውን ተወላጅ መምህር ይምረጡ። ሪፖርቶች በቀን እና ተማሪ የተደራጁ ይታያሉ።"
-                  : "Select a teacher from above to view their monthly report calendar. Reports will be organized by day and student."}
+                  ? "የወር ሪፖርት አቀራረብን ለማየት ከላይ ያለውን ኮንትሮለር ይምረጡ። ሪፖርቶች በቀን እና ተማሪ የተደራጁ ይታያሉ።"
+                  : "Select a controller from above to view their monthly report calendar. Reports will be organized by day and student."}
               </p>
             </div>
           </CardBody>
