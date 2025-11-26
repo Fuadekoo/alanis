@@ -4,6 +4,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   Shuffle,
+  FileText,
 } from "lucide-react";
 import React from "react";
 
@@ -37,6 +38,12 @@ export default async function Layout({
         amharic: "ዕለታዊ ሪፖርት",
         url: "dailyReport",
         Icon: <ClipboardList className="size-6" />,
+      },
+      {
+        english: "teacher report",
+        amharic: "የመምህር ሪፖርት",
+        url: "teacherReport",
+        Icon: <FileText className="size-6" />,
       },
     ],
   ];

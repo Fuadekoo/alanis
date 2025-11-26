@@ -414,6 +414,338 @@ export async function getTeacherProgressByTeacher(teacherId: string) {
 }
 
 /**
+ * Get teacherDailyReport calendar data for a specific teacher and month
+ * Returns students with their teacherDailyReports organized by date
+ */
+export async function getTeacherDailyReportCalendar(
+  teacherId: string,
+  year: number,
+  month: number
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!teacherId || !year || !month) {
+      return {
+        success: true,
+        data: {
+          calendarData: [],
+          daysInMonth: 0,
+          year,
+          month,
+        },
+      };
+    }
+
+    // Get the first and last day of the month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0); // Last day of month
+    const daysInMonth = endDate.getDate();
+
+    // Get all students who have teacherDailyReports with this teacher
+    const teacherDailyReports = await prisma.teacherDailyReport.findMany({
+      where: {
+        teacherId: teacherId,
+        date: {
+          gte: startDate,
+          lte: new Date(year, month, 0, 23, 59, 59, 999),
+        },
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    // Get unique students
+    const studentMap = new Map();
+    teacherDailyReports.forEach((report) => {
+      if (!studentMap.has(report.student.id)) {
+        studentMap.set(report.student.id, report.student);
+      }
+    });
+
+    const students = Array.from(studentMap.values());
+
+    // Organize reports by student and date
+    const calendarData = students.map((student) => {
+      const studentReports = teacherDailyReports.filter(
+        (r) => r.studentId === student.id
+      );
+
+      // Create a map of date -> report
+      const reportsByDate: Record<
+        number,
+        {
+          id: string;
+          date: Date;
+          learningProgress: string;
+          approved: boolean | null;
+        }
+      > = {};
+      studentReports.forEach((report) => {
+        const day = new Date(report.date).getDate();
+        reportsByDate[day] = {
+          id: report.id,
+          date: report.date,
+          learningProgress: report.learningProgress,
+          approved: report.approved,
+        };
+      });
+
+      return {
+        student,
+        reportsByDate,
+      };
+    });
+
+    return {
+      success: true,
+      data: {
+        calendarData,
+        daysInMonth,
+        year,
+        month,
+      },
+    };
+  } catch (error) {
+    console.error("Error getting teacher daily report calendar:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get teacher daily report calendar",
+    };
+  }
+}
+
+/**
+ * Get comprehensive report data for a specific teacher (for reporters)
+ */
+export async function getTeacherReportForReporter(teacherId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    // Only reporters can access this function
+    if (session.user.role !== "reporter") {
+      throw new Error("Access denied. Only reporters can view teacher reports.");
+    }
+
+    // Validate input
+    if (!teacherId || teacherId.trim() === "") {
+      return {
+        success: true,
+        data: {
+          teacher: null,
+          currentProgress: [],
+          historicalProgress: [],
+          teacherDailyReports: [],
+          statistics: {
+            current: {
+              totalStudents: 0,
+              totalLearningCount: 0,
+              totalMissingCount: 0,
+              totalReports: 0,
+            },
+            historical: {
+              totalStudents: 0,
+              totalLearningCount: 0,
+              totalMissingCount: 0,
+              totalReports: 0,
+            },
+            overall: {
+              totalStudents: 0,
+              totalLearningCount: 0,
+              totalMissingCount: 0,
+              totalReports: 0,
+            },
+          },
+        },
+      };
+    }
+
+    // Get teacher info
+    const teacher = await prisma.user.findUnique({
+      where: { id: teacherId, role: "teacher" },
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        username: true,
+      },
+    });
+
+    if (!teacher) {
+      return {
+        success: false,
+        error: "Teacher not found",
+      };
+    }
+
+    // Get current open progress for the teacher
+    const currentProgress = await prisma.teacherProgress.findMany({
+      where: {
+        teacherId: teacherId,
+        progressStatus: "open",
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+            phoneNumber: true,
+          },
+        },
+        dailyReports: {
+          orderBy: { date: "desc" },
+          take: 10, // Get last 10 reports
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Get historical progress from ShiftTeacherData
+    const historicalProgress = await prisma.shiftTeacherData.findMany({
+      where: {
+        teacherId: teacherId,
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+            phoneNumber: true,
+          },
+        },
+        dailyReports: {
+          orderBy: { date: "desc" },
+          take: 5, // Get last 5 reports for each historical progress
+        },
+        originalProgress: {
+          select: {
+            id: true,
+            createdAt: true,
+            learningSlot: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Get teacherDailyReport data
+    const teacherDailyReports = await prisma.teacherDailyReport.findMany({
+      where: {
+        teacherId: teacherId,
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+            phoneNumber: true,
+          },
+        },
+      },
+      orderBy: { date: "desc" },
+    });
+
+    // Calculate summary statistics
+    const currentStats = {
+      totalStudents: currentProgress.length,
+      totalLearningCount: currentProgress.reduce(
+        (sum, progress) => sum + progress.learningCount,
+        0
+      ),
+      totalMissingCount: currentProgress.reduce(
+        (sum, progress) => sum + progress.missingCount,
+        0
+      ),
+      totalReports: currentProgress.reduce(
+        (sum, progress) => sum + progress.dailyReports.length,
+        0
+      ),
+    };
+
+    const historicalStats = {
+      totalStudents: historicalProgress.length,
+      totalLearningCount: historicalProgress.reduce(
+        (sum, progress) => sum + progress.learningCount,
+        0
+      ),
+      totalMissingCount: historicalProgress.reduce(
+        (sum, progress) => sum + progress.missingCount,
+        0
+      ),
+      totalReports: historicalProgress.reduce(
+        (sum, progress) => sum + progress.dailyReports.length,
+        0
+      ),
+    };
+
+    return {
+      success: true,
+      data: {
+        teacher,
+        currentProgress,
+        historicalProgress,
+        teacherDailyReports,
+        statistics: {
+          current: currentStats,
+          historical: historicalStats,
+          overall: {
+            totalStudents:
+              currentStats.totalStudents + historicalStats.totalStudents,
+            totalLearningCount:
+              currentStats.totalLearningCount +
+              historicalStats.totalLearningCount,
+            totalMissingCount:
+              currentStats.totalMissingCount +
+              historicalStats.totalMissingCount,
+            totalReports:
+              currentStats.totalReports + historicalStats.totalReports,
+          },
+        },
+      },
+      message: "Teacher report data retrieved successfully",
+    };
+  } catch (error) {
+    console.error("Error getting teacher report:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get teacher report",
+    };
+  }
+}
+
+/**
  * Get all teachers for reporter
  */
 export async function getAllTeachersForReporter() {

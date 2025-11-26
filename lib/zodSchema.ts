@@ -163,6 +163,15 @@ export const announcementSchema = z.object({
 
 export type AnnouncementSchema = z.infer<typeof announcementSchema>;
 
+export const teacherAnnouncementSchema = z.object({
+  id: z.string().optional(),
+  forUser: z.array(z.string().nonempty("teacher is required")).default([]),
+  text: z.string().nonempty("announcement is required").default(""),
+  lastDate: z.coerce.date({ message: "must be date format" }).optional(),
+});
+
+export type TeacherAnnouncementSchema = z.infer<typeof teacherAnnouncementSchema>;
+
 export const depositSchema = z.object({
   studentId: z.string().nonempty("student is required").default(""),
   amount: z.coerce.number().positive("amount must be positive"),

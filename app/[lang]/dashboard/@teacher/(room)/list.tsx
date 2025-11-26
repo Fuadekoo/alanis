@@ -14,6 +14,7 @@ import { useRoom } from "./provider";
 import { timeFormat12 } from "@/lib/utils";
 import { useParams } from "next/navigation";
 import Image from "next/image";
+import { Announcement } from "./announcement";
 
 export default function List() {
   const { lang } = useParams<{ lang: string }>();
@@ -23,7 +24,8 @@ export default function List() {
   } = useRoom();
 
   return (
-    <div className="p-2 grid md:justify-center- overflow-hidden ">
+    <div className="p-2 grid gap-5 md:justify-center- overflow-hidden auto-rows-min ">
+      <Announcement />
       {isLoading || !data ? (
         <Skeleton className="md:w-96-" />
       ) : (

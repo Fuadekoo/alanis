@@ -93,6 +93,12 @@ export default async function Layout({
         url: "announcement",
         Icon: <Megaphone className="size-5" />,
       },
+      {
+        english: "teacher announcement",
+        amharic: "የመምህር ማስታወቂያ",
+        url: "teacherAnnouncement",
+        Icon: <Megaphone className="size-5" />,
+      },
     ],
   ];
 
