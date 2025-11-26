@@ -62,13 +62,15 @@ model user {
   depositedTo         deposit[]             @relation("depositedTo")
   payment             payment[]
 
-  dailyReportsAsStudent    DailyReport[]      @relation("DailyReportStudent")
-  dailyReportsAsTeacher    DailyReport[]      @relation("DailyReportTeacher")
-  teacherProgressAsTeacher TeacherProgress[]  @relation("TeacherProgressTeacher")
-  teacherProgressAsStudent TeacherProgress[]  @relation("TeacherProgressStudent")
-  shiftDataAsTeacher       ShiftTeacherData[] @relation("ShiftTeacherTeacher")
-  shiftDataAsStudent       ShiftTeacherData[] @relation("ShiftTeacherStudent")
-  teacherSalaryAsTeacher   teacherSalary[]    @relation("TeacherSalaryTeacher")
+  dailyReportsAsStudent        DailyReport[]        @relation("DailyReportStudent")
+  dailyReportsAsTeacher        DailyReport[]        @relation("DailyReportTeacher")
+  teacherProgressAsTeacher     TeacherProgress[]    @relation("TeacherProgressTeacher")
+  teacherProgressAsStudent     TeacherProgress[]    @relation("TeacherProgressStudent")
+  shiftDataAsTeacher           ShiftTeacherData[]   @relation("ShiftTeacherTeacher")
+  shiftDataAsStudent           ShiftTeacherData[]   @relation("ShiftTeacherStudent")
+  teacherSalaryAsTeacher       teacherSalary[]      @relation("TeacherSalaryTeacher")
+  teacherDailyReportsAsTeacher teacherDailyReport[] @relation("TeacherDailyReportTeacher")
+  teacherDailyReportsAsStudent teacherDailyReport[] @relation("TeacherDailyReportStudent")
 }
 
 model room {
@@ -372,4 +374,17 @@ model teacherSalary {
   teacher           user               @relation("TeacherSalaryTeacher", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   teacherProgresses TeacherProgress[]
   shiftTeacherData  ShiftTeacherData[]
+}
+
+model teacherDailyReport {
+  id               String   @id @default(uuid())
+  teacherId        String
+  studentId        String
+  date             DateTime @default(now())
+  learningProgress String
+  approved         Boolean?
+
+  // RELATIONS
+  teacher user @relation("TeacherDailyReportTeacher", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  student user @relation("TeacherDailyReportStudent", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
