@@ -12,7 +12,6 @@ import {
   ModalFooter,
   Input,
   Textarea,
-  Skeleton,
 } from "@heroui/react";
 import {
   getExpenses,
@@ -29,7 +28,6 @@ import {
   TrendingUp,
   DollarSign,
   Calendar as CalendarIcon,
-  FileText,
   Plus,
   Edit,
   Trash2,
@@ -41,7 +39,7 @@ import { parseDate, getLocalTimeZone } from "@internationalized/date";
 import { X } from "lucide-react";
 
 function Page() {
-  const { t, formatCurrency } = useLocalization();
+  const { formatCurrency } = useLocalization();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -87,6 +85,7 @@ function Page() {
       // Extract id from data if present, otherwise use parameter
       const idToUse = data.id || editingIdParam;
       // Remove id from data before sending
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, ...expenseData } = data;
       return await createExpense(expenseData, idToUse);
     },
@@ -536,14 +535,14 @@ function Page() {
         size="md"
       >
         <ModalContent>
-          {(onClose) => (
+          {() => (
             <>
               <ModalHeader>Delete Expense</ModalHeader>
               <ModalBody>
                 <p className="text-center p-5">
                   Are you sure you want to delete the expense{" "}
                   <span className="font-semibold text-danger">
-                    "{expenseToDelete?.name}"
+                    &quot;{expenseToDelete?.name}&quot;
                   </span>
                   ? This action cannot be undone.
                 </p>

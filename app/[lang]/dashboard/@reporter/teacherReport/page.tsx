@@ -11,8 +11,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Tabs,
-  Tab,
   Autocomplete,
   AutocompleteItem,
   Input,
@@ -23,6 +21,25 @@ import {
 import { Search, ClipboardList, Calendar } from "lucide-react";
 import { Chip } from "@heroui/react";
 import useAmharic from "@/hooks/useAmharic";
+
+interface CalendarItem {
+  student: {
+    id: string;
+    firstName: string;
+    fatherName: string;
+    lastName: string;
+    username?: string;
+  };
+  reportsByDate: Record<
+    number,
+    {
+      id: string;
+      date: Date;
+      learningProgress: string;
+      approved: boolean | null;
+    }
+  >;
+}
 
 export default function Page() {
   const isAm = useAmharic();
@@ -69,7 +86,7 @@ export default function Page() {
     if (!normalized) {
       return calendarData.data.calendarData;
     }
-    return calendarData.data.calendarData.filter((item: any) => {
+    return calendarData.data.calendarData.filter((item: CalendarItem) => {
       const studentName =
         `${item.student.firstName} ${item.student.fatherName} ${item.student.lastName}`
           .toLowerCase()
@@ -355,7 +372,7 @@ export default function Page() {
                     <tbody>
                       {paginatedCalendarData.length > 0 ? (
                         paginatedCalendarData.map(
-                          (item: any, rowIndex: number) => {
+                          (item: CalendarItem, rowIndex: number) => {
                             const isEvenRow = rowIndex % 2 === 0;
                             const rowBgClass = isEvenRow
                               ? "bg-default-50 dark:bg-default-900/50"

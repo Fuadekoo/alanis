@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Card,
@@ -187,17 +187,6 @@ export default function Page() {
       })
     );
   }, []);
-
-  // Get current student from calendar data when needed
-  const getCurrentStudent = useCallback(
-    (studentId: string) => {
-      if (!calendarData?.success || !calendarData.data) return null;
-      return (calendarData.data.calendarData as CalendarRow[]).find(
-        (row) => row.student.id === studentId
-      );
-    },
-    [calendarData]
-  );
 
   const resetModalForm = () => {
     setSelectedStudent("");
