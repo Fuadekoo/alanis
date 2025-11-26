@@ -172,6 +172,14 @@ export const teacherAnnouncementSchema = z.object({
 
 export type TeacherAnnouncementSchema = z.infer<typeof teacherAnnouncementSchema>;
 
+export const studyRoomSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().nonempty("Name is required"),
+  zoomLink: z.string().url("Must be a valid URL").nonempty("Zoom link is required"),
+});
+
+export type StudyRoomSchema = z.infer<typeof studyRoomSchema>;
+
 export const depositSchema = z.object({
   studentId: z.string().nonempty("student is required").default(""),
   amount: z.coerce.number().positive("amount must be positive"),

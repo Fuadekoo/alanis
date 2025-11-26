@@ -1,5 +1,5 @@
 import UserLayout from "@/components/layout/userLayout";
-import { Home } from "lucide-react";
+import { Home, Video } from "lucide-react";
 import React from "react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -34,6 +34,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         amharic: "ቻት",
         url: "chat",
         Icon: <Home className="size-4" />,
+      },
+      {
+        english: "Study Room",
+        amharic: "የመማሪያ ክፍል",
+        url: "studyRoom",
+        Icon: <Video className="size-4" />,
       },
     ],
   ];

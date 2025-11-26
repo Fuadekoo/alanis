@@ -8,7 +8,8 @@ import {
   Users,
   Database,
   DollarSign,
-  Receipt
+  Receipt,
+  Video,
 } from "lucide-react";
 import React from "react";
 
@@ -98,6 +99,12 @@ export default async function Layout({
         amharic: "የመምህር ማስታወቂያ",
         url: "teacherAnnouncement",
         Icon: <Megaphone className="size-5" />,
+      },
+      {
+        english: "study room",
+        amharic: "የመማሪያ ክፍል",
+        url: "studyRoom",
+        Icon: <Video className="size-5" />,
       },
     ],
   ];

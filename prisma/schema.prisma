@@ -417,3 +417,11 @@ model announcementTeacher {
   teacherAnnouncementData   teacherAnnouncementData @relation(fields: [teacherAnnouncementDataId], references: [id])
   teacherAnnouncementDataId String
 }
+
+model studyGroupLink{
+  id String @id @default(uuid())
+  zoomLink String  @unique
+  name String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
