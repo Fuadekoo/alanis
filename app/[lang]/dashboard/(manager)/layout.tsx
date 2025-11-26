@@ -7,7 +7,8 @@ import {
   User,
   Users,
   Database,
-  DollarSign
+  DollarSign,
+  Receipt
 } from "lucide-react";
 import React from "react";
 
@@ -53,6 +54,12 @@ export default async function Layout({
         amharic: "ክፍያ",
         url: "payment",
         Icon: <BadgeDollarSignIcon className="size-6" />, // You can replace with a more suitable icon if needed
+      },
+      {
+        english: "expenses",
+        amharic: "ወጪ",
+        url: "expenses",
+        Icon: <Receipt className="size-5" />,
       },
       {
         english: "chat",

@@ -388,3 +388,14 @@ model teacherDailyReport {
   teacher user @relation("TeacherDailyReportTeacher", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   student user @relation("TeacherDailyReportStudent", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
+
+model expense{
+  id String @id @default(uuid())
+  name String
+  amount Int
+  date DateTime @default(now())
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}

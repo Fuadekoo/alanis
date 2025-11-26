@@ -177,3 +177,12 @@ export const paymentSchema = z.object({
 });
 export type PaymentSchema = z.infer<typeof paymentSchema>;
 
+export const expenseSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().nonempty("expense name is required").default(""),
+  amount: z.coerce.number().positive("amount must be positive"),
+  date: z.coerce.date({ message: "date is required" }),
+  description: z.string().optional().default(""),
+});
+export type ExpenseSchema = z.infer<typeof expenseSchema>;
+

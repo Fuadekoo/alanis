@@ -588,25 +588,28 @@ export default function Page() {
               <Skeleton className="w-full h-96 rounded-lg" />
             </div>
           ) : calendarData?.success && calendarData.data ? (
-            <div className="flex flex-col gap-3">
-              <div className="overflow-auto">
-                <table className="w-full border-collapse text-sm">
+            <div className="flex flex-col gap-3 h-full">
+              <div className="overflow-x-auto overflow-y-auto w-full h-full">
+                <table
+                  className="border-collapse text-sm"
+                  style={{ minWidth: `${480 + daysInMonth * 50}px` }}
+                >
                   <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
                     <tr>
-                      <th className="border border-default-200/70 p-2 text-left font-semibold min-w-[180px] sticky left-0 bg-default-100 dark:bg-default-900/80 z-20">
+                      <th className="border border-default-200/70 p-2 text-left font-semibold w-[180px] min-w-[180px] sticky left-0 bg-default-100 dark:bg-default-900/80 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
                         {isAm ? "ተማሪ" : "Student"}
                       </th>
-                      <th className="border border-default-200/70 p-2 text-left font-semibold min-w-[180px] sticky left-[180px] bg-default-100 dark:bg-default-900/80 z-20">
+                      <th className="border border-default-200/70 p-2 text-left font-semibold w-[180px] min-w-[180px] bg-default-100 dark:bg-default-900/80">
                         {isAm ? "መምህር" : "Teacher"}
                       </th>
-                      <th className="border border-default-200/70 p-2 text-left font-semibold min-w-[120px] sticky left-[360px] bg-default-100 dark:bg-default-900/80 z-20">
+                      <th className="border border-default-200/70 p-2 text-left font-semibold w-[120px] min-w-[120px] bg-default-100 dark:bg-default-900/80">
                         {isAm ? "የትምህርት ሰዓት" : "Time Slot"}
                       </th>
                       {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
                         (day) => (
                           <th
                             key={day}
-                            className="border border-default-200/70 p-1 text-center font-semibold min-w-[50px] text-[11px] text-default-500"
+                            className="border border-default-200/70 p-1 text-center font-semibold w-[50px] min-w-[50px] text-[11px] text-default-500"
                           >
                             {day}
                           </th>
@@ -632,7 +635,7 @@ export default function Page() {
                               className={`${rowBgClass} hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors`}
                             >
                               <td
-                                className={`border border-default-200/70 p-2 font-medium sticky left-0 z-10 text-default-700 dark:text-default-200 ${stickyBgClass}`}
+                                className={`border border-default-200/70 p-2 font-medium sticky left-0 z-10 text-default-700 dark:text-default-200 w-[180px] min-w-[180px] ${stickyBgClass} shadow-[2px_0_4px_rgba(0,0,0,0.1)]`}
                               >
                                 <span className="text-sm font-semibold">
                                   {item.student.firstName}{" "}
@@ -641,7 +644,7 @@ export default function Page() {
                                 </span>
                               </td>
                               <td
-                                className={`border border-default-200/70 p-2 text-default-600 dark:text-default-300 sticky left-[180px] z-10 ${stickyBgClass}`}
+                                className={`border border-default-200/70 p-2 text-default-600 dark:text-default-300 w-[180px] min-w-[180px] ${rowBgClass}`}
                               >
                                 {item.teacher ? (
                                   <span className="text-sm">
@@ -656,7 +659,7 @@ export default function Page() {
                                 )}
                               </td>
                               <td
-                                className={`border border-default-200/70 p-2 text-default-600 dark:text-default-300 sticky left-[360px] z-10 ${stickyBgClass}`}
+                                className={`border border-default-200/70 p-2 text-default-600 dark:text-default-300 w-[120px] min-w-[120px] ${rowBgClass}`}
                               >
                                 {item.timeSlot ? (
                                   <Chip
