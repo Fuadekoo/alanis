@@ -15,6 +15,7 @@ export default function useDelete<State>(
   const [deleteId, setDeleteId] = useState("");
   const [isLoading, startTransition] = useTransition();
   const handle = useCallback(() => {
+    if (!deleteId) return;
     startTransition(async () => {
       const result = await func(deleteId);
       onFinish?.(result);

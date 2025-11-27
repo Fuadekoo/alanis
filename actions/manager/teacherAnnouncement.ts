@@ -63,6 +63,12 @@ export async function registerTeacherAnnouncement({
 }
 
 export async function deleteTeacherAnnouncement(id: string) {
+  // First delete all related announcementTeacher records
+  await prisma.announcementTeacher.deleteMany({
+    where: { teacherAnnouncementDataId: id },
+  });
+  
+  // Then delete the main teacherAnnouncementData record
   await prisma.teacherAnnouncementData.delete({ where: { id } });
   return { status: true, message: "successfully delete teacher announcement" };
 }

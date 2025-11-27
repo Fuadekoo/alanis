@@ -24,14 +24,14 @@ export default function List() {
   } = useRoom();
 
   return (
-    <div className="p-2 grid gap-5 md:justify-center- overflow-hidden auto-rows-min ">
+    <div className="p-2 grid gap-5 md:justify-center- auto-rows-min">
       <Announcement />
       {isLoading || !data ? (
         <Skeleton className="md:w-96-" />
       ) : (
         <ScrollShadow
           size={100}
-          className="md:w-96- p-2 pb-40 border border-default-50/50 rounded-xl  gap-2 grid md:grid-cols-2 xl:grid-cols-3 auto-rows-min "
+          className="md:w-96- p-2 pb-40 border border-default-50/50 rounded-xl gap-2 grid md:grid-cols-2 xl:grid-cols-3 auto-rows-min"
         >
           {data.map(
             (

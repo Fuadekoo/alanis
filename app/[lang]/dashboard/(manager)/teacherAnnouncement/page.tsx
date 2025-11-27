@@ -238,7 +238,14 @@ function Deletion({ deletion }: { deletion: UseDelete }) {
   const isAm = useAmharic();
 
   return (
-    <CModal isOpen={deletion.isOpen} onOpenChange={deletion.close}>
+    <CModal 
+      isOpen={deletion.isOpen} 
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          deletion.close();
+        }
+      }}
+    >
       <ModalContent>
         {(onClose) => (
           <>
@@ -258,10 +265,12 @@ function Deletion({ deletion }: { deletion: UseDelete }) {
               </Button>
               <Button
                 color="danger"
-                onPress={deletion.handle}
+                onPress={() => {
+                  deletion.handle();
+                }}
                 isLoading={deletion.isLoading}
               >
-                {isAm ? "ይመዝግቡ" : "Submit"}
+                {isAm ? "ይሰርዙ" : "Delete"}
               </Button>
             </ModalFooter>
           </>

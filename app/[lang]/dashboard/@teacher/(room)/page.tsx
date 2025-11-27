@@ -6,7 +6,9 @@ import UploadLink from "./uploadLink";
 export default function Page() {
   return (
     <Provider>
-      <List />
+      <div className="h-full min-h-0 overflow-y-auto">
+        <List />
+      </div>
       <UploadLink />
     </Provider>
   );
