@@ -47,3 +47,45 @@ export async function getRooms() {
 
   return data;
 }
+
+export async function getActiveTeachingStats() {
+  const teacher = await isAuthorized("teacher");
+
+  // Get TeacherProgress with pending payment status
+  const teacherProgress = await prisma.teacherProgress.findMany({
+    where: {
+      teacherId: teacher.id,
+      paymentStatus: "pending",
+    },
+    select: {
+      learningCount: true,
+      missingCount: true,
+    },
+  });
+
+  // Get ShiftTeacherData with pending payment status
+  const shiftTeacherData = await prisma.shiftTeacherData.findMany({
+    where: {
+      teacherId: teacher.id,
+      paymentStatus: "pending",
+    },
+    select: {
+      learningCount: true,
+      missingCount: true,
+    },
+  });
+
+  // Sum up all counts
+  const totalLearningCount =
+    teacherProgress.reduce((sum, item) => sum + item.learningCount, 0) +
+    shiftTeacherData.reduce((sum, item) => sum + item.learningCount, 0);
+
+  const totalMissingCount =
+    teacherProgress.reduce((sum, item) => sum + item.missingCount, 0) +
+    shiftTeacherData.reduce((sum, item) => sum + item.missingCount, 0);
+
+  return {
+    totalTeachingDate: totalLearningCount,
+    missingDate: totalMissingCount,
+  };
+}

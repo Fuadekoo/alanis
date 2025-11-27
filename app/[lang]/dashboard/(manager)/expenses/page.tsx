@@ -32,7 +32,6 @@ import {
   Edit,
   Trash2,
   BarChart3,
-  Calculator,
 } from "lucide-react";
 import { DatePicker } from "@/components/ui/heroui";
 import { parseDate, getLocalTimeZone } from "@internationalized/date";
@@ -54,7 +53,6 @@ function Page() {
   const [processingDeleteId, setProcessingDeleteId] = useState<string | null>(
     null
   );
-  const [calculatorModalOpen, setCalculatorModalOpen] = useState(false);
 
   // Analytics data
   const [analyticsData, isLoadingAnalytics] = useData(
@@ -386,15 +384,6 @@ function Page() {
             >
               Add Expense
             </Button>
-            <Button
-              color="secondary"
-              variant="flat"
-              startContent={<Calculator className="h-4 w-4" />}
-              onPress={() => setCalculatorModalOpen(true)}
-              className="w-full sm:w-auto"
-            >
-              Calculator
-            </Button>
           </div>
         </div>
 
@@ -564,197 +553,6 @@ function Page() {
               </ModalFooter>
             </>
           )}
-        </ModalContent>
-      </Modal>
-
-      {/* Calculator Modal */}
-      <Modal
-        isOpen={calculatorModalOpen}
-        onOpenChange={setCalculatorModalOpen}
-        size="2xl"
-        scrollBehavior="inside"
-      >
-        <ModalContent>
-          {(onClose) => {
-            // Calculate net values (Income - Expense)
-            const thisMonthIncome =
-              Number(depositAnalyticsData?.thisMonthDepositAmount || 0) || 0;
-            const thisMonthExpense =
-              Number(analyticsData?.thisMonthExpenseAmount || 0) || 0;
-            const thisMonthNet = thisMonthIncome - thisMonthExpense;
-
-            const thisYearIncome =
-              Number(depositAnalyticsData?.thisYearDepositAmount || 0) || 0;
-            const thisYearExpense =
-              Number(analyticsData?.thisYearExpenseAmount || 0) || 0;
-            const thisYearNet = thisYearIncome - thisYearExpense;
-
-            const thisWeekIncome =
-              Number(depositAnalyticsData?.thisWeekDepositAmount || 0) || 0;
-            const thisWeekExpense =
-              Number(analyticsData?.thisWeekExpenseAmount || 0) || 0;
-            const thisWeekNet = thisWeekIncome - thisWeekExpense;
-
-            return (
-              <>
-                <ModalHeader>
-                  <div className="flex items-center gap-2">
-                    <Calculator className="h-5 w-5" />
-                    <span>Income vs Expense Calculator</span>
-                  </div>
-                </ModalHeader>
-                <ModalBody>
-                  <div className="space-y-6">
-                    {/* This Month */}
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <CalendarIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        This Month
-                      </h3>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 dark:text-gray-400">
-                            Income (Deposits):
-                          </span>
-                          <span className="font-semibold text-green-600 dark:text-green-400">
-                            {isLoadingDepositAnalytics
-                              ? "..."
-                              : formatCurrency(thisMonthIncome)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 dark:text-gray-400">
-                            Expenses:
-                          </span>
-                          <span className="font-semibold text-red-600 dark:text-red-400">
-                            {isLoadingAnalytics
-                              ? "..."
-                              : formatCurrency(thisMonthExpense)}
-                          </span>
-                        </div>
-                        <hr className="border-gray-300 dark:border-gray-600" />
-                        <div className="flex justify-between items-center">
-                          <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                            Net (Income - Expense):
-                          </span>
-                          <span
-                            className={`text-xl font-bold ${
-                              thisMonthNet >= 0
-                                ? "text-green-600 dark:text-green-400"
-                                : "text-red-600 dark:text-red-400"
-                            }`}
-                          >
-                            {isLoadingDepositAnalytics || isLoadingAnalytics
-                              ? "..."
-                              : formatCurrency(thisMonthNet)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* This Year */}
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                        This Year
-                      </h3>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 dark:text-gray-400">
-                            Income (Deposits):
-                          </span>
-                          <span className="font-semibold text-green-600 dark:text-green-400">
-                            {isLoadingDepositAnalytics
-                              ? "..."
-                              : formatCurrency(thisYearIncome)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 dark:text-gray-400">
-                            Expenses:
-                          </span>
-                          <span className="font-semibold text-red-600 dark:text-red-400">
-                            {isLoadingAnalytics
-                              ? "..."
-                              : formatCurrency(thisYearExpense)}
-                          </span>
-                        </div>
-                        <hr className="border-gray-300 dark:border-gray-600" />
-                        <div className="flex justify-between items-center">
-                          <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                            Net (Income - Expense):
-                          </span>
-                          <span
-                            className={`text-xl font-bold ${
-                              thisYearNet >= 0
-                                ? "text-green-600 dark:text-green-400"
-                                : "text-red-600 dark:text-red-400"
-                            }`}
-                          >
-                            {isLoadingDepositAnalytics || isLoadingAnalytics
-                              ? "..."
-                              : formatCurrency(thisYearNet)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* This Week */}
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
-                        This Week
-                      </h3>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 dark:text-gray-400">
-                            Income (Deposits):
-                          </span>
-                          <span className="font-semibold text-green-600 dark:text-green-400">
-                            {isLoadingDepositAnalytics
-                              ? "..."
-                              : formatCurrency(thisWeekIncome)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 dark:text-gray-400">
-                            Expenses:
-                          </span>
-                          <span className="font-semibold text-red-600 dark:text-red-400">
-                            {isLoadingAnalytics
-                              ? "..."
-                              : formatCurrency(thisWeekExpense)}
-                          </span>
-                        </div>
-                        <hr className="border-gray-300 dark:border-gray-600" />
-                        <div className="flex justify-between items-center">
-                          <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                            Net (Income - Expense):
-                          </span>
-                          <span
-                            className={`text-xl font-bold ${
-                              thisWeekNet >= 0
-                                ? "text-green-600 dark:text-green-400"
-                                : "text-red-600 dark:text-red-400"
-                            }`}
-                          >
-                            {isLoadingDepositAnalytics || isLoadingAnalytics
-                              ? "..."
-                              : formatCurrency(thisWeekNet)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </ModalBody>
-                <ModalFooter>
-                  <Button variant="flat" onPress={onClose}>
-                    Close
-                  </Button>
-                </ModalFooter>
-              </>
-            );
-          }}
         </ModalContent>
       </Modal>
     </div>
