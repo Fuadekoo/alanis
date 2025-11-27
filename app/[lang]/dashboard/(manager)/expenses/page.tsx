@@ -19,7 +19,6 @@ import {
   deleteExpense,
   getExpenseAnalytics,
 } from "@/actions/manager/expense";
-import { depositAnalytics } from "@/actions/manager/deposit";
 import { addToast } from "@heroui/toast";
 import { useLocalization } from "@/hooks/useLocalization";
 import { useRegistration } from "@/hooks/useRegistration";
@@ -57,12 +56,6 @@ function Page() {
   // Analytics data
   const [analyticsData, isLoadingAnalytics] = useData(
     getExpenseAnalytics,
-    () => {}
-  );
-
-  // Deposit analytics (income) data
-  const [depositAnalyticsData, isLoadingDepositAnalytics] = useData(
-    depositAnalytics,
     () => {}
   );
 
