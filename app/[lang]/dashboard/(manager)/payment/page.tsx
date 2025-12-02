@@ -22,6 +22,7 @@ import {
   rollbackMonthlyPayment,
   getUnpaidStudents,
 } from "@/actions/manager/payment";
+import { getControllerList } from "@/actions/manager/controller";
 import { addToast } from "@heroui/toast";
 import { useLocalization } from "@/hooks/useLocalization";
 import {
@@ -66,9 +67,18 @@ function Page() {
   const [unpaidSearch, setUnpaidSearch] = useState("");
   const [unpaidPage, setUnpaidPage] = useState(1);
   const [unpaidPageSize, setUnpaidPageSize] = useState(10);
+  const [controllerId, setControllerId] = useState<string | undefined>(
+    undefined
+  );
 
   const [dashboardData, isLoadingDashboard] = useData(
     paymentDashboard,
+    () => {}
+  );
+
+  // Fetch controllers list
+  const [controllers, isLoadingControllers] = useData(
+    getControllerList,
     () => {}
   );
 
@@ -82,7 +92,8 @@ function Page() {
     month,
     year,
     startDate,
-    endDate
+    endDate,
+    controllerId
   );
 
   const [yearsData, isLoadingYears] = useData(getYearsPayment, () => {});
@@ -94,13 +105,18 @@ function Page() {
     unpaidMonth,
     unpaidYear,
     unpaidPage,
-    unpaidPageSize
+    unpaidPageSize,
+    controllerId
   );
 
-  // Reset page to 1 when month or year changes
+  // Reset page to 1 when month, year, or controller changes
   useEffect(() => {
     setUnpaidPage(1);
-  }, [unpaidMonth, unpaidYear]);
+  }, [unpaidMonth, unpaidYear, controllerId]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [controllerId]);
 
   // Delete/Rollback payment mutation
   const [deleteAction, isLoadingDelete] = useMutation(
@@ -613,7 +629,28 @@ function Page() {
                         "View all paid payments"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Controller filter */}
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      {t("common.controller") || "Controller"}:
+                    </label>
+                    <select
+                      value={controllerId || ""}
+                      onChange={(e) => {
+                        setControllerId(e.target.value || undefined);
+                        setPage(1);
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ minWidth: 150 }}
+                      disabled={isLoadingControllers}
+                    >
+                      <option value="">{t("common.all") || "All"}</option>
+                      {controllers?.map((controller) => (
+                        <option key={controller.id} value={controller.id}>
+                          {`${controller.firstName} ${controller.fatherName} ${controller.lastName}`}
+                        </option>
+                      ))}
+                    </select>
                     {/* Year filter */}
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                       {t("payment.year")}:
@@ -711,7 +748,28 @@ function Page() {
                         "Students who haven't paid for selected month"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Controller filter */}
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      {t("common.controller") || "Controller"}:
+                    </label>
+                    <select
+                      value={controllerId || ""}
+                      onChange={(e) => {
+                        setControllerId(e.target.value || undefined);
+                        setUnpaidPage(1);
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ minWidth: 150 }}
+                      disabled={isLoadingControllers}
+                    >
+                      <option value="">{t("common.all") || "All"}</option>
+                      {controllers?.map((controller) => (
+                        <option key={controller.id} value={controller.id}>
+                          {`${controller.firstName} ${controller.fatherName} ${controller.lastName}`}
+                        </option>
+                      ))}
+                    </select>
                     {/* Year selector */}
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                       {t("payment.year")}:
@@ -755,7 +813,8 @@ function Page() {
               </div>
 
               <div className="p-6 bg-white dark:bg-gray-900">
-                {unpaidRows.length > 0 || (unpaidData?.data && unpaidData.data.length > 0) ? (
+                {unpaidRows.length > 0 ||
+                (unpaidData?.data && unpaidData.data.length > 0) ? (
                   <>
                     <CustomTable
                       columns={unpaidColumns}
@@ -763,7 +822,9 @@ function Page() {
                       totalRows={
                         unpaidSearch
                           ? unpaidRows.length
-                          : unpaidData?.pagination?.totalRecords || unpaidData?.totalCount || 0
+                          : unpaidData?.pagination?.totalRecords ||
+                            unpaidData?.totalCount ||
+                            0
                       }
                       page={unpaidPage}
                       pageSize={unpaidPageSize}

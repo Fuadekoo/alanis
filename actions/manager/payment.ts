@@ -13,7 +13,8 @@ export async function getMonthsPayment(
   month?: string,
   year?: string,
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
+  controllerId?: string
 ) {
   // Set default pagination values
   page = page && page > 0 ? page : 1;
@@ -30,27 +31,68 @@ export async function getMonthsPayment(
             lte: new Date(new Date(endDate).setUTCHours(23, 59, 59, 999)),
           },
         }),
-      ...(search && search.trim()
+      ...(controllerId
         ? {
-            OR: [
-              {
-                user: {
-                  firstName: { contains: search.trim(), mode: "insensitive" },
-                },
-              },
-              {
-                user: {
-                  fatherName: { contains: search.trim(), mode: "insensitive" },
-                },
-              },
-              {
-                user: {
-                  lastName: { contains: search.trim(), mode: "insensitive" },
-                },
-              },
-            ],
+            user: {
+              ...(search && search.trim()
+                ? {
+                    AND: [
+                      {
+                        controllerId: controllerId,
+                      },
+                      {
+                        OR: [
+                          {
+                            firstName: {
+                              contains: search.trim(),
+                              mode: "insensitive",
+                            },
+                          },
+                          {
+                            fatherName: {
+                              contains: search.trim(),
+                              mode: "insensitive",
+                            },
+                          },
+                          {
+                            lastName: {
+                              contains: search.trim(),
+                              mode: "insensitive",
+                            },
+                          },
+                        ],
+                      },
+                    ],
+                  }
+                : {
+                    controllerId: controllerId,
+                  }),
+            },
           }
-        : {}),
+        : search && search.trim()
+          ? {
+              OR: [
+                {
+                  user: {
+                    firstName: { contains: search.trim(), mode: "insensitive" },
+                  },
+                },
+                {
+                  user: {
+                    fatherName: {
+                      contains: search.trim(),
+                      mode: "insensitive",
+                    },
+                  },
+                },
+                {
+                  user: {
+                    lastName: { contains: search.trim(), mode: "insensitive" },
+                  },
+                },
+              ],
+            }
+          : {}),
     };
 
     const totalRows = await prisma.payment.count({
@@ -290,7 +332,8 @@ export async function getUnpaidStudents(
   month: number,
   year: number,
   page?: number,
-  pageSize?: number
+  pageSize?: number,
+  controllerId?: string
 ) {
   try {
     if (month == null || year == null) {
@@ -305,6 +348,7 @@ export async function getUnpaidStudents(
     const where = {
       role: "student" as const,
       status: "active" as const,
+      ...(controllerId && { controllerId: controllerId }),
       // Must have teacher
       roomStudent: {
         some: {},
