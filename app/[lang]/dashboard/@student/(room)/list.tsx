@@ -11,7 +11,6 @@ import { useRoom } from "./provider";
 import { timeFormat12 } from "@/lib/utils";
 import { useParams } from "next/navigation";
 import { RefreshCcw } from "lucide-react";
-import Link from "next/link";
 import Image from "next/image";
 import { Announcement } from "./announcement";
 
@@ -70,21 +69,21 @@ export default function List() {
                   className="gap-[2px] items-stretch overflow-hidden"
                 >
                   {link ? (
-                    <Button
-                      color="primary"
-                      className="h-20 w-full p-2 text-center font-bold  "
-                      as={Link}
+                    <a
                       href={link}
-                      onPress={() => {
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
                         action(link, id);
                       }}
+                      className="h-20 w-full p-2 text-center font-bold bg-primary text-primary-foreground rounded-l-xl flex items-center justify-center hover:bg-primary/90 transition-colors cursor-pointer"
                     >
                       <p className="text-wrap">
                         {lang == "am"
                           ? "አሁን ሊንክ ተልኮሎዎታል እባክዎ ወደ መማሪያ ክፍሎዎ ይግቡ (እዚህ ይጫኑ)"
                           : "go to classroom"}
                       </p>
-                    </Button>
+                    </a>
                   ) : (
                     <div className="w-full p-2 border border-primary-300 rounded-xl  content-center text-center text-primary-600 ">
                       {lang == "am" ? "ሊንክ አልተላከም" : "No Link"}
@@ -105,12 +104,11 @@ export default function List() {
                 <p className="p-2 border border-primary/30 rounded-xl">
                   {controller.phoneNumber}
                 </p>
-                <Button
-                  isIconOnly
-                  variant="flat"
-                  className="size-fit p-1 bg-green-500/20 text-green-700"
-                  as={Link}
+                <a
                   href={`https://wa.me/${controller.phoneNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="size-fit p-1 bg-green-500/20 text-green-700 rounded-lg flex items-center justify-center hover:bg-green-500/30 transition-colors"
                 >
                   <Image
                     alt=""
@@ -119,13 +117,12 @@ export default function List() {
                     height={100}
                     className="size-10"
                   />
-                </Button>
-                <Button
-                  isIconOnly
-                  variant="flat"
-                  className="size-fit p-1 bg-sky-500/20 text-sky-700"
-                  as={Link}
+                </a>
+                <a
                   href={`https://t.me/+${controller.phoneNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="size-fit p-1 bg-sky-500/20 text-sky-700 rounded-lg flex items-center justify-center hover:bg-sky-500/30 transition-colors"
                 >
                   <Image
                     alt=""
@@ -134,7 +131,7 @@ export default function List() {
                     height={100}
                     className="size-10"
                   />
-                </Button>
+                </a>
               </div>
             )}
             <Button
