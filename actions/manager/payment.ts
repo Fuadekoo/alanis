@@ -70,29 +70,29 @@ export async function getMonthsPayment(
             },
           }
         : search && search.trim()
-          ? {
-              OR: [
-                {
-                  user: {
-                    firstName: { contains: search.trim(), mode: "insensitive" },
-                  },
+        ? {
+            OR: [
+              {
+                user: {
+                  firstName: { contains: search.trim(), mode: "insensitive" },
                 },
-                {
-                  user: {
+              },
+              {
+                user: {
                     fatherName: {
                       contains: search.trim(),
                       mode: "insensitive",
                     },
-                  },
                 },
-                {
-                  user: {
-                    lastName: { contains: search.trim(), mode: "insensitive" },
-                  },
+              },
+              {
+                user: {
+                  lastName: { contains: search.trim(), mode: "insensitive" },
                 },
-              ],
-            }
-          : {}),
+              },
+            ],
+          }
+        : {}),
     };
 
     const totalRows = await prisma.payment.count({

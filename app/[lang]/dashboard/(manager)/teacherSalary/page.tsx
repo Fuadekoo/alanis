@@ -884,7 +884,7 @@ function Page() {
   );
 
   return (
-    <div className="h-full overflow-hidden p-3 sm:p-5 space-y-4">
+    <div className="h-full overflow-auto p-3 sm:p-5 space-y-4">
       {/* Header */}
       {/* <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="space-y-1">
