@@ -16,7 +16,6 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
-  Chip,
 } from "@/components/ui/heroui";
 import { Calendar, Eye, Info } from "lucide-react";
 import useData from "@/hooks/useData";
