@@ -130,6 +130,29 @@ function getStatusBadge(status: string) {
   }
 }
 
+function getPaymentBadge(status: string, isAm: boolean) {
+  switch (status) {
+    case "approved":
+      return {
+        className:
+          "inline-flex items-center rounded-full bg-success-50 px-2 py-0.5 text-xs font-semibold text-success-600 dark:bg-success-500/10 dark:text-success-200",
+        label: isAm ? "ጸድቋል" : "Paid",
+      };
+    case "pending":
+      return {
+        className:
+          "inline-flex items-center rounded-full bg-warning-50 px-2 py-0.5 text-xs font-semibold text-warning-600 dark:bg-warning-500/10 dark:text-warning-200",
+        label: isAm ? "በመጠባበቅ ላይ" : "Pending",
+      };
+    default:
+      return {
+        className:
+          "inline-flex items-center rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold text-danger-600 dark:bg-danger-500/10 dark:text-danger-200",
+        label: isAm ? "ተቀባይነት አላገኘም" : "Rejected",
+      };
+  }
+}
+
 export default function Page() {
   const isAm = useAmharic();
 
@@ -487,7 +510,12 @@ export default function Page() {
         </CardBody>
       </Card>
 
-      <Modal isOpen={isDetailModalOpen} onClose={closeDetailModal} size="lg">
+      <Modal
+        isOpen={isDetailModalOpen}
+        onClose={closeDetailModal}
+        size="4xl"
+        scrollBehavior="inside"
+      >
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             <h2 className="text-xl font-semibold">
@@ -503,183 +531,249 @@ export default function Page() {
           </ModalHeader>
           <ModalBody>
             {selectedDetail ? (
-              <div className="space-y-4">
-                <div className="grid gap-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-default-500">
-                      {isAm ? "የመማሪያ ቀናት" : "Learning days"}
-                    </span>
-                    <span className="font-semibold text-default-900">
-                      {selectedDetail.totalDayForLearning}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-default-500">
-                      {isAm ? "የአሃድ ዋጋ" : "Unit price"}
-                    </span>
-                    <span className="font-semibold text-default-900">
-                      {formatCurrency(selectedDetail.unitPrice)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-default-500">
-                      {isAm ? "የተፈጠረበት ቀን" : "Created"}
-                    </span>
-                    <span className="font-semibold text-default-900">
-                      {new Date(selectedDetail.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-default-500">
-                      {isAm ? "ሁኔታ" : "Status"}
-                    </span>
-                    <span
-                      className={
-                        getStatusBadge(selectedDetail.status).className
-                      }
-                    >
-                      {isAm
-                        ? selectedDetail.status === "approved"
-                          ? "ጸድቋል"
-                          : selectedDetail.status === "pending"
-                          ? "በመጠባበቅ"
-                          : "ተቀባይነት አልተገኘም"
-                        : getStatusBadge(selectedDetail.status).label}
-                    </span>
-                  </div>
-                </div>
+              <div className="space-y-6">
+                <Card>
+                  <CardBody className="grid gap-2 text-sm md:grid-cols-2">
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "ወር" : "Month"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {formatMonthLabel(selectedDetail.month, isAm)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "ዓመት" : "Year"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {selectedDetail.year}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "ተፈጥሯበት" : "Created"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {new Date(selectedDetail.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "ሁኔታ" : "Status"}
+                      </span>
+                      <span
+                        className={
+                          getStatusBadge(selectedDetail.status).className
+                        }
+                      >
+                        {isAm
+                          ? selectedDetail.status === "approved"
+                            ? "ጸድቋል"
+                            : selectedDetail.status === "pending"
+                            ? "በመጠባበቅ"
+                            : "ተቀባይነት አልተገኘም"
+                          : getStatusBadge(selectedDetail.status).label}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "የመማሪያ ቀናት" : "Learning Days"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {selectedDetail.totalDayForLearning}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-default-500">
+                        {isAm ? "የአሃድ ዋጋ" : "Unit Price"}
+                      </span>
+                      <span className="font-semibold text-default-800">
+                        {formatCurrency(selectedDetail.unitPrice)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between md:col-span-2 border-t border-default-200 pt-2">
+                      <span className="text-default-500">
+                        {isAm ? "ጠቅላላ መጠን" : "Total Amount"}
+                      </span>
+                      <span className="font-bold text-lg text-primary">
+                        {formatCurrency(selectedDetail.amount)}
+                      </span>
+                    </div>
+                  </CardBody>
+                </Card>
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
+                    <h4 className="text-lg font-semibold">
                       {isAm ? "Teacher Progress" : "Teacher Progress"}
-                    </h3>
-                    <Chip size="sm" variant="flat" color="primary">
+                    </h4>
+                    <span className="inline-flex items-center rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:border-primary-400/40 dark:bg-primary-500/10 dark:text-primary-200">
                       {selectedDetail.teacherProgresses.length}
-                    </Chip>
+                    </span>
                   </div>
                   {selectedDetail.teacherProgresses.length > 0 ? (
-                    <div className="overflow-auto rounded-lg border border-default-200">
-                      <table className="w-full text-xs">
-                        <thead className="bg-default-100 dark:bg-default-900/80 text-default-500">
+                    <div className="overflow-auto max-h-64">
+                      <table className="w-full border-collapse text-sm">
+                        <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
                           <tr>
-                            <th className="px-3 py-2 text-left">
+                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[180px]">
                               {isAm ? "ተማሪ" : "Student"}
                             </th>
-                            <th className="px-3 py-2 text-center">
+                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[120px]">
+                              {isAm ? "ተፈጥሯበት" : "Created"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-center font-semibold">
                               {isAm ? "መማሪያ" : "Learning"}
                             </th>
-                            <th className="px-3 py-2 text-center">
+                            <th className="border border-default-200 p-2 text-center font-semibold">
                               {isAm ? "የጠፋ" : "Missing"}
                             </th>
-                            <th className="px-3 py-2 text-center">
+                            <th className="border border-default-200 p-2 text-center font-semibold">
                               {isAm ? "ጠቅላላ" : "Total"}
                             </th>
-                            <th className="px-3 py-2 text-center">
-                              {isAm ? "ቀን" : "Date"}
+                            <th className="border border-default-200 p-2 text-center font-semibold">
+                              {isAm ? "ክፍያ" : "Payment"}
                             </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedDetail.teacherProgresses.map((progress) => (
-                            <tr
-                              key={progress.id}
-                              className="border-t border-default-200/70"
-                            >
-                              <td className="px-3 py-2 font-medium text-default-800">
-                                {progress.student.firstName}{" "}
-                                {progress.student.fatherName}{" "}
-                                {progress.student.lastName}
-                              </td>
-                              <td className="px-3 py-2 text-center text-default-700">
-                                {progress.learningCount}
-                              </td>
-                              <td className="px-3 py-2 text-center text-default-700">
-                                {progress.missingCount}
-                              </td>
-                              <td className="px-3 py-2 text-center text-default-700">
-                                {progress.totalCount}
-                              </td>
-                              <td className="px-3 py-2 text-center text-default-500">
-                                {new Date(
-                                  progress.createdAt
-                                ).toLocaleDateString()}
-                              </td>
-                            </tr>
-                          ))}
+                          {selectedDetail.teacherProgresses.map((progress) => {
+                            const paymentBadge = getPaymentBadge(
+                              progress.paymentStatus,
+                              isAm
+                            );
+                            return (
+                              <tr
+                                key={progress.id}
+                                className="hover:bg-primary/5"
+                              >
+                                <td className="border border-default-200 p-2">
+                                  {progress.student.firstName}{" "}
+                                  {progress.student.fatherName}{" "}
+                                  {progress.student.lastName}
+                                </td>
+                                <td className="border border-default-200 p-2">
+                                  {new Date(
+                                    progress.createdAt
+                                  ).toLocaleDateString()}
+                                </td>
+                                <td className="border border-default-200 p-2 text-center">
+                                  <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-success-50 px-2 py-0.5 text-xs font-semibold text-success-600 dark:bg-success-500/10 dark:text-success-200">
+                                    {progress.learningCount ?? 0}
+                                  </span>
+                                </td>
+                                <td className="border border-default-200 p-2 text-center">
+                                  <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold text-danger-600 dark:bg-danger-500/10 dark:text-danger-200">
+                                    {progress.missingCount ?? 0}
+                                  </span>
+                                </td>
+                                <td className="border border-default-200 p-2 text-center">
+                                  <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:bg-primary-500/10 dark:text-primary-200">
+                                    {progress.totalCount ?? 0}
+                                  </span>
+                                </td>
+                                <td className="border border-default-200 p-2 text-center">
+                                  <span className={paymentBadge.className}>
+                                    {paymentBadge.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <p className="text-xs text-default-500">
+                    <p className="text-sm text-default-500">
                       {isAm
-                        ? "ከዚህ ደሞዝ ጋር የተያያዙ የመምህር ሂደት መረጃዎች የሉም።"
-                        : "No teacher progress records linked."}
+                        ? "የመምህር ሂደት አልተገኘም"
+                        : "No teacher progress linked to this salary."}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      {isAm ? "Shift Data" : "Shift Data"}
-                    </h3>
-                    <Chip size="sm" variant="flat" color="primary">
+                    <h4 className="text-lg font-semibold">
+                      {isAm ? "Shift Teacher Data" : "Shift Teacher Data"}
+                    </h4>
+                    <span className="inline-flex items-center rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:border-primary-400/40 dark:bg-primary-500/10 dark:text-primary-200">
                       {selectedDetail.shiftTeacherData.length}
-                    </Chip>
+                    </span>
                   </div>
                   {selectedDetail.shiftTeacherData.length > 0 ? (
-                    <div className="overflow-auto rounded-lg border border-default-200">
-                      <table className="w-full text-xs">
-                        <thead className="bg-default-100 dark:bg-default-900/80 text-default-500">
+                    <div className="overflow-auto max-h-64">
+                      <table className="w-full border-collapse text-sm">
+                        <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
                           <tr>
-                            <th className="px-3 py-2 text-left">
+                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[180px]">
                               {isAm ? "ተማሪ" : "Student"}
                             </th>
-                            <th className="px-3 py-2 text-center">
+                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[120px]">
+                              {isAm ? "ተፈጥሯበት" : "Created"}
+                            </th>
+                            <th className="border border-default-200 p-2 text-center font-semibold">
                               {isAm ? "መማሪያ" : "Learning"}
                             </th>
-                            <th className="px-3 py-2 text-center">
+                            <th className="border border-default-200 p-2 text-center font-semibold">
                               {isAm ? "የጠፋ" : "Missing"}
                             </th>
-                            <th className="px-3 py-2 text-center">
+                            <th className="border border-default-200 p-2 text-center font-semibold">
                               {isAm ? "ጠቅላላ" : "Total"}
                             </th>
-                            <th className="px-3 py-2 text-center">
-                              {isAm ? "ቀን" : "Date"}
+                            <th className="border border-default-200 p-2 text-center font-semibold">
+                              {isAm ? "ክፍያ" : "Payment"}
                             </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedDetail.shiftTeacherData.map((shift) => (
-                            <tr
-                              key={shift.id}
-                              className="border-t border-default-200/70"
-                            >
-                              <td className="px-3 py-2 font-medium text-default-800">
-                                {shift.student.firstName}{" "}
-                                {shift.student.fatherName}{" "}
-                                {shift.student.lastName}
-                              </td>
-                              <td className="px-3 py-2 text-center text-default-700">
-                                {shift.learningCount}
-                              </td>
-                              <td className="px-3 py-2 text-center text-default-700">
-                                {shift.missingCount}
-                              </td>
-                              <td className="px-3 py-2 text-center text-default-700">
-                                {shift.totalCount}
-                              </td>
-                              <td className="px-3 py-2 text-center text-default-500">
-                                {new Date(shift.createdAt).toLocaleDateString()}
-                              </td>
-                            </tr>
-                          ))}
+                          {selectedDetail.shiftTeacherData.map((shift) => {
+                            const paymentBadge = getPaymentBadge(
+                              shift.paymentStatus,
+                              isAm
+                            );
+                            return (
+                              <tr
+                                key={shift.id}
+                                className="hover:bg-primary/5"
+                              >
+                                <td className="border border-default-200 p-2">
+                                  {shift.student.firstName}{" "}
+                                  {shift.student.fatherName}{" "}
+                                  {shift.student.lastName}
+                                </td>
+                                <td className="border border-default-200 p-2">
+                                  {new Date(shift.createdAt).toLocaleDateString()}
+                                </td>
+                                <td className="border border-default-200 p-2 text-center">
+                                  <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-success-50 px-2 py-0.5 text-xs font-semibold text-success-600 dark:bg-success-500/10 dark:text-success-200">
+                                    {shift.learningCount}
+                                  </span>
+                                </td>
+                                <td className="border border-default-200 p-2 text-center">
+                                  <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold text-danger-600 dark:bg-danger-500/10 dark:text-danger-200">
+                                    {shift.missingCount}
+                                  </span>
+                                </td>
+                                <td className="border border-default-200 p-2 text-center">
+                                  <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:bg-primary-500/10 dark:text-primary-200">
+                                    {shift.totalCount}
+                                  </span>
+                                </td>
+                                <td className="border border-default-200 p-2 text-center">
+                                  <span className={paymentBadge.className}>
+                                    {paymentBadge.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <p className="text-xs text-default-500">
+                    <p className="text-sm text-default-500">
                       {isAm
                         ? "ከዚህ ደሞዝ ጋር የተያያዙ shift መረጃዎች የሉም።"
                         : "No shift data linked to this salary."}
