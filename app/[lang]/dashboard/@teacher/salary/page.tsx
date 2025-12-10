@@ -134,10 +134,10 @@ export default function Page() {
   const isAm = useAmharic();
 
   const [filterMonth, setFilterMonth] = useState<number | undefined>(
-    new Date().getMonth() + 1
+    undefined
   );
   const [filterYear, setFilterYear] = useState<number | undefined>(
-    new Date().getFullYear()
+    undefined
   );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
