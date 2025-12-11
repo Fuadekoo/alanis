@@ -452,15 +452,26 @@ function Page() {
                     labelPlacement="outside"
                     value={
                       form.watch("date")
-                        ? parseDate(
-                            form.watch("date")?.toISOString().split("T")[0] ??
-                              ""
-                          )
+                        ? (() => {
+                            const date = form.watch("date");
+                            if (!date) return null;
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, "0");
+                            const day = String(date.getDate()).padStart(2, "0");
+                            return parseDate(`${year}-${month}-${day}`);
+                          })()
                         : null
                     }
                     onChange={(v) => {
                       if (v) {
-                        form.setValue("date", v.toDate(getLocalTimeZone()));
+                        const date = v.toDate(getLocalTimeZone());
+                        // Create a new date with local time to avoid timezone issues
+                        const localDate = new Date(
+                          date.getFullYear(),
+                          date.getMonth(),
+                          date.getDate()
+                        );
+                        form.setValue("date", localDate);
                       }
                     }}
                     isRequired

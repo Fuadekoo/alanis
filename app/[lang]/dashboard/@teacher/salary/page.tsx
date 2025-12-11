@@ -352,6 +352,15 @@ export default function Page() {
                 <table className="w-full border-collapse text-sm">
                   <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
                     <tr>
+                      <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[60px]">
+                        #
+                      </th>
+                      <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[120px]">
+                        {isAm ? "ተግባር" : "Actions"}
+                      </th>
+                      <th className="border border-default-200/70 p-3 text-left font-semibold min-w-[140px]">
+                        {isAm ? "ፎቶ" : "Photo"}
+                      </th>
                       <th className="border border-default-200/70 p-3 text-left font-semibold min-w-[120px]">
                         {isAm ? "ወር" : "Month"}
                       </th>
@@ -373,23 +382,50 @@ export default function Page() {
                       <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[140px]">
                         {isAm ? "ተፈጥሯበት" : "Created"}
                       </th>
-                      <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[140px]">
-                        {isAm ? "ፎቶ" : "Photo"}
-                      </th>
-                      <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[120px]">
-                        {isAm ? "ተግባር" : "Actions"}
-                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {salaryData.length > 0 ? (
-                      salaryData.map((row: TeacherSalaryRow) => {
+                      salaryData.map((row: TeacherSalaryRow, index: number) => {
                         const badge = getStatusBadge(row.status);
                         return (
                           <tr
                             key={row.id}
                             className="hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
                           >
+                            <td className="border border-default-200/60 p-3 text-center text-sm font-medium text-default-700">
+                              {(page - 1) * pageSize + index + 1}
+                            </td>
+                            <td className="border border-default-200/60 p-3 text-center">
+                              <Button
+                                size="sm"
+                                variant="flat"
+                                color="primary"
+                                isIconOnly
+                                aria-label={isAm ? "ዝርዝር" : "Details"}
+                                onPress={() => openDetailModal(row)}
+                              >
+                                <Info className="size-3" />
+                              </Button>
+                            </td>
+                            <td className="border border-default-200/60 p-3 text-left">
+                              {row.paymentPhoto ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openPhotoModal(row.paymentPhoto)
+                                  }
+                                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                                >
+                                  <Eye className="size-4" />
+                                  {isAm ? "ፎቶ ይመልከቱ" : "View"}
+                                </button>
+                              ) : (
+                                <span className="text-xs text-default-400">
+                                  {isAm ? "ፎቶ የለም" : "No photo"}
+                                </span>
+                              )}
+                            </td>
                             <td className="border border-default-200/60 p-3 text-sm font-medium text-default-800">
                               {formatMonthLabel(row.month, isAm)}
                             </td>
@@ -425,43 +461,13 @@ export default function Page() {
                             <td className="border border-default-200/60 p-3 text-center text-default-600">
                               {new Date(row.createdAt).toLocaleDateString()}
                             </td>
-                            <td className="border border-default-200/60 p-3 text-center">
-                              {row.paymentPhoto ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    openPhotoModal(row.paymentPhoto)
-                                  }
-                                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                                >
-                                  <Eye className="size-4" />
-                                  {isAm ? "ፎቶ ይመልከቱ" : "View"}
-                                </button>
-                              ) : (
-                                <span className="text-xs text-default-400">
-                                  {isAm ? "ፎቶ የለም" : "No photo"}
-                                </span>
-                              )}
-                            </td>
-                            <td className="border border-default-200/60 p-3 text-center">
-                              <Button
-                                size="sm"
-                                variant="flat"
-                                color="primary"
-                                isIconOnly
-                                aria-label={isAm ? "ዝርዝር" : "Details"}
-                                onPress={() => openDetailModal(row)}
-                              >
-                                <Info className="size-3" />
-                              </Button>
-                            </td>
                           </tr>
                         );
                       })
                     ) : (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={10}
                           className="border border-default-200/60 p-8 text-center text-default-500"
                         >
                           {isAm
