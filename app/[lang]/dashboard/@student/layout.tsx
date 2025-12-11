@@ -37,7 +37,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       },
       {
         english: "Study Room",
-        amharic: "የመማሪያ ክፍል",
+        amharic: "የጥናት ክፍል",
         url: "studyRoom",
         Icon: <Video className="size-4" />,
       },
