@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Button,
   Card,
@@ -59,6 +65,9 @@ interface CalendarRow {
 }
 
 export default function Page() {
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const didLongPressRef = useRef(false);
   const [selectedTeacher, setSelectedTeacher] = useState("");
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -77,6 +86,23 @@ export default function Page() {
   const [modalDate, setModalDate] = useState<Date | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isWeekendTutorConfirmed, setIsWeekendTutorConfirmed] = useState(false);
+
+  // Quick status modal (mobile long-press)
+  const [isQuickStatusOpen, setIsQuickStatusOpen] = useState(false);
+  const [quickStudent, setQuickStudent] = useState<{
+    id: string;
+    firstName: string;
+    fatherName: string;
+    lastName: string;
+  } | null>(null);
+  const [quickDay, setQuickDay] = useState<number | null>(null);
+  const [quickWeekendTutorConfirmed, setQuickWeekendTutorConfirmed] =
+    useState(false);
+
+  // Optimistic updates: store newly created reports locally to avoid full refresh
+  const [optimisticReports, setOptimisticReports] = useState<
+    Record<string, Record<number, CalendarReport>>
+  >({});
 
   // Delete modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -204,6 +230,23 @@ export default function Page() {
     );
   }, []);
 
+  const isTouchDevice = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(pointer: coarse)").matches;
+  }, []);
+
+  // Auto-scroll to today's date when month/year match
+  useEffect(() => {
+    if (isLoadingCalendar) return;
+    if (!calendarData?.success) return;
+    const today = new Date();
+    const isSameMonthYear =
+      today.getFullYear() === year && today.getMonth() + 1 === month;
+    if (isSameMonthYear) {
+      scrollToDay(Math.min(today.getDate(), daysInMonth));
+    }
+  }, [isLoadingCalendar, calendarData, year, month, daysInMonth]);
+
   // Get current student from calendar data when needed
   const getCurrentStudent = useCallback(
     (studentId: string) => {
@@ -222,6 +265,7 @@ export default function Page() {
     setLearningProgress("");
     setModalDate(null);
     setIsWeekendTutorConfirmed(false);
+    setQuickWeekendTutorConfirmed(false);
   };
 
   const closeStatusModal = () => {
@@ -332,7 +376,9 @@ export default function Page() {
       (row) => row.student.id === selectedStudent
     )?.reportsByDate?.[day];
 
-    if (duplicate) {
+    const duplicateOptimistic = optimisticReports[selectedStudent]?.[day];
+
+    if (duplicate || duplicateOptimistic) {
       showAlert({
         message: isAm
           ? "ለዚህ ቀን ሪፖርት አስቀድሞ አለ።"
@@ -379,7 +425,33 @@ export default function Page() {
         closeStatusModal();
         setMonth(selectedDateObj.getMonth() + 1);
         setYear(selectedDateObj.getFullYear());
-        if (refreshCalendar) refreshCalendar();
+        // Optimistically overlay the new report without refreshing the entire table
+        const dayIndex = selectedDateObj.getDate();
+        setOptimisticReports((prev) => ({
+          ...prev,
+          [selectedStudent]: {
+            ...(prev[selectedStudent] || {}),
+            [dayIndex]: {
+              id: `local-${Date.now()}`,
+              studentId: selectedStudent,
+              date: [
+                selectedDateObj.getFullYear(),
+                `${selectedDateObj.getMonth() + 1}`.padStart(2, "0"),
+                `${selectedDateObj.getDate()}`.padStart(2, "0"),
+              ].join("-"),
+              learningProgress: learningProgress as
+                | "present"
+                | "absent"
+                | "permission",
+              learningSlot: learningSlot,
+              studentApproved: null,
+              teacherApproved: null,
+            },
+          },
+        }));
+        // Auto-scroll to next date after successful creation
+        const nextDay = Math.min(selectedDateObj.getDate() + 1, daysInMonth);
+        scrollToDay(nextDay);
       } else {
         showAlert({
           message:
@@ -399,6 +471,192 @@ export default function Page() {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const openQuickStatusModal = (
+    student: {
+      id: string;
+      firstName: string;
+      fatherName: string;
+      lastName: string;
+    },
+    day: number
+  ) => {
+    const calendarRows = calendarData?.data?.calendarData as
+      | CalendarRow[]
+      | undefined;
+    const studentRow = calendarRows?.find(
+      (row) => row.student.id === student.id
+    );
+    if (!studentRow || !studentRow.teacher || !studentRow.timeSlot) {
+      // Fallback to full modal if required info missing
+      handleOpenStatusModal(student, day);
+      return;
+    }
+    const dateObj = new Date(year, month - 1, day);
+    dateObj.setHours(0, 0, 0, 0);
+    const duplicate = studentRow.reportsByDate?.[day];
+    const duplicateOptimistic = optimisticReports[student.id]?.[day];
+    if (duplicate || duplicateOptimistic) {
+      showAlert({
+        message: isAm
+          ? "ለዚህ ቀን ሪፖርት አስቀድሞ አለ"
+          : "A report already exists for this day",
+        type: "warning",
+        title: isAm ? "ዳግም ሪፖርት" : "Duplicate",
+      });
+      return;
+    }
+    setQuickStudent(student);
+    setQuickDay(day);
+    setQuickWeekendTutorConfirmed(false);
+    setIsQuickStatusOpen(true);
+  };
+
+  const handleQuickCreateReport = async (
+    progress: "present" | "permission" | "absent"
+  ) => {
+    if (!quickStudent || quickDay == null) return;
+    const calendarRows = calendarData?.data?.calendarData as
+      | CalendarRow[]
+      | undefined;
+    const studentRow = calendarRows?.find(
+      (row) => row.student.id === quickStudent.id
+    );
+    if (!studentRow || !studentRow.teacher || !studentRow.timeSlot) {
+      setIsQuickStatusOpen(false);
+      handleOpenStatusModal(quickStudent, quickDay);
+      return;
+    }
+
+    const dateObj = new Date(year, month - 1, quickDay);
+    dateObj.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (dateObj > today) {
+      showAlert({
+        message: isAm
+          ? "ለወደፊት ቀናት ሪፖርት መፍጠር አይችሉም"
+          : "You cannot create reports for future dates.",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+      return;
+    }
+
+    const dayOfWeek = dateObj.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    if (isWeekend && !quickWeekendTutorConfirmed) {
+      showAlert({
+        message: isAm
+          ? "እባክዎ ለእረፍት ቀን የሚመዘገበው ዕለታዊ ሪፖርት በመምህር እንደሚካሄድ ያረጋግጡ"
+          : "Please confirm this weekend session is led by a tutor before submitting.",
+        type: "warning",
+        title: isAm ? "ማረጋገጫ ያስፈልጋል" : "Confirmation Required",
+      });
+      return;
+    }
+
+    try {
+      const result = await createReport({
+        studentId: quickStudent.id,
+        activeTeacherId: studentRow.teacher.id,
+        learningSlot: studentRow.timeSlot,
+        learningProgress: progress,
+        date: [
+          dateObj.getFullYear(),
+          `${dateObj.getMonth() + 1}`.padStart(2, "0"),
+          `${dateObj.getDate()}`.padStart(2, "0"),
+        ].join("-"),
+      });
+
+      if (result.success) {
+        showAlert({
+          message: isAm
+            ? "ሪፖርት በተሳካ ሁኔታ ተፈጥሯል!"
+            : "Report created successfully!",
+          type: "success",
+          title: isAm ? "ተሳክቷል" : "Success",
+        });
+        setIsQuickStatusOpen(false);
+        setMonth(dateObj.getMonth() + 1);
+        setYear(dateObj.getFullYear());
+        // Optimistically overlay the new report without refreshing the entire table
+        const dayIndex = dateObj.getDate();
+        setOptimisticReports((prev) => ({
+          ...prev,
+          [quickStudent.id]: {
+            ...(prev[quickStudent.id] || {}),
+            [dayIndex]: {
+              id: `local-${Date.now()}`,
+              studentId: quickStudent.id,
+              date: [
+                dateObj.getFullYear(),
+                `${dateObj.getMonth() + 1}`.padStart(2, "0"),
+                `${dateObj.getDate()}`.padStart(2, "0"),
+              ].join("-"),
+              learningProgress: progress,
+              learningSlot: studentRow.timeSlot,
+              studentApproved: null,
+              teacherApproved: null,
+            },
+          },
+        }));
+        const nextDay = Math.min(dateObj.getDate() + 1, daysInMonth);
+        scrollToDay(nextDay);
+      } else {
+        showAlert({
+          message:
+            result.error ||
+            (isAm ? "ሪፖርት መፍጠር አልተሳካም" : "Failed to create report"),
+          type: "error",
+          title: isAm ? "ስህተት" : "Error",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to create report", error);
+      showAlert({
+        message: isAm ? "ሪፖርት መፍጠር አልተሳካም" : "Failed to create report",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+    }
+  };
+
+  const startLongPress = (
+    student: {
+      id: string;
+      firstName: string;
+      fatherName: string;
+      lastName: string;
+    },
+    day: number
+  ) => {
+    if (!isTouchDevice) return;
+    cancelLongPress();
+    didLongPressRef.current = false;
+    longPressTimerRef.current = window.setTimeout(() => {
+      didLongPressRef.current = true;
+      openQuickStatusModal(student, day);
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const scrollToDay = (day: number) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    // Fixed columns total width: 480px; each day column: 50px
+    const targetLeft = 480 + (day - 1) * 50;
+    const offset = 200; // show a bit of context before the target
+    const left = Math.max(0, targetLeft - offset);
+    container.scrollTo({ left, behavior: "smooth" });
   };
 
   const handleOpenStatusModal = (
@@ -589,7 +847,10 @@ export default function Page() {
             </div>
           ) : calendarData?.success && calendarData.data ? (
             <div className="flex flex-col gap-3 h-full">
-              <div className="overflow-x-auto overflow-y-auto w-full h-full">
+              <div
+                className="overflow-x-auto overflow-y-auto w-full h-full"
+                ref={scrollContainerRef}
+              >
                 <table
                   className="border-collapse text-sm"
                   style={{ minWidth: `${480 + daysInMonth * 50}px` }}
@@ -679,9 +940,17 @@ export default function Page() {
                                 { length: daysInMonth },
                                 (_, i) => i + 1
                               ).map((day) => {
-                                const report = item.reportsByDate[day] as
+                                const optimisticForStudent =
+                                  optimisticReports[item.student.id] || {};
+                                const serverReport = item.reportsByDate[day] as
                                   | CalendarReport
                                   | undefined;
+                                const optimisticReport = optimisticForStudent[
+                                  day
+                                ] as CalendarReport | undefined;
+                                const report = serverReport || optimisticReport;
+                                const isOptimistic =
+                                  !!optimisticReport && !serverReport;
 
                                 if (!report) {
                                   return (
@@ -695,12 +964,22 @@ export default function Page() {
                                         color="primary"
                                         variant="light"
                                         className="min-w-unit-6 w-6 h-6"
-                                        onPress={() =>
+                                        onPress={() => {
+                                          if (didLongPressRef.current) {
+                                            // Suppress click after long-press
+                                            didLongPressRef.current = false;
+                                            return;
+                                          }
                                           handleOpenStatusModal(
                                             item.student,
                                             day
-                                          )
+                                          );
+                                        }}
+                                        onPointerDown={() =>
+                                          startLongPress(item.student, day)
                                         }
+                                        onPointerUp={cancelLongPress}
+                                        onPointerLeave={cancelLongPress}
                                       >
                                         <PenSquare className="size-3" />
                                       </Button>
@@ -741,21 +1020,23 @@ export default function Page() {
                                           ? "ጠፋ"
                                           : "A"}
                                       </Chip>
-                                      <Button
-                                        isIconOnly
-                                        size="sm"
-                                        color="danger"
-                                        variant="light"
-                                        className="min-w-unit-6 w-6 h-6"
-                                        onPress={() =>
-                                          handleDeleteClick(
-                                            item.student,
-                                            report
-                                          )
-                                        }
-                                      >
-                                        <Trash2 className="size-3" />
-                                      </Button>
+                                      {!isOptimistic && (
+                                        <Button
+                                          isIconOnly
+                                          size="sm"
+                                          color="danger"
+                                          variant="light"
+                                          className="min-w-unit-6 w-6 h-6"
+                                          onPress={() =>
+                                            handleDeleteClick(
+                                              item.student,
+                                              report
+                                            )
+                                          }
+                                        >
+                                          <Trash2 className="size-3" />
+                                        </Button>
+                                      )}
                                     </div>
                                   </td>
                                 );
@@ -808,6 +1089,91 @@ export default function Page() {
           )}
         </CardBody>
       </Card>
+
+      {/* Quick Status Modal for mobile long-press */}
+      <Modal
+        isOpen={isQuickStatusOpen}
+        onClose={() => {
+          setIsQuickStatusOpen(false);
+          setQuickStudent(null);
+          setQuickDay(null);
+          setQuickWeekendTutorConfirmed(false);
+        }}
+        size="sm"
+        backdrop="blur"
+        classNames={{ backdrop: "bg-black/50 backdrop-blur-md" }}
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <h2 className="text-lg font-bold">
+              {isAm ? "በፍጥነት ሁኔታ ይምረጡ" : "Quick Select Status"}
+            </h2>
+            {quickStudent && quickDay != null && (
+              <p className="text-sm text-default-500">
+                {(isAm ? "ተማሪ:" : "Student:") + " "}
+                {quickStudent.firstName} {quickStudent.fatherName}{" "}
+                {quickStudent.lastName}
+                {" · "}
+                {(isAm ? "ቀን:" : "Day:") + " "}
+                {quickDay}
+              </p>
+            )}
+          </ModalHeader>
+          <ModalBody className="space-y-4">
+            {(() => {
+              if (quickDay == null) return null;
+              const dateObj = new Date(year, month - 1, quickDay);
+              const isWeekend = [0, 6].includes(dateObj.getDay());
+              return (
+                <>
+                  {isWeekend && (
+                    <label className="flex gap-3 rounded-lg border border-default-200/60 bg-default-100/40 dark:bg-default-900/30 p-3 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 cursor-pointer rounded border-default-300 text-primary focus:ring-primary"
+                        checked={quickWeekendTutorConfirmed}
+                        onChange={(e) =>
+                          setQuickWeekendTutorConfirmed(e.target.checked)
+                        }
+                      />
+                      <span className="text-default-600 dark:text-default-300 leading-tight">
+                        {isAm
+                          ? "ይህ እረፍት ቀን ትምህርት በመምህር እንደሚካሄድ እመሰክራለሁ"
+                          : "I confirm this weekend session is conducted by a tutor."}
+                      </span>
+                    </label>
+                  )}
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      color="success"
+                      onPress={() => handleQuickCreateReport("present")}
+                    >
+                      {isAm ? "ተገኝ" : "Present"}
+                    </Button>
+                    <Button
+                      color="primary"
+                      onPress={() => handleQuickCreateReport("permission")}
+                    >
+                      {isAm ? "ፈቃድ" : "Permission"}
+                    </Button>
+                    <Button
+                      color="danger"
+                      onPress={() => handleQuickCreateReport("absent")}
+                    >
+                      {isAm ? "ጠፋ" : "Absent"}
+                    </Button>
+                  </div>
+                </>
+              );
+            })()}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={() => setIsQuickStatusOpen(false)}>
+              {isAm ? "ይቅር" : "Cancel"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <Modal
         isOpen={isStatusModalOpen}
