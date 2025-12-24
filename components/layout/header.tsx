@@ -2,6 +2,7 @@ import { AlignLeft } from "lucide-react";
 import { Button } from "../ui/heroui";
 import Lang from "./lang";
 import Theme from "./theme";
+import RefreshButton from "./refresh";
 
 export default function Header() {
   return (
@@ -17,6 +18,7 @@ export default function Header() {
         <AlignLeft className="size-4" />
       </Button>
       <div className="flex-1"></div>
+      <RefreshButton />
       <Lang />
       <Theme />
     </header>
