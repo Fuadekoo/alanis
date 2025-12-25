@@ -2,13 +2,10 @@
 
 import { Button } from "../ui/heroui";
 import { RefreshCcw } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 export default function RefreshButton() {
-  const router = useRouter();
-
   const handleRefresh = () => {
-    router.refresh();
+    window.location.reload();
   };
 
   return (
