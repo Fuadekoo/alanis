@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Button } from "../ui/heroui";
 import { useParams, usePathname } from "next/navigation";
-import { useState } from "react";
 import {
   Dropdown,
   DropdownTrigger,
