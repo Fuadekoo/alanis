@@ -33,7 +33,7 @@ export function Footer() {
             as={Link}
             href={`https://t.me/+${process.env.NEXT_PUBLIC_MANAGER_PHONE_NUMBER}`}
           >
-            {lang == "am" ? "ቴሌግራም" : "Telegram"}
+            {lang == "am" ? "ቴሌግራም" : lang == "or" ? "Telegiraam" : "Telegram"}
           </Button>
           <Dot className="size-8 text-primary-700" />
           <Button
@@ -43,7 +43,7 @@ export function Footer() {
             as={Link}
             href={`https://wa.me/${process.env.NEXT_PUBLIC_MANAGER_PHONE_NUMBER}`}
           >
-            {lang == "am" ? "ዋትስኣፕ" : "WhatsApp"}
+            {lang == "am" ? "ዋትስኣፕ" : lang == "or" ? "WhatsApp" : "WhatsApp"}
           </Button>
           <Dot className="size-8 text-primary-700" />
           <Button
@@ -53,7 +53,7 @@ export function Footer() {
             as={Link}
             href="https://www.facebook.com/share/18mN72kX4S/"
           >
-            {lang == "am" ? "ፌስቡክ" : "Facebook"}
+            {lang == "am" ? "ፌስቡክ" : lang == "or" ? "Facebook" : "Facebook"}
           </Button>
         </div>
       </div>

@@ -29,7 +29,7 @@ export default function SearchPlace({
         size="sm"
         classNames={{ base: "w-full", inputWrapper: "bg-default-50/50" }}
         placeholder={
-          placeholder ?? lang == "am" ? "እዚህ ይፈልጉ ... " : "search here ... "
+          placeholder ?? lang == "am" ? "እዚህ ይፈልጉ ... " : lang == "or" ? "asitti barbaadi ... " : "search here ... "
         }
         startContent={<Search className="size-4" />}
         onValueChange={handleSearch}
