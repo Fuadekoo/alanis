@@ -16,7 +16,7 @@ export default function Logout() {
   });
   return (
     <Button color="primary" onPress={action} isLoading={isLoading}>
-      {lang == "am" ? "እንደገና ይሞክሩ" : "Refresh"}
+      {lang == "am" ? "እንደገና ይሞክሩ" : lang == "or" ? "Haaromsi" : "Refresh"}
     </Button>
   );
 }

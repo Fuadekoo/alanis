@@ -22,7 +22,7 @@ export default function Logo() {
         href={"/"}
         className=" text-2xl tracking-wider font-extrabold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
       >
-        {lang == "am" ? "አል አኒስ" : "Al ANIS"}
+        {lang == "am" ? "አል አኒስ" : lang == "or" ? "Al ANIS" : "Al ANIS"}
       </Link>
     </div>
   );

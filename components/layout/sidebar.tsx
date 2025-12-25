@@ -11,12 +11,19 @@ export default function SideBar({
   menu: {
     english: string;
     amharic: string;
+    oromo: string;
     url: string;
     Icon: React.JSX.Element;
   }[][];
 }) {
   const selected = usePathname().split("/")[3] ?? "";
   const { lang } = useParams<{ lang: string }>();
+
+  const getMenuLabel = (item: { english: string; amharic: string; oromo: string }) => {
+    if (lang === "am") return item.amharic;
+    if (lang === "or") return item.oromo;
+    return item.english;
+  };
 
   return (
     <nav
@@ -31,18 +38,18 @@ export default function SideBar({
             <React.Fragment key={i + ""}>
               {i !== 0 && <hr className=" border-primary" />}
               <div key={i + ""} className="py-5 flex flex-col gap-2 ">
-                {item.map(({ english, amharic, url, Icon }, i) => (
+                {item.map((menuItem, i) => (
                   <Button
                     key={i + ""}
                     size="lg"
                     color="primary"
-                    variant={selected == url ? "solid" : "light"}
+                    variant={selected == menuItem.url ? "solid" : "light"}
                     className="shrink-0 justify-start capitalize "
-                    startContent={Icon}
+                    startContent={menuItem.Icon}
                     as={Link}
-                    href={`/${lang}/dashboard/${url}`}
+                    href={`/${lang}/dashboard/${menuItem.url}`}
                   >
-                    {lang == "am" ? amharic : english}
+                    {getMenuLabel(menuItem)}
                   </Button>
                 ))}
               </div>

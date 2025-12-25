@@ -104,7 +104,7 @@ export default function List() {
                     </Button>
                   ) : (
                     <div className="w-full p-2 border border-primary-300 rounded-l-xl content-center text-center text-primary-600 ">
-                      {lang == "am" ? "ሊንክ አልተላከም" : "No Link"}
+                      {lang == "am" ? "ሊንክ አልተላከም" : lang == "or" ? "Linki hin ergamne" : "No Link"}
                     </div>
                   )}
                   {link && (

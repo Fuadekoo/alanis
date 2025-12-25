@@ -55,10 +55,14 @@ export default function List() {
                   {gender == "Female"
                     ? lang == "am"
                       ? "ከ ኡስታዛ"
+                      : lang == "or"
+                      ? "irraa ustazah"
                       : "ustazah"
                     : gender == "Male"
                     ? lang == "am"
                       ? "ከ ኡስታዝ"
+                      : lang == "or"
+                      ? "irraa ustaz"
                       : "ustaz"
                     : ""}{" "}
                   {firstName} {fatherName} {lastName}
@@ -81,12 +85,14 @@ export default function List() {
                       <p className="text-wrap">
                         {lang == "am"
                           ? "አሁን ሊንክ ተልኮሎዎታል እባክዎ ወደ መማሪያ ክፍሎዎ ይግቡ (እዚህ ይጫኑ)"
+                          : lang == "or"
+                          ? "Amma linki ergameera maaloo gara kutaa keessaniitti seenaa (as tuqaa)"
                           : "go to classroom"}
                       </p>
                     </a>
                   ) : (
                     <div className="w-full p-2 border border-primary-300 rounded-xl  content-center text-center text-primary-600 ">
-                      {lang == "am" ? "ሊንክ አልተላከም" : "No Link"}
+                      {lang == "am" ? "ሊንክ አልተላከም" : lang == "or" ? "Linki hin ergamne" : "No Link"}
                     </div>
                   )}
                 </ButtonGroup>
@@ -97,6 +103,8 @@ export default function List() {
             <p className="">
               {lang == "am"
                 ? "መምህሩ ሊንክ የላከ መሆኑን ለማረጋገጥ ከታች ያለውን ይጫኑ። ካልመጣልዎት ትንሽ ጠብቀው በድጋሜ ይሞክሩ። ኡስታዙ ሊንክ ሳይልክ ብዙ ከቆየብዎት ለተቆጣጣሪዎች ሪፖርት ያድርጉ"
+                : lang == "or"
+                ? "Barsiisaan linki akka erge mirkaneessuuf armaan gadii tuqaa. Yoo hin dhufne xiqqoo eegdanii irra deebi'aa yaalaa. Ustazaan linki osoo hin ergin yeroo dheeraa yoo tureef to'atoota gabaasaa"
                 : "Click below to verify that the teacher sent the link."}
             </p>
             {controller?.phoneNumber && (
@@ -139,7 +147,7 @@ export default function List() {
               endContent={<RefreshCcw className="size-4 " />}
               onPress={refresh}
             >
-              {lang == "am" ? "ያድሱ" : "Refresh"}
+              {lang == "am" ? "ያድሱ" : lang == "or" ? "Haaromsi" : "Refresh"}
             </Button>
           </div>
         </ScrollShadow>

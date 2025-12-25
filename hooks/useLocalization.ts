@@ -3,8 +3,9 @@
 import { useParams } from "next/navigation";
 import { en } from "@/lib/locales/en";
 import { am } from "@/lib/locales/am";
+import { or } from "@/lib/locales/or";
 
-export type Locale = "en" | "am";
+export type Locale = "en" | "am" | "or";
 
 export const useLocalization = () => {
   const params = useParams();
@@ -12,7 +13,7 @@ export const useLocalization = () => {
 
   const t = (key: string, fallback?: string): string => {
     const keys = key.split(".");
-    let value: any = locale === "am" ? am : en;
+    let value: any = locale === "am" ? am : locale === "or" ? or : en;
 
     for (const k of keys) {
       value = value?.[k];
@@ -42,7 +43,7 @@ export const useLocalization = () => {
   };
 
   const formatCurrency = (amount: number, currency: string = "ETB"): string => {
-    if (locale === "am") {
+    if (locale === "am" || locale === "or") {
       return `${amount.toLocaleString()} ${currency}`;
     }
     return `${currency} ${amount.toLocaleString()}`;
@@ -53,6 +54,8 @@ export const useLocalization = () => {
 
     if (locale === "am") {
       return dateObj.toLocaleDateString("am-ET");
+    } else if (locale === "or") {
+      return dateObj.toLocaleDateString("om-ET");
     }
     return dateObj.toLocaleDateString("en-US");
   };

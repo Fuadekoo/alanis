@@ -27,7 +27,7 @@ export default function Page() {
           className=""
           color="primary"
           labelPlacement="outside"
-          label={lang == "am" ? "ስም" : "Name"}
+          label={lang == "am" ? "ስም" : lang == "or" ? "Maqaa" : "Name"}
           // placeholder={lang == "am" ? "አብደልከሪም አህመድ" : "abdelkerim ahmed"}
           {...form.register("name")}
         />
@@ -35,7 +35,7 @@ export default function Page() {
           className=""
           color="primary"
           labelPlacement="outside"
-          label={lang == "am" ? "ሀገር" : "Country"}
+          label={lang == "am" ? "ሀገር" : lang == "or" ? "Biyya" : "Country"}
           // placeholder={lang == "am" ? "ኢትዮጵያ" : "ethiopia"}
           {...form.register("country")}
         />
@@ -43,12 +43,12 @@ export default function Page() {
           className=""
           color="primary"
           labelPlacement="outside"
-          label={lang == "am" ? "ስልክ ቁጥር" : "PhoneNumber"}
+          label={lang == "am" ? "ስልክ ቁጥር" : lang == "or" ? "Lakkoofsa Bilbilaa" : "PhoneNumber"}
           // placeholder="0945467896"
           {...form.register("phoneNumber")}
         />
         <Button color="primary" type="submit">
-          {lang == "am" ? "ላክ" : "Submit"}
+          {lang == "am" ? "ላክ" : lang == "or" ? "Ergaa" : "Submit"}
         </Button>
       </Form>
     </div>

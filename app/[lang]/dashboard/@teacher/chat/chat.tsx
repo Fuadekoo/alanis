@@ -79,7 +79,7 @@ export function Chat() {
                 startContent={<Pen className="size-4" />}
                 onPress={setUpdate.bind(undefined, id)}
               >
-                {lang == "am" ? "ያስተካክሉ" : "Edit"}
+                {lang == "am" ? "ያስተካክሉ" : lang == "or" ? "Sirreessi" : "Edit"}
               </DropdownItem>
               <DropdownItem
                 key={"delete"}
@@ -92,7 +92,7 @@ export function Chat() {
                   ) : undefined
                 }
               >
-                {lang == "am" ? "ይሰርዙ" : "Delete"}
+                {lang == "am" ? "ይሰርዙ" : lang == "or" ? "Haqi" : "Delete"}
               </DropdownItem>
             </DropdownMenu>
           </Dropdown>
@@ -113,7 +113,7 @@ export function Chat() {
         <Textarea
           className=""
           classNames={{ inputWrapper: "bg-default-50/50 rounded-none" }}
-          placeholder={lang == "am" ? "እዚህ ይፃፉ ..." : "type here ..."}
+          placeholder={lang == "am" ? "እዚህ ይፃፉ ..." : lang == "or" ? "Asitti barreessaa ..." : "type here ..."}
           value={message}
           onValueChange={setMessage}
           endContent={

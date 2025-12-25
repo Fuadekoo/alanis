@@ -28,10 +28,10 @@ export function List() {
         {(
           [
             {
-              label: lang == "am" ? "ተቆጣጣሪ" : "controller",
+              label: lang == "am" ? "ተቆጣጣሪ" : lang == "or" ? "To'ataa" : "controller",
               value: "controller",
             },
-            { label: lang == "am" ? "አስተዳዳሪ" : "manager", value: "manager" },
+            { label: lang == "am" ? "አስተዳዳሪ" : lang == "or" ? "Bulchaa" : "manager", value: "manager" },
           ] as const
         ).map(({ label, value }, i) => (
           <Button

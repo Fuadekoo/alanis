@@ -13,6 +13,8 @@ export default function Page() {
       <p className="text-center">
         {lang == "am"
           ? "በተሳካ ሁኔታ ተመዝገበዋል። በቅርቡ ከደንበኛ አገልግሎት ይደወልሎታል በትግስት ይጠብቁ።"
+          : lang == "or"
+          ? "Milkaa'inaan galmaa'amtan. Yeroo dhiyoo tajaajila maamiltootaa irraa bilbilli isiniif ni ta'a, obsaan eegaa."
           : "you are successfully register"}
       </p>
       <p className="text-2xl font-semibold text-center ">0924232389</p>
@@ -24,7 +26,7 @@ export default function Page() {
         as={Link}
         href={`/${lang}/`}
       >
-        {lang == "am" ? "ወደ መግቢያው ይመለሱ" : "Back to home"}
+        {lang == "am" ? "ወደ መግቢያው ይመለሱ" : lang == "or" ? "Gara manatti deebi'aa" : "Back to home"}
       </Button>
     </div>
   );

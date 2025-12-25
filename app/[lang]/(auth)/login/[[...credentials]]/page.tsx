@@ -49,7 +49,7 @@ export default function Page() {
             <Input
               variant="faded"
               color="primary"
-              placeholder={lang == "am" ? "መለያ ስም" : "Username"}
+              placeholder={lang == "am" ? "መለያ ስም" : lang == "or" ? "Maqaa fayyadamaa" : "Username"}
               className="w-60"
               startContent={<User className="size-6" />}
               {...register("username")}
@@ -57,7 +57,7 @@ export default function Page() {
             <Input
               variant="faded"
               color="primary"
-              placeholder={lang == "am" ? "ሚስጥር ቁልፍ" : "Password"}
+              placeholder={lang == "am" ? "ሚስጥር ቁልፍ" : lang == "or" ? "Jecha icciitii" : "Password"}
               className="w-60"
               startContent={<KeyRound className="size-6" />}
               type={hidden ? "password" : "text"}
@@ -73,7 +73,7 @@ export default function Page() {
               {...register("password")}
             />
             <Button type="submit" color="primary" isLoading={isLoading}>
-              {lang == "am" ? "ይግቡ" : "Login"}
+              {lang == "am" ? "ይግቡ" : lang == "or" ? "Seenaa" : "Login"}
             </Button>
           </div>
         </div>

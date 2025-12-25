@@ -27,8 +27,8 @@ export function List() {
       <div className="p-1 bg-default-50/50 rounded-xl grid gap-1 grid-cols-2">
         {(
           [
-            { label: lang == "am" ? "ተማሪ" : "student", value: "student" },
-            { label: lang == "am" ? "መምህር" : "teacher", value: "teacher" },
+            { label: lang == "am" ? "ተማሪ" : lang == "or" ? "Barattoo" : "student", value: "student" },
+            { label: lang == "am" ? "መምህር" : lang == "or" ? "Barsiisaa" : "teacher", value: "teacher" },
           ] as const
         ).map(({ label, value }, i) => (
           <Button

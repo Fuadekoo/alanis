@@ -39,7 +39,7 @@ const authConfig = {
       // console.log("AK >> ", !!auth, nextUrl.pathname);
       if (auth?.user) {
         const pathname = nextUrl.pathname.split("/");
-        if (["am", "en"].includes(pathname[1]) && pathname[2] !== "dashboard") {
+        if (["am", "en", "or"].includes(pathname[1]) && pathname[2] !== "dashboard") {
           console.log("AK >> ", nextUrl.pathname);
           return Response.redirect(
             new URL(
