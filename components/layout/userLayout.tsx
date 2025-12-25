@@ -13,6 +13,7 @@ export default function UserLayout({
   menu: {
     english: string;
     amharic: string;
+    oromo: string;
     url: string;
     Icon: React.JSX.Element;
   }[][];
