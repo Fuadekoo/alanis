@@ -6,7 +6,7 @@ export function useFilter() {
     search: "",
     sort: true,
     currentPage: 1,
-    row: 50,
+    row: 250,
   });
 
   const handleSearch = useDebouncedCallback(
