@@ -167,6 +167,7 @@ export const en = {
   navigation: {
     home: "Home",
     dashboard: "Dashboard",
+    login: "Login",
     payments: "Payments",
     deposits: "Deposits",
     students: "Students",

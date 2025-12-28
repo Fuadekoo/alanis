@@ -167,6 +167,7 @@ export const or = {
   navigation: {
     home: "Mana",
     dashboard: "Gabatee",
+    login: "Seeni",
     payments: "Kaffaltii",
     deposits: "Kuusaa",
     students: "Barattoota",

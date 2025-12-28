@@ -7,9 +7,11 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useLocalization } from "@/hooks/useLocalization";
 
 export function GuestHeader() {
   const { lang } = useParams<{ lang: string }>();
+  const { t } = useLocalization();
 
   return (
     <header className="z-40 sticky top-0 h-14 p-2 bg-background/30 shadow backdrop-blur-3xl flex gap-5 items-center ">
@@ -27,7 +29,7 @@ export function GuestHeader() {
           href={"/"}
           className="max-md:hidden text-2xl tracking-wider font-extrabold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
         >
-          {lang == "am" ? "አል አኒስ" : lang == "or" ? "Al ANIS" : "Al ANIS"}
+          {lang == "am" ? "አል አኒስ" : "Al ANIS"}
         </Link>
       </div>
       <nav className="flex-1"> </nav>
@@ -41,21 +43,14 @@ export function GuestHeader() {
 function User() {
   const { status } = useSession();
   const { lang } = useParams<{ lang: string }>();
+  const { t } = useLocalization();
 
   return (
     <div className="md:pr-10">
       <Button color="primary" as={Link} href={`/${lang}/login`}>
         {status == "authenticated"
-          ? lang == "am"
-            ? "ዳሽቦርድ"
-            : lang == "or"
-            ? "Gabatee"
-            : "Dashboard"
-          : lang == "am"
-          ? "ይግቡ"
-          : lang == "or"
-          ? "Seenaa"
-          : "Login"}
+          ? t("navigation.dashboard", "Dashboard")
+          : t("navigation.login", "Login")}
       </Button>
     </div>
   );

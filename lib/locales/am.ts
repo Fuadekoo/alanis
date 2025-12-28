@@ -167,6 +167,7 @@ export const am = {
   navigation: {
     home: "መነሻ",
     dashboard: "ዳሽቦርድ",
+    login: "ይግቡ",
     payments: "ክፍያዎች",
     deposits: "ተቀማጭ ክፍያዎች",
     students: "ተማሪዎች",
