@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/heroui";
 import Image from "next/image";
 import data from "./data.json";
 import { Footer } from "./footer";
-import { useLocalization } from "@/hooks/useLocalization";
 
 export default function Home() {
   return (
@@ -24,7 +23,6 @@ export default function Home() {
 
 function LandingPage() {
   const { lang } = useParams<{ lang: string }>();
-  const { t } = useLocalization();
 
   return (
     <div className="h-dvh p-4 grid place-content-center ">
@@ -44,7 +42,7 @@ function LandingPage() {
         ) : lang == "or" ? (
           <>
             <span className="text-primary">Al Anis</span>{" "}
-            <span className="text-secondary">Giddu-gala Qur'aanaa</span>
+            <span className="text-secondary">Giddu-gala Qur&apos;aanaa</span>
           </>
         ) : (
           <>
@@ -62,14 +60,14 @@ function LandingPage() {
       ) : lang == "or" ? (
         <p className="text-center text-2xl py-5">
           <span className="text-primary-600">ammas hin gahuu</span> jedhee
-          Qur'aana <span className="text-secondary-600">dubbisuu</span> hin
-          danda'u jechuu!!
+          Qur&apos;aana <span className="text-secondary-600">dubbisuu</span> hin
+          danda&apos;u jechuu!!
         </p>
       ) : (
         <p className="text-center text-2xl py-5">
-          {"It's"} <span className="text-primary-600">no longer enough</span> to
-          say I {"can't"} <span className="text-secondary-600">read</span> the
-          Quran!!
+          It&apos;s <span className="text-primary-600">no longer enough</span>{" "}
+          to say I can&apos;t <span className="text-secondary-600">read</span>{" "}
+          the Quran!!
         </p>
       )}
     </div>
@@ -78,21 +76,20 @@ function LandingPage() {
 
 function LandingPage1() {
   const { lang } = useParams<{ lang: string }>();
-  const { t } = useLocalization();
   return (
     <div className="h-[calc(100dvh-3.5rem)] p-5 grid content-center justify-center gap-10 ">
       <p className="max-w-4xl text-4xl md:text-7xl  font-extrabold text-center bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
         {lang == "am"
           ? "ቁርዓንን መቅራት በዚህኛውም ሆነ በቀጣዩ አለም ልቅናን የመጎናፀፊያ ምክንያት ነው"
           : lang == "or"
-          ? "Qur'aana qara'uun gammachuu addunyaa fi aakhiraatti argachuuf madda ta'a"
+          ? "Qur&apos;aana qara&apos;uun gammachuu addunyaa fi aakhiraatti argachuuf madda ta&apos;a"
           : "Reciting the Quran is a means of attaining happiness in this world and in the hereafter."}
       </p>
       <p className="max-w-lg place-self-center text-center  ">
         {lang == "am"
           ? "አንድ ባሪያ ቁርዓንን በመቅራቱ ብቻ ሌሊቱን ቆመው ከሚያሳልፉ ባሮች ተርታ ይመደባል "
           : lang == "or"
-          ? "Gabrichi Qur'aana qara'uu qofa gochuun warra galgala ka'an keessa lakkaa'ama"
+          ? "Gabrichi Qur&apos;aana qara&apos;uu qofa gochuun warra galgala ka&apos;an keessa lakkaa&apos;ama"
           : "A slave is counted among those who spend the night standing only reciting the Quran."}
       </p>
       <div className="flex gap-y-5 gap-x-10 max-md:flex-col md:justify-center max-md:items-center  ">
@@ -116,7 +113,11 @@ function LandingPage1() {
           color="primary"
           className="w-60"
         >
-          {lang == "am" ? "ምዝገባ" : lang == "or" ? "Galmaa'i" : "registration"}
+          {lang == "am"
+            ? "ምዝገባ"
+            : lang == "or"
+            ? "Galmaa&apos;i"
+            : "registration"}
         </Button>
         <Button
           as={Link}
@@ -152,7 +153,7 @@ function About({ data }: { data: string[][] }) {
           {lang == "am"
             ? "ስለ እኛ"
             : lang == "or"
-            ? "Waa'ee Keenyaa"
+            ? "Waa&apos;ee Keenyaa"
             : "About Us"}
         </p>
         <div className="flex flex-col gap-10 text-xl text-center">

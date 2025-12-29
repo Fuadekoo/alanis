@@ -11,7 +11,6 @@ import { useLocalization } from "@/hooks/useLocalization";
 
 export function GuestHeader() {
   const { lang } = useParams<{ lang: string }>();
-  const { t } = useLocalization();
 
   return (
     <header className="z-40 sticky top-0 h-14 p-2 bg-background/30 shadow backdrop-blur-3xl flex gap-5 items-center ">
