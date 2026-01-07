@@ -32,6 +32,8 @@ import {
   Trash2,
   BarChart3,
 } from "lucide-react";
+import { Eye } from "lucide-react";
+import Image from "next/image";
 import { DatePicker } from "@/components/ui/heroui";
 import { parseDate, getLocalTimeZone } from "@internationalized/date";
 import { X } from "lucide-react";
@@ -58,6 +60,20 @@ function Page() {
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string>("");
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+
+  // Photo preview modal state
+  const [isPhotoPreviewOpen, setIsPhotoPreviewOpen] = useState(false);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string>("");
+
+  const openPhotoPreview = (filename: string) => {
+    if (!filename) return;
+    setPreviewPhotoUrl(filename);
+    setIsPhotoPreviewOpen(true);
+  };
+  const closePhotoPreview = () => {
+    setIsPhotoPreviewOpen(false);
+    setPreviewPhotoUrl("");
+  };
 
   // Analytics data
   const [analyticsData, isLoadingAnalytics] = useData(
@@ -223,6 +239,25 @@ function Page() {
       },
     },
     {
+      key: "paymentPhoto",
+      label: "Payment Photo",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) =>
+        item.paymentPhoto ? (
+          <Image
+            src={`/api/filedata/${encodeURIComponent(
+              item.paymentPhoto as string
+            )}`}
+            alt="Payment"
+            width={40}
+            height={40}
+            style={{ objectFit: "cover", borderRadius: 4 }}
+          />
+        ) : (
+          <span className="text-default-400 text-xs">No image</span>
+        ),
+    },
+    {
       key: "description",
       label: "Description",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -238,6 +273,18 @@ function Page() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => (
         <div className="flex items-center gap-2">
+          {item.paymentPhoto ? (
+            <Button
+              isIconOnly
+              size="sm"
+              variant="flat"
+              color="default"
+              onPress={() => openPhotoPreview(item.paymentPhoto)}
+              aria-label="View payment photo"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          ) : null}
           <Button
             isIconOnly
             size="sm"
@@ -444,62 +491,64 @@ function Page() {
                   errorMessage={form.validationErrors.name}
                   isInvalid={!!form.validationErrors.name}
                 />
-                <Input
-                  label="Amount"
-                  labelPlacement="outside"
-                  placeholder="Enter amount"
-                  type="number"
-                  {...form.register("amount")}
-                  isRequired
-                  errorMessage={form.validationErrors.amount}
-                  isInvalid={!!form.validationErrors.amount}
-                  startContent={<span className="text-gray-500">ETB</span>}
-                />
-                <div className="flex gap-2">
-                  <DatePicker
-                    className="flex-1"
-                    label="Date"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Input
+                    label="Amount"
                     labelPlacement="outside"
-                    value={
-                      form.watch("date")
-                        ? (() => {
-                            const date = form.watch("date");
-                            if (!date) return null;
-                            const year = date.getFullYear();
-                            const month = String(date.getMonth() + 1).padStart(
-                              2,
-                              "0"
-                            );
-                            const day = String(date.getDate()).padStart(2, "0");
-                            return parseDate(`${year}-${month}-${day}`);
-                          })()
-                        : null
-                    }
-                    onChange={(v) => {
-                      if (v) {
-                        const date = v.toDate(getLocalTimeZone());
-                        // Create a new date with local time to avoid timezone issues
-                        const localDate = new Date(
-                          date.getFullYear(),
-                          date.getMonth(),
-                          date.getDate()
-                        );
-                        form.setValue("date", localDate);
-                      }
-                    }}
+                    placeholder="Enter amount"
+                    type="number"
+                    {...form.register("amount")}
                     isRequired
+                    errorMessage={form.validationErrors.amount}
+                    isInvalid={!!form.validationErrors.amount}
+                    startContent={<span className="text-gray-500">ETB</span>}
                   />
-                  {form.watch("date") && (
-                    <Button
-                      isIconOnly
-                      variant="flat"
-                      color="danger"
-                      className="mt-8"
-                      onPress={() => form.setValue("date", new Date())}
-                    >
-                      <X className="size-4" />
-                    </Button>
-                  )}
+                  <div className="flex items-end gap-2">
+                    <DatePicker
+                      className="flex-1"
+                      label="Date"
+                      labelPlacement="outside"
+                      value={
+                        form.watch("date")
+                          ? (() => {
+                              const date = form.watch("date");
+                              if (!date) return null;
+                              const year = date.getFullYear();
+                              const month = String(
+                                date.getMonth() + 1
+                              ).padStart(2, "0");
+                              const day = String(date.getDate()).padStart(
+                                2,
+                                "0"
+                              );
+                              return parseDate(`${year}-${month}-${day}`);
+                            })()
+                          : null
+                      }
+                      onChange={(v) => {
+                        if (v) {
+                          const d = v.toDate(getLocalTimeZone());
+                          const localDate = new Date(
+                            d.getFullYear(),
+                            d.getMonth(),
+                            d.getDate()
+                          );
+                          form.setValue("date", localDate);
+                        }
+                      }}
+                      isRequired
+                    />
+                    {form.watch("date") && (
+                      <Button
+                        isIconOnly
+                        variant="flat"
+                        color="danger"
+                        onPress={() => form.setValue("date", new Date())}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 {form.validationErrors.date && (
                   <p className="text-sm text-danger">
@@ -671,6 +720,46 @@ function Page() {
               </ModalFooter>
             </>
           )}
+        </ModalContent>
+      </Modal>
+
+      {/* Payment Photo Preview Modal */}
+      <Modal
+        isOpen={isPhotoPreviewOpen}
+        onOpenChange={setIsPhotoPreviewOpen}
+        size="md"
+        backdrop="blur"
+        classNames={{ backdrop: "bg-black/50 backdrop-blur-md" }}
+      >
+        <ModalContent>
+          <ModalHeader className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-default-200/80 dark:bg-default-700/60">
+              <Eye className="size-6" />
+            </div>
+            <h3 className="text-xl font-bold">Payment Photo</h3>
+          </ModalHeader>
+          <ModalBody>
+            {previewPhotoUrl ? (
+              <div className="flex justify-center">
+                <Image
+                  src={`/api/filedata/${encodeURIComponent(previewPhotoUrl)}`}
+                  alt="Payment photo preview"
+                  width={320}
+                  height={320}
+                  className="max-h-[360px] w-auto object-contain rounded-lg border"
+                />
+              </div>
+            ) : (
+              <p className="text-center text-sm text-default-500">
+                No photo available
+              </p>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={closePhotoPreview}>
+              Close
+            </Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </div>

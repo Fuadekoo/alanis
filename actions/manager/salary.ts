@@ -685,3 +685,100 @@ export async function deleteSalary(salaryId: string) {
     where: { id: salaryId },
   });
 }
+
+export async function getTeacherSalaryAnalytics() {
+  const session = await auth();
+  if (session?.user?.role !== "manager") {
+    return {
+      error: "Access denied.",
+      thisMonthSalaryAmount: 0,
+      thisMonthSalaryCount: 0,
+      thisYearSalaryAmount: 0,
+      thisYearSalaryCount: 0,
+      thisWeekSalaryAmount: 0,
+      thisWeekSalaryCount: 0,
+      totalSalaryAmount: 0,
+      totalSalaryCount: 0,
+    };
+  }
+
+  try {
+    const now = new Date();
+
+    // Month
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+
+    const thisMonth = await prisma.teacherSalary.aggregate({
+      _sum: { amount: true },
+      _count: { id: true },
+      where: {
+        createdAt: { gte: startOfMonth, lte: endOfMonth },
+      },
+    });
+
+    // Year
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    const thisYear = await prisma.teacherSalary.aggregate({
+      _sum: { amount: true },
+      _count: { id: true },
+      where: {
+        createdAt: { gte: startOfYear, lte: endOfYear },
+      },
+    });
+
+    // Week (Sun-Sat)
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+    const thisWeek = await prisma.teacherSalary.aggregate({
+      _sum: { amount: true },
+      _count: { id: true },
+      where: {
+        createdAt: { gte: startOfWeek, lte: endOfWeek },
+      },
+    });
+
+    // Total
+    const total = await prisma.teacherSalary.aggregate({
+      _sum: { amount: true },
+      _count: { id: true },
+    });
+
+    return {
+      thisMonthSalaryAmount: thisMonth._sum.amount || 0,
+      thisMonthSalaryCount: thisMonth._count.id || 0,
+      thisYearSalaryAmount: thisYear._sum.amount || 0,
+      thisYearSalaryCount: thisYear._count.id || 0,
+      thisWeekSalaryAmount: thisWeek._sum.amount || 0,
+      thisWeekSalaryCount: thisWeek._count.id || 0,
+      totalSalaryAmount: total._sum.amount || 0,
+      totalSalaryCount: total._count.id || 0,
+    };
+  } catch (error) {
+    console.error("Failed to get teacher salary analytics:", error);
+    return {
+      error: "Failed to retrieve salary analytics.",
+      thisMonthSalaryAmount: 0,
+      thisMonthSalaryCount: 0,
+      thisYearSalaryAmount: 0,
+      thisYearSalaryCount: 0,
+      thisWeekSalaryAmount: 0,
+      thisWeekSalaryCount: 0,
+      totalSalaryAmount: 0,
+      totalSalaryCount: 0,
+    };
+  }
+}

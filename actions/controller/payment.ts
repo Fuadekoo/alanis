@@ -53,7 +53,6 @@ export async function getStudent(page?: number, pageSize?: number) {
         lastName: true,
         phoneNumber: true,
         balance: true,
-        
       },
       // orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -100,12 +99,12 @@ export async function getPayment(
   page = page && page > 0 ? page : 1;
   pageSize = pageSize && pageSize > 0 ? pageSize : 50;
 
-  // Get current controller from session
+  // Get current session to determine role-based access
   const { auth } = await import("@/lib/auth");
   const session = await auth();
+  const role = session?.user?.role;
   const controllerId = session?.user?.id;
-
-  if (!controllerId) {
+  if (!session?.user?.id) {
     return {
       error: "Unauthorized access",
       data: [],
@@ -122,10 +121,12 @@ export async function getPayment(
 
   const where: any = {
     ...(studentId && { studentId }),
-    // Only show payments for students assigned to this controller
-    user: {
-      controllerId: controllerId,
-    },
+    ...(role === "controller"
+      ? {
+          // Controllers can only see their assigned students
+          user: { controllerId: controllerId },
+        }
+      : {}),
     ...(search && search.trim()
       ? {
           OR: [
@@ -386,20 +387,27 @@ export async function rollbackPayment(
 
 export async function getBalance(studentId: string): Promise<number | null> {
   try {
-    // Get current controller from session
+    // Get current session/role
     const { auth } = await import("@/lib/auth");
     const session = await auth();
+    const role = session?.user?.role;
     const controllerId = session?.user?.id;
 
-    if (!controllerId) {
+    if (!session?.user?.id) {
       return null;
     }
 
     const student = await prisma.user.findUnique({
-      where: {
-        id: studentId,
-        controllerId: controllerId, // Ensure student belongs to this controller
-      },
+      where:
+        role === "controller"
+          ? {
+              id: studentId,
+              controllerId: controllerId,
+            }
+          : {
+              // Managers can view any student's balance
+              id: studentId,
+            },
       select: { balance: true },
     });
     return student?.balance || null;

@@ -30,6 +30,9 @@ import {
   FileText,
   Search,
   Calendar,
+  DollarSign,
+  BarChart3,
+  TrendingUp,
 } from "lucide-react";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
@@ -42,7 +45,9 @@ import {
   updateSalary,
   getSalaryDetail,
   createAutomaticSalaries,
+  getTeacherSalaryAnalytics,
 } from "@/actions/manager/salary";
+import { useLocalization } from "@/hooks/useLocalization";
 import { getTeacherList } from "@/actions/controller/teacher";
 import { paymentStatus } from "@prisma/client";
 import useAlert from "@/hooks/useAlert";
@@ -128,6 +133,14 @@ function Page() {
   >(new Set());
   const [filterMonth, setFilterMonth] = useState<string>("all");
   const [filterYear, setFilterYear] = useState<string>("all");
+
+  const { formatCurrency } = useLocalization();
+
+  // Analytics data
+  const [analyticsData, isLoadingAnalytics] = useData(
+    getTeacherSalaryAnalytics,
+    () => {}
+  );
 
   // Photo upload state
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
@@ -885,6 +898,104 @@ function Page() {
 
   return (
     <div className="h-full overflow-auto p-3 sm:p-5 space-y-4">
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
+        {/* Total Salaries */}
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 rounded-xl shadow-lg border border-emerald-200 dark:border-emerald-800 p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-emerald-100 dark:text-emerald-200 text-sm font-medium">
+                Total Salaries
+              </p>
+              <p className="text-3xl font-bold text-white">
+                {isLoadingAnalytics
+                  ? "..."
+                  : formatCurrency(
+                      Number(analyticsData?.totalSalaryAmount || 0)
+                    )}
+              </p>
+              <p className="text-emerald-100 dark:text-emerald-200 text-xs mt-1">
+                {analyticsData?.totalSalaryCount || 0} records
+              </p>
+            </div>
+            <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+              <DollarSign className="h-8 w-8 text-white" />
+            </div>
+          </div>
+        </div>
+
+        {/* This Month */}
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl shadow-lg border border-blue-200 dark:border-blue-800 p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-100 dark:text-blue-200 text-sm font-medium">
+                This Month
+              </p>
+              <p className="text-3xl font-bold text-white">
+                {isLoadingAnalytics
+                  ? "..."
+                  : formatCurrency(
+                      Number(analyticsData?.thisMonthSalaryAmount || 0)
+                    )}
+              </p>
+              <p className="text-blue-100 dark:text-blue-200 text-xs mt-1">
+                {analyticsData?.thisMonthSalaryCount || 0} records
+              </p>
+            </div>
+            <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+              <Calendar className="h-8 w-8 text-white" />
+            </div>
+          </div>
+        </div>
+
+        {/* This Year */}
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-xl shadow-lg border border-purple-200 dark:border-purple-800 p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-purple-100 dark:text-purple-200 text-sm font-medium">
+                This Year
+              </p>
+              <p className="text-3xl font-bold text-white">
+                {isLoadingAnalytics
+                  ? "..."
+                  : formatCurrency(
+                      Number(analyticsData?.thisYearSalaryAmount || 0)
+                    )}
+              </p>
+              <p className="text-purple-100 dark:text-purple-200 text-xs mt-1">
+                {analyticsData?.thisYearSalaryCount || 0} records
+              </p>
+            </div>
+            <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+              <BarChart3 className="h-8 w-8 text-white" />
+            </div>
+          </div>
+        </div>
+
+        {/* This Week */}
+        <div className="bg-gradient-to-br from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700 rounded-xl shadow-lg border border-amber-200 dark:border-amber-800 p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-amber-100 dark:text-amber-200 text-sm font-medium">
+                This Week
+              </p>
+              <p className="text-3xl font-bold text-white">
+                {isLoadingAnalytics
+                  ? "..."
+                  : formatCurrency(
+                      Number(analyticsData?.thisWeekSalaryAmount || 0)
+                    )}
+              </p>
+              <p className="text-amber-100 dark:text-amber-200 text-xs mt-1">
+                {analyticsData?.thisWeekSalaryCount || 0} records
+              </p>
+            </div>
+            <div className="p-3 bg-white/20 dark:bg-white/10 rounded-lg">
+              <TrendingUp className="h-8 w-8 text-white" />
+            </div>
+          </div>
+        </div>
+      </div>
       {/* Header */}
       {/* <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="space-y-1">
