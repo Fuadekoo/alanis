@@ -144,6 +144,9 @@ export async function createExpense(
           amount: validatedData.amount,
           date: validatedData.date,
           description: validatedData.description || "",
+          ...(validatedData.paymentPhoto
+            ? { paymentPhoto: validatedData.paymentPhoto }
+            : {}),
         },
       });
 
@@ -160,6 +163,7 @@ export async function createExpense(
         amount: validatedData.amount,
         date: validatedData.date,
         description: validatedData.description || "",
+        paymentPhoto: validatedData.paymentPhoto || undefined,
       },
     });
 
@@ -181,7 +185,6 @@ export async function createExpense(
     };
   }
 }
-
 
 export async function deleteExpense(id: string): Promise<MutationState> {
   const session = await auth();
@@ -329,4 +332,3 @@ export async function getExpenseAnalytics() {
     };
   }
 }
-

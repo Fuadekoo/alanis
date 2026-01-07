@@ -170,12 +170,17 @@ export const teacherAnnouncementSchema = z.object({
   lastDate: z.coerce.date({ message: "must be date format" }).optional(),
 });
 
-export type TeacherAnnouncementSchema = z.infer<typeof teacherAnnouncementSchema>;
+export type TeacherAnnouncementSchema = z.infer<
+  typeof teacherAnnouncementSchema
+>;
 
 export const studyRoomSchema = z.object({
   id: z.string().optional(),
   name: z.string().nonempty("Name is required"),
-  zoomLink: z.string().url("Must be a valid URL").nonempty("Zoom link is required"),
+  zoomLink: z
+    .string()
+    .url("Must be a valid URL")
+    .nonempty("Zoom link is required"),
 });
 
 export type StudyRoomSchema = z.infer<typeof studyRoomSchema>;
@@ -190,7 +195,9 @@ export type DepositSchema = z.infer<typeof depositSchema>;
 export const paymentSchema = z.object({
   studentId: z.string().nonempty("student is required"),
   perMonthAmount: z.coerce.number().positive("amount must be positive"),
-  monthsToPay: z.array(z.string().nonempty("month is required")).nonempty("at least one month must be selected"),
+  monthsToPay: z
+    .array(z.string().nonempty("month is required"))
+    .nonempty("at least one month must be selected"),
 });
 export type PaymentSchema = z.infer<typeof paymentSchema>;
 
@@ -200,6 +207,6 @@ export const expenseSchema = z.object({
   amount: z.coerce.number().positive("amount must be positive"),
   date: z.coerce.date({ message: "date is required" }),
   description: z.string().optional().default(""),
+  paymentPhoto: z.string().optional().default(""),
 });
 export type ExpenseSchema = z.infer<typeof expenseSchema>;
-

@@ -1229,6 +1229,31 @@ export async function calculateTeacherSalary(
         },
       });
 
+      // Also create a linked expense for this teacher salary
+      try {
+        const teacher = await tx.user.findUnique({
+          where: { id: teacherId },
+          select: { firstName: true, fatherName: true, lastName: true },
+        });
+        const teacherName = teacher
+          ? `${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`.trim()
+          : teacherId;
+        const expenseName = `${teacherName} ${month}/${year}`;
+        await tx.expense.create({
+          data: {
+            name: expenseName,
+            amount,
+            // align expense date with salary creation time
+            date: salary.createdAt,
+            teacherSalaryId: salary.id,
+            status: "pending",
+            description: "",
+          },
+        });
+      } catch (e) {
+        throw e;
+      }
+
       // Link the TeacherProgress records to this salary and set payment status to approved
       if (currentProgress.length > 0) {
         await tx.teacherProgress.updateMany({

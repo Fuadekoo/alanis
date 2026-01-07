@@ -53,6 +53,12 @@ function Page() {
     null
   );
 
+  // Photo upload state
+  const [uploadingPhoto, setUploadingPhoto] = useState<File | null>(null);
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string>("");
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+
   // Analytics data
   const [analyticsData, isLoadingAnalytics] = useData(
     getExpenseAnalytics,
@@ -111,6 +117,7 @@ function Page() {
     amount: number;
     date: string;
     description?: string;
+    paymentPhoto?: string | null;
   }) => {
     setEditingId(expense.id);
     form.edit({
@@ -119,6 +126,7 @@ function Page() {
       amount: expense.amount,
       date: new Date(expense.date),
       description: expense.description || "",
+      paymentPhoto: expense.paymentPhoto || "",
     });
   };
 
@@ -165,6 +173,7 @@ function Page() {
       date: string;
       description?: string | null;
       createdAt: string;
+      paymentPhoto?: string | null;
     }) => ({
       key: String(expense.id),
       id: String(expense.id),
@@ -173,6 +182,7 @@ function Page() {
       date: expense.date || "",
       description: expense.description || "",
       createdAt: expense.createdAt || "",
+      paymentPhoto: expense.paymentPhoto || "",
     })
   );
 
@@ -456,7 +466,10 @@ function Page() {
                             const date = form.watch("date");
                             if (!date) return null;
                             const year = date.getFullYear();
-                            const month = String(date.getMonth() + 1).padStart(2, "0");
+                            const month = String(date.getMonth() + 1).padStart(
+                              2,
+                              "0"
+                            );
                             const day = String(date.getDate()).padStart(2, "0");
                             return parseDate(`${year}-${month}-${day}`);
                           })()
@@ -502,6 +515,107 @@ function Page() {
                   isInvalid={!!form.validationErrors.description}
                   minRows={3}
                 />
+
+                {/* Payment Photo Upload */}
+                <div className="mt-2">
+                  <label className="block text-sm font-medium mb-2">
+                    Payment Photo (optional)
+                  </label>
+                  {form.watch("paymentPhoto") ? (
+                    <div className="flex items-center gap-3">
+                      <img
+                        className="h-16 w-16 rounded object-cover border"
+                        src={`/api/filedata/${encodeURIComponent(
+                          form.watch("paymentPhoto") || ""
+                        )}`}
+                        alt="payment"
+                      />
+                      <Button
+                        variant="flat"
+                        color="danger"
+                        onPress={() => {
+                          form.setValue("paymentPhoto", "");
+                          setUploadedPhotoUrl("");
+                          setUploadingPhoto(null);
+                          setUploadProgress(0);
+                        }}
+                      >
+                        Remove Photo
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingPhoto(file);
+                          setIsUploading(true);
+                          setUploadProgress(0);
+
+                          try {
+                            const CHUNK_SIZE = 512 * 1024; // 512KB
+                            const ext = (
+                              file.name.split(".").pop() || "jpg"
+                            ).toLowerCase();
+                            const uuid = `${Date.now()}-${Math.floor(
+                              Math.random() * 100000
+                            )}.${ext}`;
+                            const total = Math.ceil(file.size / CHUNK_SIZE);
+                            let serverFilename: string | null = null;
+
+                            for (let i = 0; i < total; i++) {
+                              const start = i * CHUNK_SIZE;
+                              const end = Math.min(
+                                file.size,
+                                start + CHUNK_SIZE
+                              );
+                              const chunk = file.slice(start, end);
+
+                              const formData = new FormData();
+                              formData.append("chunk", chunk);
+                              formData.append("filename", uuid);
+                              formData.append("chunkIndex", i.toString());
+                              formData.append("totalChunks", total.toString());
+
+                              const res = await fetch("/api/upload", {
+                                method: "POST",
+                                body: formData,
+                              });
+                              if (!res.ok) throw new Error("Upload failed");
+                              const json = await res.json();
+                              serverFilename = json.filename || serverFilename;
+                              setUploadProgress(
+                                Math.round(((i + 1) / total) * 100)
+                              );
+                            }
+
+                            if (!serverFilename)
+                              throw new Error("No filename returned");
+                            setUploadedPhotoUrl(serverFilename);
+                            form.setValue("paymentPhoto", serverFilename);
+                          } catch (err) {
+                            console.error(err);
+                            addToast({
+                              title: "Upload failed",
+                              description: "Could not upload photo.",
+                            });
+                            setUploadingPhoto(null);
+                          } finally {
+                            setIsUploading(false);
+                          }
+                        }}
+                      />
+                      {isUploading && (
+                        <div className="text-sm text-gray-500">
+                          Uploading... {uploadProgress}%
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </ModalBody>
               <ModalFooter>
                 <Button variant="flat" onPress={onClose}>

@@ -247,6 +247,32 @@ export async function createSalary(
       },
     });
 
+    // also create an expense linked to this teacherSalary
+    try {
+      const teacher = await tx.user.findUnique({
+        where: { id: teacherId },
+        select: { firstName: true, fatherName: true, lastName: true },
+      });
+      const teacherName = teacher
+        ? `${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`.trim()
+        : teacherId;
+      const expenseName = `${teacherName} ${month}/${year}`;
+      await tx.expense.create({
+        data: {
+          name: expenseName,
+          amount,
+          // ensure expense.date matches the salary creation timestamp
+          date: teacherSalary.createdAt,
+          teacherSalaryId: teacherSalary.id,
+          status: paymentStatus.pending,
+          description: "",
+        },
+      });
+    } catch (e) {
+      // if expense creation fails, let the transaction fail to keep data consistent
+      throw e;
+    }
+
     // update ShiftTeacherData: link to salary and keep pending until approval
     if (shiftTeacherDataIds && shiftTeacherDataIds.length > 0) {
       await tx.shiftTeacherData.updateMany({
@@ -462,6 +488,27 @@ export async function createAutomaticSalaries(
           },
         });
 
+        // create linked expense for this salary
+        try {
+          const t = teacherMap.get(teacherId);
+          const tName = t
+            ? `${t.firstName} ${t.fatherName} ${t.lastName}`.trim()
+            : teacherId;
+          const expenseName = `${tName} ${month}/${year}`;
+          await tx.expense.create({
+            data: {
+              name: expenseName,
+              amount,
+              date: salary.createdAt,
+              teacherSalaryId: salary.id,
+              status: paymentStatus.pending,
+              description: "",
+            },
+          });
+        } catch (e) {
+          throw e;
+        }
+
         const allProgressIds: string[] = [];
         const allShiftIds: string[] = [];
         let progressLearning = 0;
@@ -556,6 +603,41 @@ export async function updateSalary(
       where: { id: salaryId },
       data: updateData,
     });
+
+    // sync related expense (create if missing) with status and optional photo
+    const existingExpense = await tx.expense.findFirst({
+      where: { teacherSalaryId: salaryId },
+    });
+
+    if (existingExpense) {
+      await tx.expense.update({
+        where: { id: existingExpense.id },
+        data: {
+          status,
+          paymentPhoto: status === paymentStatus.approved ? paymentPhoto : null,
+        },
+      });
+    } else {
+      // create expense for legacy salaries that didn't have one
+      const teacher = await tx.user.findUnique({
+        where: { id: salary.teacherId },
+        select: { firstName: true, fatherName: true, lastName: true },
+      });
+      const teacherName = teacher
+        ? `${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`.trim()
+        : salary.teacherId;
+      const expenseName = `${teacherName} ${salary.month}/${salary.year}`;
+      await tx.expense.create({
+        data: {
+          name: expenseName,
+          amount: salary.amount,
+          date: new Date(),
+          teacherSalaryId: salary.id,
+          status,
+          paymentPhoto: status === paymentStatus.approved ? paymentPhoto : null,
+        },
+      });
+    }
 
     if (status === paymentStatus.approved) {
       await tx.teacherProgress.updateMany({

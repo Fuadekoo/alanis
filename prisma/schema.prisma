@@ -375,6 +375,7 @@ model teacherSalary {
   teacher           user               @relation("TeacherSalaryTeacher", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   teacherProgresses TeacherProgress[]
   shiftTeacherData  ShiftTeacherData[]
+  expenses          expense[]
 }
 
 model teacherDailyReport {
@@ -391,13 +392,17 @@ model teacherDailyReport {
 }
 
 model expense {
-  id          String   @id @default(uuid())
-  name        String
-  amount      Int
-  date        DateTime @default(now())
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String         @id @default(uuid())
+  name            String
+  amount          Int
+  date            DateTime       @default(now())
+  description     String?
+  paymentPhoto    String?
+  teacherSalaryId String?
+  teacherSalary   teacherSalary? @relation(fields: [teacherSalaryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  status          paymentStatus  @default(pending)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }
 
 // teacher Announcement ___________
@@ -418,10 +423,10 @@ model announcementTeacher {
   teacherAnnouncementDataId String
 }
 
-model studyGroupLink{
-  id String @id @default(uuid())
-  zoomLink String  @unique
-  name String
+model studyGroupLink {
+  id        String   @id @default(uuid())
+  zoomLink  String   @unique
+  name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
