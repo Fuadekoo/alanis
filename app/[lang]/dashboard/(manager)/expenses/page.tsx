@@ -56,8 +56,8 @@ function Page() {
   );
 
   // Photo upload state
-  const [uploadingPhoto, setUploadingPhoto] = useState<File | null>(null);
-  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string>("");
+  const [, setUploadingPhoto] = useState<File | null>(null);
+  const [, setUploadedPhotoUrl] = useState<string>("");
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
 
@@ -572,12 +572,14 @@ function Page() {
                   </label>
                   {form.watch("paymentPhoto") ? (
                     <div className="flex items-center gap-3">
-                      <img
+                      <Image
                         className="h-16 w-16 rounded object-cover border"
                         src={`/api/filedata/${encodeURIComponent(
                           form.watch("paymentPhoto") || ""
                         )}`}
                         alt="payment"
+                        width={64}
+                        height={64}
                       />
                       <Button
                         variant="flat"
