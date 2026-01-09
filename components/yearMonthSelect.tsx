@@ -48,7 +48,7 @@ export default function YearMonthSelect() {
         { name: "month", value: month },
       ])}`
     );
-  }, [searchParams, year, month]);
+  }, [searchParams, year, month, router]);
 
   return (
     <div className="grid gap-2 grid-cols-2">

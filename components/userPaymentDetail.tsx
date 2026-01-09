@@ -181,7 +181,7 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
   // Check balance whenever amount or selected months change
   React.useEffect(() => {
     checkBalance();
-  }, [amount, selectedYearMonths]);
+  }, [amount, selectedYearMonths, checkBalance]);
 
   // Remove a selected year-month pair
   const handleRemoveYearMonth = (year: number, month: number) => {
