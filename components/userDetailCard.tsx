@@ -43,6 +43,8 @@ export default function UserDetailCard({
 }) {
   const isAm = useAmharic();
 
+  // Remove spaces and non-numeric characters for messaging links
+  const sanitizedPhone = phoneNumber ? phoneNumber.replace(/\D/g, "") : "";
   return (
     <div className="p-2 bg-default-50/50 rounded-xl ">
       <p className="capitalize font-semibold">{`${firstName} ${fatherName} ${lastName}`}</p>
@@ -71,7 +73,7 @@ export default function UserDetailCard({
             variant="flat"
             className="size-fit p-1 bg-green-500/20 text-green-700"
             as={Link}
-            href={`https://wa.me/${phoneNumber}`}
+            href={`https://wa.me/${sanitizedPhone}`}
           >
             <Image
               alt=""
@@ -86,7 +88,7 @@ export default function UserDetailCard({
             variant="flat"
             className="size-fit p-1 bg-sky-500/20 text-sky-700"
             as={Link}
-            href={`https://t.me/+${phoneNumber}`}
+            href={`https://t.me/+${sanitizedPhone}`}
           >
             <Image
               alt=""

@@ -28,6 +28,8 @@ export default function List() {
   } = useStudent();
   const isAm = useAmharic();
 
+  // Helper to sanitize phone numbers for messaging links
+  const sanitizePhone = (phone: string) => phone.replace(/\D/g, "");
   return (
     <div className="grid gap-5 grid-rows-[auto_1fr_auto] overflow-hidden ">
       <SearchPlace
@@ -126,7 +128,7 @@ export default function List() {
                         <Button
                           isIconOnly
                           as={Link}
-                          href={`https://t.me/+${phoneNumber}`}
+                          href={`https://t.me/+${sanitizePhone(phoneNumber)}`}
                           target="blank"
                         >
                           <Image
@@ -140,7 +142,7 @@ export default function List() {
                         <Button
                           isIconOnly
                           as={Link}
-                          href={`https://wa.me/${phoneNumber}`}
+                          href={`https://wa.me/${sanitizePhone(phoneNumber)}`}
                           target="blank"
                         >
                           <Image
