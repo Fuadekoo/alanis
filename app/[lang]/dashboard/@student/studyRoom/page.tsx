@@ -16,7 +16,35 @@ export default function Page() {
   const [data, isLoading] = useData(getStudyRoomsForStudent, () => {});
 
   const handleJoinRoom = (zoomLink: string) => {
-    window.open(zoomLink, "_blank");
+    // Attempt to extract meeting ID and password
+    const meetingIdMatch = zoomLink.match(/\/j\/(\d+)/);
+    const pwdMatch = zoomLink.match(/[?&]pwd=([^&]+)/);
+
+    if (meetingIdMatch) {
+      const confno = meetingIdMatch[1];
+      const pwd = pwdMatch ? pwdMatch[1] : "";
+      
+      // Construct zoommtg URL
+      // zoommtg://zoom.us/join?confno=...&pwd=...
+      const zoomMtgUrl = `zoommtg://zoom.us/join?confno=${confno}${
+        pwd ? `&pwd=${pwd}` : ""
+      }`;
+      
+      // Try to open the custom protocol
+      window.location.href = zoomMtgUrl;
+      
+      // Set a timeout to fallback to browser if the app doesn't open (though strict fallback is tricky in JS without user interaction)
+      // For now, let's keep it simple. If the user wants to fallback they likely have to click the link again or we can open both (bad UX).
+      // A common pattern is to just try the protocol. 
+      // If we want to be safe, we can preserve the old "open in new tab" behavior as a fallback or just do it alongside? 
+      // The user asked for "fastly", so protocol is best.
+      // Let's fallback to opening the http link in a new tab after a short delay if possible, 
+      // but "checking" if it worked is impossible. 
+      // Just initiating the protocol is the requested "fast" way.
+    } else {
+      // Fallback if regex fails
+      window.open(zoomLink, "_blank");
+    }
   };
 
   return (
