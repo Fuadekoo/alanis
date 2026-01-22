@@ -44,34 +44,33 @@ export default function OAuthLoginPage() {
     setIsRedirecting(true);
 
     try {
-      // Generate token
-      const response = await fetch("/api/oauth/generate-token", {
+      // Generate a secure code instead of token
+      const response = await fetch("/api/oauth/generate-code", {
         method: "POST",
         credentials: "include", // Include cookies for authentication
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error_description || "Failed to generate token");
+        throw new Error(errorData.error_description || "Failed to generate code");
       }
 
       const data = await response.json();
-      const { token, user } = data;
+      const { code } = data;
 
-      if (!token || !user) {
+      if (!code) {
         throw new Error("Invalid response from server");
       }
 
-      // Build callback URL with token and user data
+      // Build callback URL with only the code (secure - no sensitive data in URL)
       const callback = new URL(callbackUrl);
-      callback.searchParams.set("token", token);
-      callback.searchParams.set("user", JSON.stringify(user));
+      callback.searchParams.set("code", code);
 
-      // Redirect to callback URL
+      // Redirect to callback URL with only the code
       window.location.href = callback.toString();
     } catch (error) {
       console.error("OAuth callback error:", error);
-      setError(error instanceof Error ? error.message : "Failed to generate token. Please try again.");
+      setError(error instanceof Error ? error.message : "Failed to generate code. Please try again.");
       setIsRedirecting(false);
       setIsChecking(false);
     }
@@ -97,24 +96,30 @@ export default function OAuthLoginPage() {
           const data = await response.json();
           if (data.authenticated) {
             setIsAuthenticated(true);
-            // User is already logged in, generate token and redirect
-            await handleOAuthCallback();
+            setIsChecking(false);
+            // User is already logged in, generate code and redirect
+            // Small delay to ensure state is set
+            setTimeout(() => {
+              handleOAuthCallback();
+            }, 100);
           } else {
             setIsAuthenticated(false);
+            setIsChecking(false);
           }
         } else {
           setIsAuthenticated(false);
+          setIsChecking(false);
         }
       } catch (error) {
         console.error("Auth check error:", error);
         setIsAuthenticated(false);
-      } finally {
         setIsChecking(false);
       }
     };
 
     checkAuthStatus();
-  }, [handleOAuthCallback]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   if (isChecking || isRedirecting) {
     return (

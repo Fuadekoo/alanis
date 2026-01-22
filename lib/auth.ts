@@ -36,6 +36,11 @@ const authConfig = {
   trustHost: true,
   callbacks: {
     authorized: async ({ auth, request: { nextUrl } }) => {
+      // Allow OAuth routes to handle their own flow
+      if (nextUrl.pathname.includes("/oauth")) {
+        return true;
+      }
+      
       // console.log("AK >> ", !!auth, nextUrl.pathname);
       if (auth?.user) {
         const pathname = nextUrl.pathname.split("/");
