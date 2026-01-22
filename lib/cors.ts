@@ -34,7 +34,7 @@ export function addCorsHeaders(
 ): NextResponse {
   const origin = request.headers.get("origin");
   
-  if (isOriginAllowed(origin)) {
+  if (origin && isOriginAllowed(origin)) {
     response.headers.set("Access-Control-Allow-Origin", origin);
     response.headers.set("Access-Control-Allow-Credentials", "true");
   }
