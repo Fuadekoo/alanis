@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { oauthCodes } from "@/lib/oauth-codes";
 import prisma from "@/lib/db";
 import jwt from "jsonwebtoken";
+import { addCorsHeaders, handleOptions } from "@/lib/cors";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 const JWT_EXPIRES_IN = "24h"; // Token expires in 24 hours
+
+// Handle OPTIONS request (CORS preflight)
+export async function OPTIONS(request: NextRequest) {
+  return handleOptions(request);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,37 +18,41 @@ export async function POST(request: NextRequest) {
     const { code } = body;
 
     if (!code) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "invalid_request", error_description: "Code is required" },
         { status: 400 }
       );
+      return addCorsHeaders(request, response);
     }
 
     // Find the code
     const codeData = oauthCodes.get(code);
 
     if (!codeData) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "invalid_code", error_description: "Invalid or expired code" },
         { status: 400 }
       );
+      return addCorsHeaders(request, response);
     }
 
     // Check if code has expired
     if (new Date() > codeData.expiresAt) {
       oauthCodes.delete(code);
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "expired_code", error_description: "Code has expired" },
         { status: 400 }
       );
+      return addCorsHeaders(request, response);
     }
 
     // Check if code has already been used
     if (codeData.used) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "code_already_used", error_description: "Code has already been used" },
         { status: 400 }
       );
+      return addCorsHeaders(request, response);
     }
 
     // Mark code as used
@@ -69,10 +79,11 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       oauthCodes.delete(code);
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "user_not_found", error_description: "User not found" },
         { status: 404 }
       );
+      return addCorsHeaders(request, response);
     }
 
     // Generate JWT token
@@ -90,8 +101,8 @@ export async function POST(request: NextRequest) {
     // Delete the code after successful exchange
     oauthCodes.delete(code);
 
-    // Return token and user data
-    return NextResponse.json({
+    // Return token and user data with CORS headers
+    const response = NextResponse.json({
       token,
       user: {
         id: user.id,
@@ -110,12 +121,15 @@ export async function POST(request: NextRequest) {
       },
       expiresIn: 86400, // 24 hours in seconds
     });
+    
+    return addCorsHeaders(request, response);
   } catch (error) {
     console.error("Exchange code error:", error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: "server_error", error_description: "An internal error occurred" },
       { status: 500 }
     );
+    return addCorsHeaders(request, response);
   }
 }
 

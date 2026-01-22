@@ -1,17 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { oauthCodes } from "@/lib/oauth-codes";
 import { randomBytes } from "crypto";
+import { addCorsHeaders, handleOptions } from "@/lib/cors";
 
-export async function POST() {
+// Handle OPTIONS request (CORS preflight)
+export async function OPTIONS(request: NextRequest) {
+  return handleOptions(request);
+}
+
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     
     if (!session?.user) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "unauthorized", error_description: "User not authenticated" },
         { status: 401 }
       );
+      return addCorsHeaders(request, response);
     }
 
     // Generate a secure random code
@@ -26,16 +33,19 @@ export async function POST() {
       used: false,
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       code,
       expiresIn: 300, // 5 minutes in seconds
     });
+    
+    return addCorsHeaders(request, response);
   } catch (error) {
     console.error("Generate code error:", error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: "server_error", error_description: "An internal error occurred" },
       { status: 500 }
     );
+    return addCorsHeaders(request, response);
   }
 }
 

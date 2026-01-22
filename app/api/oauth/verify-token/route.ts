@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import prisma from "@/lib/db";
+import { addCorsHeaders, handleOptions } from "@/lib/cors";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+
+// Handle OPTIONS request (CORS preflight)
+export async function OPTIONS(request: NextRequest) {
+  return handleOptions(request);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,10 +16,11 @@ export async function POST(request: NextRequest) {
     const { token } = body;
 
     if (!token) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { valid: false, error: "invalid_request", error_description: "Token is required" },
         { status: 400 }
       );
+      return addCorsHeaders(request, response);
     }
 
     // Verify JWT token
@@ -30,7 +37,7 @@ export async function POST(request: NextRequest) {
       decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Token verification failed";
-      return NextResponse.json(
+      const response = NextResponse.json(
         { 
           valid: false,
           error: "invalid_token",
@@ -38,6 +45,7 @@ export async function POST(request: NextRequest) {
         },
         { status: 401 }
       );
+      return addCorsHeaders(request, response);
     }
 
     // Get user data
@@ -60,7 +68,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { 
           valid: false,
           error: "user_not_found",
@@ -68,10 +76,11 @@ export async function POST(request: NextRequest) {
         },
         { status: 404 }
       );
+      return addCorsHeaders(request, response);
     }
 
     // Return token verification result with user data
-    return NextResponse.json({
+    const response = NextResponse.json({
       valid: true,
       token: {
         sub: decoded.sub,
@@ -96,9 +105,11 @@ export async function POST(request: NextRequest) {
         gender: user.gender,
       },
     });
+    
+    return addCorsHeaders(request, response);
   } catch (error) {
     console.error("Verify token error:", error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { 
         valid: false,
         error: "server_error", 
@@ -106,6 +117,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+    return addCorsHeaders(request, response);
   }
 }
 
@@ -116,10 +128,11 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get("token");
 
     if (!token) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { valid: false, error: "invalid_request", error_description: "Token parameter is required" },
         { status: 400 }
       );
+      return addCorsHeaders(request, response);
     }
 
     // Use the same logic as POST
@@ -135,7 +148,7 @@ export async function GET(request: NextRequest) {
     return POST(requestWithBody);
   } catch (error) {
     console.error("Verify token GET error:", error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { 
         valid: false,
         error: "server_error", 
@@ -143,6 +156,7 @@ export async function GET(request: NextRequest) {
       },
       { status: 500 }
     );
+    return addCorsHeaders(request, response);
   }
 }
 
