@@ -14,6 +14,11 @@ export default auth(async function middleware(request) {
     return NextResponse.next();
   }
 
+  // Allow OAuth routes to handle their own authentication flow
+  if (request.nextUrl.pathname.includes("/oauth")) {
+    return NextResponse.next();
+  }
+
   const newHeaders = new Headers(request.headers);
   newHeaders.set("al-anis-url", request.url);
 
