@@ -17,15 +17,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify JWT token
-    let decoded: any;
+    interface JwtPayload {
+      sub: string;
+      username: string;
+      role: string;
+      iat: number;
+      exp: number;
+    }
+    
+    let decoded: JwtPayload;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch (error: any) {
+      decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Token verification failed";
       return NextResponse.json(
         { 
           valid: false,
           error: "invalid_token",
-          error_description: error.message || "Token verification failed" 
+          error_description: errorMessage
         },
         { status: 401 }
       );

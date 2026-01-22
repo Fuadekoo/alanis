@@ -76,7 +76,7 @@ export default function OAuthLoginPage() {
     }
   }, [callbackUrl, lang, router, isRedirecting]);
 
-  const { onSubmit, validationErrors, register, setValue, isLoading } =
+  const { onSubmit, validationErrors, register, isLoading } =
     useRegistration(authenticate, loginSchema, async (state) => {
       if (state.status) {
         // After successful login, generate token and redirect

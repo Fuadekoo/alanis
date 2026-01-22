@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
 import jwt from "jsonwebtoken";
@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 const JWT_EXPIRES_IN = "24h"; // Token expires in 24 hours
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const session = await auth();
     
