@@ -75,6 +75,25 @@ export default function Page() {
             <Button type="submit" color="primary" isLoading={isLoading}>
               {lang == "am" ? "ይግቡ" : lang == "or" ? "Seenaa" : "Login"}
             </Button>
+            
+            <div className="flex flex-col gap-2 mt-2">
+              <div className="flex items-center gap-2">
+                <div className="h-px bg-gray-300 flex-1"></div>
+                <span className="text-xs text-gray-500 uppercase">Or</span>
+                <div className="h-px bg-gray-300 flex-1"></div>
+              </div>
+              <Button 
+                variant="bordered" 
+                color="primary"
+                onClick={() => {
+                  const callbackUrl = encodeURIComponent(`${window.location.origin}/${lang}/oauth/callback`);
+                  const oauthUrl = `/${lang}/oauth?callbackurl=${callbackUrl}&token=true`;
+                  window.location.href = oauthUrl;
+                }}
+              >
+                {lang == "am" ? "በ SSO ይግቡ" : lang == "or" ? "SSO'n Seenaa" : "Login with SSO"}
+              </Button>
+            </div>
           </div>
         </div>
         <div className="max-md:hidden size-full grid place-content-center">

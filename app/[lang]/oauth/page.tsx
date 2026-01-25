@@ -44,7 +44,37 @@ export default function OAuthLoginPage() {
     setIsRedirecting(true);
 
     try {
-      // Generate a secure code instead of token
+      // Check if user specifically requested a token in the URL or via response_type
+      const responseType = searchParams.get("response_type");
+      const useToken = responseType === "token" || searchParams.get("token") === "true";
+
+      if (useToken) {
+        // Generate a JWT token directly
+        const response = await fetch("/api/oauth/generate-token", {
+          method: "POST",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error_description || "Failed to generate token");
+        }
+
+        const data = await response.json();
+        const { token } = data;
+
+        if (!token) {
+          throw new Error("Invalid response from server");
+        }
+
+        // Build callback URL with the token
+        const callback = new URL(callbackUrl);
+        callback.searchParams.set("token", token);
+        window.location.href = callback.toString();
+        return;
+      }
+
+      // Default: Generate a secure code instead of token (Standard Flow)
       const response = await fetch("/api/oauth/generate-code", {
         method: "POST",
         credentials: "include", // Include cookies for authentication
@@ -70,11 +100,11 @@ export default function OAuthLoginPage() {
       window.location.href = callback.toString();
     } catch (error) {
       console.error("OAuth callback error:", error);
-      setError(error instanceof Error ? error.message : "Failed to generate code. Please try again.");
+      setError(error instanceof Error ? error.message : "Failed to process OAuth. Please try again.");
       setIsRedirecting(false);
       setIsChecking(false);
     }
-  }, [callbackUrl, lang, router, isRedirecting]);
+  }, [callbackUrl, lang, router, isRedirecting, searchParams]);
 
   const { onSubmit, validationErrors, register, isLoading } =
     useRegistration(authenticate, loginSchema, async (state) => {
