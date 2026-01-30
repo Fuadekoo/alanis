@@ -1,12 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
-import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
-const JWT_EXPIRES_IN = "24h"; // Token expires in 24 hours
-
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     
@@ -43,21 +40,23 @@ export async function POST() {
       );
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        sub: user.id,
-        username: user.username,
-        role: user.role,
-        iat: Math.floor(Date.now() / 1000),
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
+    // Get the actual session token from cookies
+    const cookieStore = await cookies();
+    const sessionToken = 
+      cookieStore.get("__Secure-authjs.session-token")?.value || 
+      cookieStore.get("authjs.session-token")?.value ||
+      cookieStore.get("next-auth.session-token")?.value;
 
-    // Return token and user data
+    if (!sessionToken) {
+      return NextResponse.json(
+        { error: "token_not_found", error_description: "Session token not found in cookies" },
+        { status: 400 }
+      );
+    }
+
+    // Return the session token and user data
     return NextResponse.json({
-      token,
+      token: sessionToken,
       user: {
         id: user.id,
         username: user.username,

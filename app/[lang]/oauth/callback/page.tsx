@@ -13,50 +13,24 @@ export default function OAuthCallbackPage() {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const code = searchParams.get("code");
       const token = searchParams.get("token");
 
-      if (!code && !token) {
+      if (!token) {
         setStatus("error");
-        setErrorMessage("No authorization code or token received.");
+        setErrorMessage("No authentication token received.");
         return;
       }
 
       try {
-        let finalToken = token;
-
-        // If we have a code, exchange it for a token
-        if (code && !token) {
-          const response = await fetch("/api/oauth/exchange-code", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ code }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error_description || "Failed to exchange code");
-          }
-
-          const data = await response.json();
-          finalToken = data.token;
-        }
-
-        if (finalToken) {
-          // Store token securely (e.g., localStorage for demo purposes)
-          localStorage.setItem("auth_token", finalToken);
-          
-          setStatus("success");
-          
-          // Redirect to dashboard after a short delay
-          setTimeout(() => {
-            router.push(`/${lang}/dashboard`);
-          }, 2000);
-        } else {
-          throw new Error("Failed to obtain token");
-        }
+        // Store token securely (e.g., localStorage for demo purposes)
+        localStorage.setItem("auth_token", token);
+        
+        setStatus("success");
+        
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          router.push(`/${lang}/dashboard`);
+        }, 2000);
       } catch (error) {
         console.error("Callback error:", error);
         setStatus("error");

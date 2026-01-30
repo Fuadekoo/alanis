@@ -44,59 +44,51 @@ export default function OAuthLoginPage() {
     setIsRedirecting(true);
 
     try {
-      // Check if user specifically requested a token in the URL or via response_type
-      const responseType = searchParams.get("response_type");
-      const useToken = responseType === "token" || searchParams.get("token") === "true";
-
-      if (useToken) {
-        // Generate a JWT token directly
-        const response = await fetch("/api/oauth/generate-token", {
-          method: "POST",
-          credentials: "include",
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error_description || "Failed to generate token");
-        }
-
-        const data = await response.json();
-        const { token } = data;
-
-        if (!token) {
-          throw new Error("Invalid response from server");
-        }
-
-        // Build callback URL with the token
-        const callback = new URL(callbackUrl);
-        callback.searchParams.set("token", token);
-        window.location.href = callback.toString();
-        return;
-      }
-
-      // Default: Generate a secure code instead of token (Standard Flow)
-      const response = await fetch("/api/oauth/generate-code", {
+      // 1. Generate Auth Code
+      const codeResponse = await fetch("/api/oauth/generate-code", {
         method: "POST",
-        credentials: "include", // Include cookies for authentication
+        credentials: "include",
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      if (!codeResponse.ok) {
+        const errorData = await codeResponse.json().catch(() => ({}));
         throw new Error(errorData.error_description || "Failed to generate code");
       }
 
-      const data = await response.json();
-      const { code } = data;
+      const codeData = await codeResponse.json();
+      const { code } = codeData;
 
       if (!code) {
-        throw new Error("Invalid response from server");
+        throw new Error("Invalid response from server (no code)");
       }
 
-      // Build callback URL with only the code (secure - no sensitive data in URL)
+      // 2. Get User ID
+      const userResponse = await fetch("/api/oauth/loginuserId", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!userResponse.ok) {
+        // If we can't get the user ID using the dedicated endpoint, we might still proceed with just the code
+        // or fail. Given user instructions, we should try to get it.
+        console.error("Failed to fetch user ID");
+        // We can either throw or continue. Let's throw for now as user explicitly requested adding userId.
+        throw new Error("Failed to fetch user ID details"); 
+      }
+
+      const userData = await userResponse.json();
+      const { userId } = userData;
+
+      // Build callback URL with the code and userId
       const callback = new URL(callbackUrl);
       callback.searchParams.set("code", code);
+      if (userId) {
+        callback.searchParams.set("userId", userId);
+      }
+      
+      // Remove token if it was somehow present
+      callback.searchParams.delete("token");
 
-      // Redirect to callback URL with only the code
       window.location.href = callback.toString();
     } catch (error) {
       console.error("OAuth callback error:", error);
