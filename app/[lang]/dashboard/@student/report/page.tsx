@@ -102,8 +102,10 @@ export default function Page() {
     month
   );
 
-  const rawCalendarData = useMemo((): CalendarTeacherRow[] => calendarResponse?.data?.calendarData ||
-    [], [calendarResponse?.data?.calendarData]);
+  const rawCalendarData = useMemo((): CalendarTeacherRow[] => {
+    const data = calendarResponse?.data?.calendarData || [];
+    return data as CalendarTeacherRow[];
+  }, [calendarResponse?.data?.calendarData]);
 
   const daysInMonth = calendarResponse?.data?.daysInMonth ?? 0;
 
