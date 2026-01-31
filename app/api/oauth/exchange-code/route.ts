@@ -3,7 +3,7 @@ import prisma from "@/lib/db";
 
 export async function POST(request: NextRequest) {
  try {
-  const code = request.headers.get('code');
+  const code = request.nextUrl.searchParams.get('code');
   if(!code) return NextResponse.json(
       { error: "notfound", error_description: "userId not found." },
       { status: 404 }
