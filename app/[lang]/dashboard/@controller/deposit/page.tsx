@@ -648,10 +648,10 @@ function Registration({
   }, [students]);
 
   // Get the currently selected student
+  const studentId = form.watch("studentId");
   const selectedStudent = useMemo(() => {
-    const studentId = form.watch("studentId");
     return studentOptions.find((option) => option.value === studentId) || null;
-  }, [form.watch("studentId"), studentOptions]);
+  }, [studentId, studentOptions]);
 
   // Get the current photo from the form state
   const currentPhoto = form.watch("photo") || "";

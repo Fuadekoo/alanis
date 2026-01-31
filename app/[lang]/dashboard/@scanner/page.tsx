@@ -17,7 +17,7 @@ export default function Page() {
     return () => {
       clearInterval(func);
     };
-  }, []);
+  }, [refresh]);
 
   return (
     <div className="relative grid ">

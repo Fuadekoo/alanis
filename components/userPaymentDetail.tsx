@@ -160,7 +160,7 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
   };
 
   // Check balance when amount or selected months change
-  const checkBalance = async () => {
+  const checkBalance = React.useCallback(async () => {
     if (!amount || selectedYearMonths.length === 0) {
       setBalanceWarning(null);
       return;
@@ -176,7 +176,7 @@ function UserPaymentDetail({ studentId }: { studentId: string }) {
     } else {
       setBalanceWarning(null);
     }
-  };
+  }, [amount, selectedYearMonths, studentId]);
 
   // Check balance whenever amount or selected months change
   React.useEffect(() => {

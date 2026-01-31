@@ -53,7 +53,7 @@ export default function Scanner({
 
   useEffect(() => {
     setIsLoading(isLoading);
-  }, [isLoading]);
+  }, [isLoading, setIsLoading]);
 
   useEffect(() => {
     const html5Qrcode = new Html5Qrcode("scanner-container");
@@ -76,7 +76,7 @@ export default function Scanner({
     return () => {
       handleClose();
     };
-  }, []);
+  }, [action, handleClose, isLoading]);
 
   return <div id="scanner-container" className="z-10"></div>;
 }

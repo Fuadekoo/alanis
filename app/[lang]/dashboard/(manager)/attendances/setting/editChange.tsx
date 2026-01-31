@@ -56,7 +56,7 @@ export function EditChange({
         );
       }
     });
-  }, []);
+  }, [data, month, setValue, year]);
 
   return (
     <Form

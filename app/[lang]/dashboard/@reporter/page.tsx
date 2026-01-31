@@ -69,7 +69,7 @@ export default function Page() {
   );
 
   const totals: AnalyticsCards | undefined = analytics?.data?.totals;
-  const monthly: MonthlySummary[] = analytics?.data?.monthly ?? [];
+  const monthly = useMemo((): MonthlySummary[] => analytics?.data?.monthly ?? [], [analytics?.data?.monthly]);
   const topTeachers: TeacherSummary[] = analytics?.data?.topTeachers ?? [];
 
   const cards = useMemo(() => {

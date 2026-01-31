@@ -32,7 +32,7 @@ export default function Page() {
       setValue("password", password);
       onSubmit();
     }
-  }, []);
+  }, [credentials, onSubmit, setValue]);
 
   return (
     <div className="grid place-content-center">

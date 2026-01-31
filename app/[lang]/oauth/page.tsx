@@ -96,7 +96,7 @@ export default function OAuthLoginPage() {
       setIsRedirecting(false);
       setIsChecking(false);
     }
-  }, [callbackUrl, lang, router, isRedirecting, searchParams]);
+  }, [callbackUrl, lang, router, isRedirecting]);
 
   const { onSubmit, validationErrors, register, isLoading } =
     useRegistration(authenticate, loginSchema, async (state) => {
