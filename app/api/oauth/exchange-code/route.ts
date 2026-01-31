@@ -3,9 +3,12 @@ import prisma from "@/lib/db";
 
 export async function POST(request: NextRequest) {
  try {
-  const body = await request.json();
-  const { code } = body;
-
+  const code = request.headers.get('code');
+  if(!code) return NextResponse.json(
+      { error: "notfound", error_description: "userId not found." },
+      { status: 404 }
+    );
+  
   // gate the user data based on  this id 
   const user = await prisma.user.findUnique({
     where: {
