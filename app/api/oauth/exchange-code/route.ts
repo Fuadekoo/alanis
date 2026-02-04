@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
   // return the user data
   const response = NextResponse.json(user);
   response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   return response;
   
  } catch (error) {
