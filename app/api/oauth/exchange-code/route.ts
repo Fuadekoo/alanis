@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
+export async function OPTIONS(){
+  return NextResponse.json({
+     headers: {
+     'Access-Control-Allow-Origin': '*',
+     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+     }
+     })
+}
+
 export async function POST(request: NextRequest) {
  try {
   const code = request.nextUrl.searchParams.get('code');
