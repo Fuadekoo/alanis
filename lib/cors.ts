@@ -4,8 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 const ALLOWED_ORIGINS = [
   "https://alanistilawa.com",
   "https://www.alanistilawa.com",
+  "http://alanistilawa.com",
   "https://alanisquran.com",
   "https://www.alanisquran.com",
+  "http://alanisquran.com",
   "http://localhost",
   "https://localhost",
 ];

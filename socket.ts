@@ -3,7 +3,25 @@ import { Server } from "socket.io";
 import prisma from "./lib/db";
 
 export function startSocket(httpServer: HttpServer) {
-  const io = new Server(httpServer, { pingTimeout: 60000 });
+  const io = new Server(httpServer, {
+    pingTimeout: 60000,
+    cors: {
+      origin: [
+        "https://alanistilawa.com",
+        "https://www.alanistilawa.com",
+        "http://alanistilawa.com",
+        "https://alanisquran.com",
+        "https://www.alanisquran.com",
+        "http://alanisquran.com",
+        "http://localhost",
+        "https://localhost",
+        /^http:\/\/localhost:\d+$/,
+        /^https:\/\/localhost:\d+$/,
+      ],
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
+  });
 
   io.use(async (socket, next) => {
     socket.data.id = socket.handshake.auth.id;
