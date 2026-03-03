@@ -43,22 +43,22 @@ export default function List() {
               size="sm"
               variant="flat"
               placeholder={isAm ? "ሁኔታ" : "Status"}
-              classNames={{ base: "w-32", trigger: "bg-default-50/50 text-small h-[32px] min-h-[32px]" }}
-              selectedKeys={filter.status ? new Set([filter.status]) : new Set([])}
+              classNames={{ base: "min-w-24 max-w-xs", trigger: "bg-default-50/50 text-small h-[32px] min-h-[32px]" }}
+              selectedKeys={new Set([filter.status || "all"])}
               onSelectionChange={(v) => {
                 const selected = Array.from(v)[0] as string;
-                filter.onStatusChange(selected || "");
+                filter.onStatusChange(selected === "all" ? "" : selected || "");
               }}
             >
               {[
-                { key: "", label: isAm ? "ሁሉም" : "All" },
+                { key: "all", label: isAm ? "ሁሉም" : "All" },
                 { key: "new", label: isAm ? "አዲስ" : "New" },
                 { key: "onProgress", label: isAm ? "በሂደት ላይ" : "On Progress" },
                 { key: "remedanLeft", label: isAm ? "ረመዳን ያለቀበት" : "Remedan Left" },
                 { key: "active", label: isAm ? "ንቁ" : "Active" },
                 { key: "inactive", label: isAm ? "ኢ-ንቁ" : "Inactive" },
               ].map((item) => (
-                <SelectItem variant="flat" key={item.key}>
+                <SelectItem variant="flat" key={item.key} textValue={item.label}>
                   {item.label}
                 </SelectItem>
               ))}
