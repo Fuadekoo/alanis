@@ -73,13 +73,13 @@ export async function getStudentList(search: string = "") {
   return data;
 }
 
-export async function getStudents({ search, currentPage, row, sort }: Filter) {
+export async function getStudents({ search, currentPage, row, sort, status }: Filter) {
   const session = await auth();
   const list = await prisma.user
     .findMany({
       where: {
         role: "student",
-        status: { in: ["active", "inactive"] },
+        ...(status ? { status: status as any } : {}),
         OR: [
           { firstName: { contains: search } },
           { fatherName: { contains: search } },
@@ -194,6 +194,7 @@ export async function getStudents({ search, currentPage, row, sort }: Filter) {
   const totalData = await prisma.user.count({
     where: {
       role: "student",
+      ...(status ? { status: status as any } : {}),
       OR: [
         { firstName: { contains: search } },
         { fatherName: { contains: search } },

@@ -26,6 +26,8 @@ enum gender {
 
 enum userStatus {
   new
+  onProgress  
+  remedanLeft
   active
   inactive
 }
@@ -47,7 +49,7 @@ model user {
   socket              String                @default("")
   registerDate        DateTime              @default(now())
   startDate           DateTime?
-  status              userStatus            @default(active)
+  status              userStatus            @default(new)
   controller          user?                 @relation("students", fields: [controllerId], references: [id])
   controllerId        String?
   students            user[]                @relation("students")

@@ -7,7 +7,7 @@ import SearchPlace from "@/components/searchPlace";
 import PaginationPlace from "@/components/paginationPlace";
 import useAmharic from "@/hooks/useAmharic";
 import { useStudent } from "./provider";
-import { Chip, cn } from "@heroui/react";
+import { Chip, cn, Select, SelectItem } from "@heroui/react";
 import { highlight, timeFormat12 } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
@@ -39,13 +39,30 @@ export default function List() {
             <div className="px-2 md:px-4 bg-default-50/50 rounded-lg text-center content-center ">
               {data?.list.length ?? 0}
             </div>
-            {/* <Button
-              size="sm" 
-              className="shrink-0 bg-default-50/50"
-              onPress={registration.add.bind(undefined)}
+            <Select
+              size="sm"
+              variant="flat"
+              placeholder={isAm ? "ሁኔታ" : "Status"}
+              classNames={{ base: "w-32", trigger: "bg-default-50/50 text-small h-[32px] min-h-[32px]" }}
+              selectedKeys={filter.status ? new Set([filter.status]) : new Set([])}
+              onSelectionChange={(v) => {
+                const selected = Array.from(v)[0] as string;
+                filter.onStatusChange(selected || "");
+              }}
             >
-              {"active"}
-            </Button> */}
+              {[
+                { key: "", label: isAm ? "ሁሉም" : "All" },
+                { key: "new", label: isAm ? "አዲስ" : "New" },
+                { key: "onProgress", label: isAm ? "በሂደት ላይ" : "On Progress" },
+                { key: "remedanLeft", label: isAm ? "ረመዳን ያለቀበት" : "Remedan Left" },
+                { key: "active", label: isAm ? "ንቁ" : "Active" },
+                { key: "inactive", label: isAm ? "ኢ-ንቁ" : "Inactive" },
+              ].map((item) => (
+                <SelectItem variant="flat" key={item.key}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </Select>
           </>
         }
         endContent={
@@ -249,6 +266,8 @@ export default function List() {
       <PaginationPlace
         {...filter}
         totalPage={Math.ceil((data?.totalData ?? 0) / filter.row) || 1}
+        totalData={data?.totalData ?? 0}
+        itemName="students"
       />
     </div>
   );

@@ -6,19 +6,22 @@ export function useFilter() {
     search: "",
     sort: true,
     currentPage: 1,
-    row: 250,
+    row: 10,
+    status: "",
   });
 
   const handleSearch = useDebouncedCallback(
-    (search: string) => setFilter((prev) => ({ ...prev, search })),
+    (search: string) => setFilter((prev) => ({ ...prev, search, currentPage: 1 })),
     400
   );
 
   const onPageChange = (currentPage: number) =>
     setFilter((prev) => ({ ...prev, currentPage }));
-  const onRowChange = (row: number) => setFilter((prev) => ({ ...prev, row }));
+  const onRowChange = (row: number) => setFilter((prev) => ({ ...prev, row, currentPage: 1 }));
   const onSortChange = () =>
     setFilter((prev) => ({ ...prev, sort: !prev.sort }));
+  const onStatusChange = (status: string) =>
+    setFilter((prev) => ({ ...prev, status, currentPage: 1 }));
 
   return {
     filter,
@@ -26,6 +29,7 @@ export function useFilter() {
     onPageChange,
     onRowChange,
     onSortChange,
+    onStatusChange,
   };
 }
 

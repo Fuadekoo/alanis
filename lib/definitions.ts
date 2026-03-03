@@ -5,6 +5,7 @@ export type Filter = {
   currentPage: number;
   row: number;
   sort: boolean;
+  status?: string;
 };
 
 export type TAttendance = [
