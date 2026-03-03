@@ -17,9 +17,7 @@ const statusOptions: {
   { key: "inactive", label: "Inactive", labelAm: "ኢ-ንቁ", color: "danger" },
 ];
 
-function getStatusColor(status: userStatus) {
-  return statusOptions.find((s) => s.key === status)?.color ?? "default";
-}
+
 
 export function UserStatus({
   id,
@@ -51,7 +49,7 @@ export function UserStatus({
           action(id, selected);
         }
       }}
-      renderValue={(items) => {
+      renderValue={() => {
         const current = statusOptions.find((s) => s.key === status);
         return current ? (
           <Chip
