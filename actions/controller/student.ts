@@ -121,12 +121,14 @@ export async function getStudents({ search, currentPage, row, sort, status }: Fi
       },
     })
     .then(async (res) => {
-      const startDay = new Date();
-      startDay.setHours(0);
-      startDay.setMinutes(0);
-      const endDay = new Date();
-      endDay.setHours(23);
-      endDay.setMinutes(59);
+      // Calculate day boundaries in UTC for Ethiopia timezone (UTC+3)
+      // Ethiopia midnight (00:00 UTC+3) = 21:00 UTC previous day
+      const now = new Date();
+      const utcOffset = 3; // Ethiopia is UTC+3
+      const startDay = new Date(now);
+      startDay.setUTCHours(-utcOffset, 0, 0, 0); // Start of day in Ethiopia = previous day 21:00 UTC
+      const endDay = new Date(now);
+      endDay.setUTCHours(23 - utcOffset, 59, 59, 999); // End of day in Ethiopia = 20:59 UTC
       return await Promise.all(
         res.map(async ({ roomStudent, ...v }) => {
           if (!roomStudent[0]) {

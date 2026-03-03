@@ -1,7 +1,25 @@
 import { changeUserStatus } from "@/actions/common/user";
 import useMutation from "@/hooks/useMutation";
 import { userStatus } from "@prisma/client";
-import { Button } from "./ui/heroui";
+import { Select, SelectItem } from "./ui/heroui";
+import { Chip } from "@heroui/react";
+
+const statusOptions: {
+  key: userStatus;
+  label: string;
+  labelAm: string;
+  color: "default" | "primary" | "warning" | "success" | "danger";
+}[] = [
+  { key: "new", label: "New", labelAm: "አዲስ", color: "default" },
+  { key: "onProgress", label: "On Progress", labelAm: "በሂደት ላይ", color: "primary" },
+  { key: "remedanLeft", label: "Remedan Left", labelAm: "ረመዳን ያለቀበት", color: "warning" },
+  { key: "active", label: "Active", labelAm: "ንቁ", color: "success" },
+  { key: "inactive", label: "Inactive", labelAm: "ኢ-ንቁ", color: "danger" },
+];
+
+function getStatusColor(status: userStatus) {
+  return statusOptions.find((s) => s.key === status)?.color ?? "default";
+}
 
 export function UserStatus({
   id,
@@ -17,18 +35,44 @@ export function UserStatus({
   });
 
   return (
-    <Button
+    <Select
+      size="sm"
       variant="flat"
-      color={status == "active" ? "success" : "danger"}
-      className=""
+      aria-label="Status"
       isLoading={isLoading}
-      onPress={action.bind(
-        undefined,
-        id,
-        status == "active" ? "inactive" : "active"
-      )}
+      classNames={{
+        base: "min-w-40 max-w-xs",
+        trigger: "h-9 min-h-9",
+      }}
+      selectedKeys={new Set([status])}
+      onSelectionChange={(v) => {
+        const selected = Array.from(v)[0] as userStatus;
+        if (selected && selected !== status) {
+          action(id, selected);
+        }
+      }}
+      renderValue={(items) => {
+        const current = statusOptions.find((s) => s.key === status);
+        return current ? (
+          <Chip
+            size="sm"
+            variant="flat"
+            color={current.color}
+            className="capitalize"
+          >
+            {current.label}
+          </Chip>
+        ) : null;
+      }}
     >
-      {status}
-    </Button>
+      {statusOptions.map((item) => (
+        <SelectItem key={item.key} textValue={item.label}>
+          <Chip size="sm" variant="flat" color={item.color} className="capitalize">
+            {item.label}
+          </Chip>
+        </SelectItem>
+      ))}
+    </Select>
   );
 }
+

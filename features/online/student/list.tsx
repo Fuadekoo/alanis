@@ -133,9 +133,30 @@ export default function List() {
                           filter.search
                         )}
                       </p>
-                      {status == "inactive" && (
-                        <Chip color={"danger"} variant="flat" className="">
-                          {isAm ? "ኢ-ንቁ" : "inactive"}
+                      {status !== "active" && (
+                        <Chip
+                          color={
+                            status === "inactive"
+                              ? "danger"
+                              : status === "new"
+                              ? "default"
+                              : status === "onProgress"
+                              ? "primary"
+                              : status === "remedanLeft"
+                              ? "warning"
+                              : "default"
+                          }
+                          variant="flat"
+                        >
+                          {status === "inactive"
+                            ? isAm ? "ኢ-ንቁ" : "Inactive"
+                            : status === "new"
+                            ? isAm ? "አዲስ" : "New"
+                            : status === "onProgress"
+                            ? isAm ? "በሂደት" : "On Progress"
+                            : status === "remedanLeft"
+                            ? isAm ? "ረመዳን" : "Remedan Left"
+                            : status}
                         </Chip>
                       )}
                     </Button>
