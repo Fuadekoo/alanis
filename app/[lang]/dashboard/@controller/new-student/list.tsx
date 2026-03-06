@@ -22,11 +22,22 @@ export default function List() {
         handleSearch={filter.handleSearch}
         startContent={
           <>
-            <div className="px-2 md:px-4 bg-default-50/50 rounded-lg text-center content-center ">
-              {data?.list.length ?? 0}
-            </div>
+            <Select
+              className="w-20 md:w-24"
+              size="sm"
+              aria-label="Rows per page"
+              selectedKeys={new Set([filter.row + ""])}
+              onSelectionChange={(keys) => {
+                const val = parseInt(Array.from(keys)[0] as string);
+                if (!Number.isNaN(val)) filter.onRowChange(val);
+              }}
+            >
+              {["10", "20", "50", "100", "200"].map((opt) => (
+                <SelectItem key={opt}>{opt}</SelectItem>
+              ))}
+            </Select>
             <Select 
-              className="w-32 md:w-36" 
+              className="w-28 md:w-36" 
               size="sm" 
               placeholder={isAm ? "ሁኔታ" : "Status"} 
               selectedKeys={new Set([filter.status || "new"])} 

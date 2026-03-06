@@ -37,15 +37,26 @@ export default function List() {
       <SearchPlace
         handleSearch={filter.handleSearch}
         startContent={
-          <div className="flex gap-2">
-            <div className="px-4 bg-default-50/50 rounded-lg text-center content-center ">
-              {data?.list.length ?? 0}
-            </div>
+          <div className="flex gap-2 items-center flex-wrap">
+            <Select
+              aria-label="Rows per page"
+              size="sm"
+              className="w-20 md:w-24"
+              selectedKeys={new Set([filter.row + ""])}
+              onSelectionChange={(keys) => {
+                const val = parseInt(Array.from(keys)[0] as string);
+                if (!Number.isNaN(val)) filter.onRowChange(val);
+              }}
+            >
+              {["10", "20", "50", "100", "200"].map((opt) => (
+                <SelectItem key={opt}>{opt}</SelectItem>
+              ))}
+            </Select>
             <Select
               aria-label="Status Filter"
               placeholder={isAm ? "ሁኔታ" : "Status"}
               size="sm"
-              className="w-40"
+              className="w-28 md:w-40"
               selectedKeys={[filter.status || "all"]}
               onSelectionChange={(keys) => {
                 const val = Array.from(keys)[0] as string;
@@ -53,9 +64,7 @@ export default function List() {
               }}
             >
               {statusOptions.map((opt) => (
-                <SelectItem key={opt.value}>
-                  {opt.label}
-                </SelectItem>
+                <SelectItem key={opt.value}>{opt.label}</SelectItem>
               ))}
             </Select>
           </div>
@@ -81,21 +90,21 @@ export default function List() {
               key={i + ""}
               variant="flat"
               className={cn(
-                "h-fit p-2 bg-default-50/50 border-2 flex-col gap-1 items-start text-xl ",
+                "h-fit p-2 bg-default-50/50 border-2 flex-col gap-1 items-start text-base md:text-xl ",
                 id == selected
                   ? "border-primary-400 text-primary-600"
-                  : "border-default-400"
+                  : "border-default-400",
               )}
               onPress={() => {
                 onSelected(id);
                 onDetail(true);
               }}
             >
-              <p className="capitalize ">
+              <p className="capitalize">
                 {i + 1}{" "}
                 {highlight(
                   `${firstName} ${fatherName} ${lastName}`,
-                  filter.search
+                  filter.search,
                 )}
               </p>
             </Button>

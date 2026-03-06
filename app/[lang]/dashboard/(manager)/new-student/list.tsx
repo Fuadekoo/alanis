@@ -36,15 +36,26 @@ export default function List() {
       <SearchPlace
         handleSearch={filter.handleSearch}
         startContent={
-          <div className="flex gap-2">
-            <div className="px-2 md:px-4 bg-default-50/50 rounded-lg text-center content-center ">
-              {data?.list.length ?? 0}
-            </div>
+          <div className="flex gap-2 items-center flex-wrap">
+            <Select
+              aria-label="Rows per page"
+              size="sm"
+              className="w-20 md:w-24"
+              selectedKeys={new Set([filter.row + ""])}
+              onSelectionChange={(keys) => {
+                const val = parseInt(Array.from(keys)[0] as string);
+                if (!Number.isNaN(val)) filter.onRowChange(val);
+              }}
+            >
+              {["10", "20", "50", "100", "200"].map((opt) => (
+                <SelectItem key={opt}>{opt}</SelectItem>
+              ))}
+            </Select>
             <Select
               aria-label="Status Filter"
               placeholder={isAm ? "ሁኔታ" : "Status"}
               size="sm"
-              className="w-40"
+              className="w-28 md:w-40"
               selectedKeys={[filter.status || "new"]}
               onSelectionChange={(keys) => {
                 const val = Array.from(keys)[0] as string;

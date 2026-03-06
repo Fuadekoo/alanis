@@ -36,9 +36,23 @@ export default function List() {
         handleSearch={filter.handleSearch}
         startContent={
           <>
-            <div className="px-2 md:px-4 bg-default-50/50 rounded-lg text-center content-center ">
-              {data?.list.length ?? 0}
-            </div>
+            <Select
+              size="sm"
+              variant="flat"
+              aria-label="Rows per page"
+              classNames={{ base: "w-20", trigger: "bg-default-50/50 text-small h-[32px] min-h-[32px]" }}
+              selectedKeys={new Set([filter.row + ""])}
+              onSelectionChange={(v) => {
+                const selected = parseInt(Array.from(v)[0] as string);
+                if (!Number.isNaN(selected)) filter.onRowChange(selected);
+              }}
+            >
+              {["10", "20", "50", "100", "200"].map((item) => (
+                <SelectItem variant="flat" key={item} textValue={item}>
+                  {item}
+                </SelectItem>
+              ))}
+            </Select>
             <Select
               size="sm"
               variant="flat"

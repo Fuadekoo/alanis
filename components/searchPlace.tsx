@@ -20,14 +20,14 @@ export default function SearchPlace({
   return (
     <div
       className={cn(
-        "p-1 bg-default-400/20 border border-default-400/80 rounded-xl flex gap-2",
+        "p-1 bg-default-400/20 border border-default-400/80 rounded-xl flex flex-wrap items-center gap-2 md:gap-3",
         className
       )}
     >
       {startContent}
       <Input
         size="sm"
-        classNames={{ base: "w-full", inputWrapper: "bg-default-50/50" }}
+        classNames={{ base: "w-full min-w-0 flex-1", inputWrapper: "bg-default-50/50" }}
         placeholder={
           placeholder ?? lang == "am" ? "እዚህ ይፈልጉ ... " : lang == "or" ? "asitti barbaadi ... " : "search here ... "
         }
