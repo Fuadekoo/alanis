@@ -321,6 +321,21 @@ export default function Page() {
                 }}
               />
               <Select
+                aria-label="status"
+                selectedKeys={new Set([statusFilter])}
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0] as string;
+                  if (value) setStatusFilter(value);
+                }}
+                variant="bordered"
+                size="sm"
+                className="w-[130px] flex-shrink"
+              >
+                {statusOptions.map((option) => (
+                  <SelectItem key={option.value}>{option.label}</SelectItem>
+                ))}
+              </Select>
+              <Select
                 aria-label="month"
                 selectedKeys={new Set([month.toString()])}
                 onSelectionChange={(keys) => {
