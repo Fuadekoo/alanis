@@ -30,6 +30,7 @@ function Page() {
   const [unpaidSearch, setUnpaidSearch] = useState("");
   const [unpaidPage, setUnpaidPage] = useState(1);
   const [unpaidPageSize, setUnpaidPageSize] = useState(10);
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // Data fetching for paid payments
   const [data, isLoading] = useData(
@@ -41,7 +42,8 @@ function Page() {
     month,
     year,
     undefined,
-    undefined
+    undefined,
+    statusFilter
   );
 
   const [yearsData] = useData(getControllerYearsPayment, () => {});
@@ -53,7 +55,8 @@ function Page() {
     unpaidMonth,
     unpaidYear,
     unpaidPage,
-    unpaidPageSize
+    unpaidPageSize,
+    statusFilter
   );
 
   // Reset page to 1 when month or year changes
@@ -359,6 +362,20 @@ function Page() {
                         </option>
                       ))}
                     </select>
+
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => {
+                        setStatusFilter(e.target.value);
+                        setPage(1);
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="onProgress">On Progress</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -437,6 +454,20 @@ function Page() {
                           {option.label}
                         </option>
                       ))}
+                    </select>
+
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => {
+                        setStatusFilter(e.target.value);
+                        setUnpaidPage(1);
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="onProgress">On Progress</option>
                     </select>
                   </div>
                 </div>

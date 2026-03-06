@@ -425,7 +425,8 @@ export async function getControllerMonthsPayment(
   month?: string,
   year?: string,
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
+  statusFilter?: string
 ) {
   // Set default pagination values
   page = page && page > 0 ? page : 1;
@@ -456,6 +457,7 @@ export async function getControllerMonthsPayment(
     const where: any = {
       user: {
         controllerId: controllerId,
+        ...(statusFilter && statusFilter !== "all" ? { status: statusFilter as any } : {}),
       },
       ...(month && { month: Number(month) }),
       ...(year && { year: Number(year) }),
@@ -565,7 +567,8 @@ export async function getControllerUnpaidStudents(
   month: number,
   year: number,
   page?: number,
-  pageSize?: number
+  pageSize?: number,
+  statusFilter?: string
 ) {
   // Get current controller from session
   const { auth } = await import("@/lib/auth");
@@ -601,7 +604,7 @@ export async function getControllerUnpaidStudents(
     // Build the where clause
     const where = {
       role: "student" as const,
-      status: "active" as const,
+      ...(statusFilter && statusFilter !== "all" ? { status: statusFilter as any } : { status: "active" as const }),
       controllerId: controllerId,
       // Must have teacher
       roomStudent: {

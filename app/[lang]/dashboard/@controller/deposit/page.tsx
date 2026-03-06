@@ -131,6 +131,7 @@ function Page() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // State for upload progress tracking - changed to single file
@@ -145,7 +146,7 @@ function Page() {
   const [data, isLoading, refresh] = useData(
     getDeposit,
     () => {},
-    "all",
+    statusFilter,
     page,
     pageSize,
     search
@@ -574,6 +575,22 @@ function Page() {
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   {t("deposit.viewAllDeposits")}
                 </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="all">{t("common.all") || "All Status"}</option>
+                  <option value="pending">{t("deposit.pending") || "Pending"}</option>
+                  <option value="approved">{t("deposit.approved") || "Approved"}</option>
+                  <option value="rejected">{t("deposit.rejected") || "Rejected"}</option>
+                </select>
               </div>
             </div>
           </div>

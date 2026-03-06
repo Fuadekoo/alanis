@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Button, ScrollShadow, Skeleton } from "@/components/ui/heroui";
+import { Button, ScrollShadow, Skeleton, Select, SelectItem } from "@/components/ui/heroui";
 import SearchPlace from "@/components/searchPlace";
 import PaginationPlace from "@/components/paginationPlace";
 import useAmharic from "@/hooks/useAmharic";
@@ -25,6 +25,22 @@ export default function List() {
             <div className="px-2 md:px-4 bg-default-50/50 rounded-lg text-center content-center ">
               {data?.list.length ?? 0}
             </div>
+            <Select 
+              className="w-32 md:w-36" 
+              size="sm" 
+              placeholder={isAm ? "ሁኔታ" : "Status"} 
+              selectedKeys={new Set([filter.status || "new"])} 
+              onSelectionChange={(keys) => {
+                const value = Array.from(keys)[0] as string;
+                if (value) filter.onStatusChange(value);
+              }}
+            >
+              <SelectItem key="new">{isAm ? "አዲስ" : "New"}</SelectItem>
+              <SelectItem key="active">{isAm ? "ንቁ" : "Active"}</SelectItem>
+              <SelectItem key="inactive">{isAm ? "ንቁ አይደለም" : "Inactive"}</SelectItem>
+              <SelectItem key="onProgress">{isAm ? "በሂደት ላይ" : "On Progress"}</SelectItem>
+              <SelectItem key="remedanLeft">{isAm ? "ረመዳን ያለቀበት" : "Ramadan Left"}</SelectItem>
+            </Select>
           </>
         }
       />

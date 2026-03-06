@@ -27,12 +27,14 @@ export async function getNewStudents({
   currentPage,
   row,
   sort,
+  status
 }: Filter) {
+  const currentStatus = status && status !== "all" ? status : "new";
   const list = await prisma.user
     .findMany({
       where: {
         role: "student",
-        status: "new",
+        status: currentStatus as any,
         OR: [
           { firstName: { contains: search } },
           { fatherName: { contains: search } },
@@ -64,7 +66,7 @@ export async function getNewStudents({
   const totalData = await prisma.user.count({
     where: {
       role: "student",
-      status: "new",
+      status: currentStatus as any,
       OR: [
         { firstName: { contains: search } },
         { fatherName: { contains: search } },

@@ -1,7 +1,13 @@
 "use client";
 
 import React from "react";
-import { Button, ScrollShadow, Skeleton } from "@/components/ui/heroui";
+import {
+  Button,
+  ScrollShadow,
+  Skeleton,
+  Select,
+  SelectItem,
+} from "@/components/ui/heroui";
 import SearchPlace from "@/components/searchPlace";
 import PaginationPlace from "@/components/paginationPlace";
 import useAmharic from "@/hooks/useAmharic";
@@ -16,16 +22,42 @@ export default function List() {
   } = useStudent();
   const isAm = useAmharic();
 
+  const statusOptions = [
+    { value: "all", label: isAm ? "ሁሉም" : "All" },
+    { value: "new", label: isAm ? "አዲስ" : "New" },
+    { value: "active", label: isAm ? "ተንቀሳቃሽ" : "Active" },
+    { value: "inactive", label: isAm ? "ያልነቃ" : "Inactive" },
+    { value: "onProgress", label: isAm ? "በሂደት ላይ" : "On Progress" },
+    { value: "remedanLeft", label: isAm ? "ረመዳን ያለፈ" : "Remedan Left" },
+  ];
+
   return (
     <div className="grid gap-5 grid-rows-[auto_1fr_auto] overflow-hidden ">
       <SearchPlace
         handleSearch={filter.handleSearch}
         startContent={
-          <>
+          <div className="flex gap-2">
             <div className="px-2 md:px-4 bg-default-50/50 rounded-lg text-center content-center ">
               {data?.list.length ?? 0}
             </div>
-          </>
+            <Select
+              aria-label="Status Filter"
+              placeholder={isAm ? "ሁኔታ" : "Status"}
+              size="sm"
+              className="w-40"
+              selectedKeys={[filter.status || "new"]}
+              onSelectionChange={(keys) => {
+                const val = Array.from(keys)[0] as string;
+                filter.onStatusChange(val);
+              }}
+            >
+              {statusOptions.map((opt) => (
+                <SelectItem key={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </Select>
+          </div>
         }
       />
       {!data || isLoading ? (

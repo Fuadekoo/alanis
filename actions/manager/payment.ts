@@ -14,7 +14,8 @@ export async function getMonthsPayment(
   year?: string,
   startDate?: Date,
   endDate?: Date,
-  controllerId?: string
+  controllerId?: string,
+  statusFilter?: string
 ) {
   // Set default pagination values
   page = page && page > 0 ? page : 1;
@@ -34,12 +35,13 @@ export async function getMonthsPayment(
       ...(controllerId
         ? {
             user: {
-              ...(search && search.trim()
+          ...(search && search.trim()
                 ? {
                     AND: [
                       {
                         controllerId: controllerId,
                       },
+                      ...(statusFilter && statusFilter !== "all" ? [{ status: statusFilter as any }] : []),
                       {
                         OR: [
                           {
@@ -66,33 +68,37 @@ export async function getMonthsPayment(
                   }
                 : {
                     controllerId: controllerId,
+                    ...(statusFilter && statusFilter !== "all" ? { status: statusFilter as any } : {}),
                   }),
             },
           }
-        : search && search.trim()
-        ? {
-            OR: [
-              {
-                user: {
-                  firstName: { contains: search.trim(), mode: "insensitive" },
-                },
-              },
-              {
-                user: {
-                    fatherName: {
-                      contains: search.trim(),
-                      mode: "insensitive",
-                    },
-                },
-              },
-              {
-                user: {
-                  lastName: { contains: search.trim(), mode: "insensitive" },
-                },
-              },
-            ],
-          }
-        : {}),
+        : {
+            ...(statusFilter && statusFilter !== "all" ? { user: { status: statusFilter as any } } : {}),
+            ...(search && search.trim()
+                ? {
+                    OR: [
+                      {
+                        user: {
+                          firstName: { contains: search.trim(), mode: "insensitive" },
+                        },
+                      },
+                      {
+                        user: {
+                            fatherName: {
+                              contains: search.trim(),
+                              mode: "insensitive",
+                            },
+                        },
+                      },
+                      {
+                        user: {
+                          lastName: { contains: search.trim(), mode: "insensitive" },
+                        },
+                      },
+                    ],
+                  }
+                : {})
+        }),
     };
 
     const totalRows = await prisma.payment.count({
@@ -333,7 +339,8 @@ export async function getUnpaidStudents(
   year: number,
   page?: number,
   pageSize?: number,
-  controllerId?: string
+  controllerId?: string,
+  statusFilter?: string
 ) {
   try {
     if (month == null || year == null) {
@@ -347,7 +354,7 @@ export async function getUnpaidStudents(
     // Build the where clause
     const where = {
       role: "student" as const,
-      status: "active" as const,
+      ...(statusFilter && statusFilter !== "all" ? { status: statusFilter as any } : { status: "active" as const }),
       ...(controllerId && { controllerId: controllerId }),
       // Must have teacher
       roomStudent: {

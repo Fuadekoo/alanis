@@ -10,7 +10,8 @@ import { Prisma } from "@prisma/client";
 export async function getTeacherMonthlyCalendar(
   teacherId: string,
   year: number,
-  month: number
+  month: number,
+  statusFilter?: string
 ) {
   try {
     const session = await auth();

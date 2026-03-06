@@ -74,6 +74,7 @@ export default function Page() {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // Status modal state
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
@@ -123,7 +124,8 @@ export default function Page() {
     getControllerStudentsCalendar,
     () => {},
     year,
-    month
+    month,
+    statusFilter
   );
 
   // Helper function to convert 24-hour time to 12-hour AM/PM format
@@ -837,6 +839,26 @@ export default function Page() {
               {pageSizeOptions.map((value) => (
                 <SelectItem key={value}>{value}</SelectItem>
               ))}
+            </Select>
+            <Select
+              aria-label="status"
+              selectedKeys={new Set([statusFilter])}
+              onSelectionChange={(keys) => {
+                const value = Array.from(keys)[0] as string;
+                if (value) {
+                  setStatusFilter(value);
+                  setPage(1);
+                }
+              }}
+              variant="bordered"
+              size="sm"
+              className="w-[120px] flex-shrink"
+            >
+              <SelectItem key="all">{isAm ? "ሁሉም ሁኔታዎች" : "All Status"}</SelectItem>
+              <SelectItem key="active">{isAm ? "ንቁ" : "Active"}</SelectItem>
+              <SelectItem key="new">{isAm ? "አዲስ" : "New"}</SelectItem>
+              <SelectItem key="inactive">{isAm ? "ንቁ አይደለም" : "Inactive"}</SelectItem>
+              <SelectItem key="onProgress">{isAm ? "በሂደት ላይ" : "On Progress"}</SelectItem>
             </Select>
           </div>
         </CardHeader>

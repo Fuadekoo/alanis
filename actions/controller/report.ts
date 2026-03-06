@@ -800,7 +800,8 @@ export async function getTeachersForReport() {
 // Get all controller's students with calendar data for a month
 export async function getControllerStudentsCalendar(
   year: number,
-  month: number
+  month: number,
+  statusFilter?: string
 ) {
   try {
     const session = await auth();
@@ -832,6 +833,7 @@ export async function getControllerStudentsCalendar(
       where: {
         role: "student",
         controllerId: controllerId,
+        ...(statusFilter && statusFilter !== "all" ? { status: statusFilter as any } : {}),
         roomStudent: {
           some: {},
         },

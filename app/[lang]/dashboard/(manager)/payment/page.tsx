@@ -70,6 +70,7 @@ function Page() {
   const [controllerId, setControllerId] = useState<string | undefined>(
     undefined
   );
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const [dashboardData, isLoadingDashboard] = useData(
     paymentDashboard,
@@ -93,7 +94,8 @@ function Page() {
     year,
     startDate,
     endDate,
-    controllerId
+    controllerId,
+    statusFilter
   );
 
   const [yearsData, isLoadingYears] = useData(getYearsPayment, () => {});
@@ -106,7 +108,8 @@ function Page() {
     unpaidYear,
     unpaidPage,
     unpaidPageSize,
-    controllerId
+    controllerId,
+    statusFilter
   );
 
   // Reset page to 1 when month, year, or controller changes
@@ -116,7 +119,7 @@ function Page() {
 
   useEffect(() => {
     setPage(1);
-  }, [controllerId]);
+  }, [controllerId, statusFilter]);
 
   // Delete/Rollback payment mutation
   const [deleteAction, isLoadingDelete] = useMutation(
@@ -187,6 +190,15 @@ function Page() {
     { value: "10", label: t("months.october") },
     { value: "11", label: t("months.november") },
     { value: "12", label: t("months.december") },
+  ];
+
+  const statusOptions = [
+    { value: "all", label: t("common.allStatus") || "All Status" },
+    { value: "new", label: t("status.new") || "New" },
+    { value: "active", label: t("status.active") || "Active" },
+    { value: "inactive", label: t("status.inactive") || "Inactive" },
+    { value: "onProgress", label: t("status.onProgress") || "On Progress" },
+    { value: "remedanLeft", label: t("status.remedanLeft") || "Remedan Left" },
   ];
 
   const rows = (data?.data || []).map((payment) => ({
@@ -694,6 +706,25 @@ function Page() {
                         </option>
                       ))}
                     </select>
+                    {/* Status filter */}
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      {t("common.status") || "Status"}:
+                    </label>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => {
+                        setStatusFilter(e.target.value);
+                        setPage(1);
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ minWidth: 100 }}
+                    >
+                      {statusOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
@@ -803,6 +834,25 @@ function Page() {
                       style={{ minWidth: 120 }}
                     >
                       {monthOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    {/* Status filter */}
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      {t("common.status") || "Status"}:
+                    </label>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => {
+                        setStatusFilter(e.target.value);
+                        setUnpaidPage(1);
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ minWidth: 100 }}
+                    >
+                      {statusOptions.map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>

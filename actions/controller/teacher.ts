@@ -62,12 +62,13 @@ export async function getTeacherList() {
   return data;
 }
 
-export async function getTeachers({ search, currentPage, row, sort }: Filter) {
+export async function getTeachers({ search, currentPage, row, sort, status }: Filter) {
   const session = await auth();
 
   // Base where clause for teachers
-  const whereClause = {
+  const whereClause: any = {
     role: "teacher" as const,
+    ...(status && status !== "all" ? { status: status as any } : {}),
     OR: [
       { firstName: { contains: search } },
       { fatherName: { contains: search } },
@@ -81,7 +82,13 @@ export async function getTeachers({ search, currentPage, row, sort }: Filter) {
       where: whereClause,
       skip: (currentPage - 1) * row,
       take: row,
-      select: { id: true, firstName: true, fatherName: true, lastName: true },
+      select: {
+        id: true,
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        status: true,
+      },
     })
     .then((res) =>
       res.sort((a, b) =>
