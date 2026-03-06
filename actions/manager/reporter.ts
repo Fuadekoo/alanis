@@ -32,6 +32,7 @@ export async function getTeacherMonthlyCalendar(
 
     const studentWhere: Prisma.userWhereInput = {
       role: "student",
+      ...(statusFilter && statusFilter !== "all" ? { status: statusFilter as any } : {}),
       roomStudent: {
         some: {
           teacherId: teacherId,
