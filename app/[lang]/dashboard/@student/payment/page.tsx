@@ -16,7 +16,7 @@ function Page() {
   const { t, getMonthName } = useLocalization();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   // Fetch payment data

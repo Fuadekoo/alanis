@@ -45,7 +45,7 @@ export default function Page() {
   const isAm = useAmharic();
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -114,10 +114,7 @@ export default function Page() {
     return filteredCalendarData.slice(start, start + pageSize);
   }, [filteredCalendarData, page, pageSize]);
 
-  const pageSizeOptions = useMemo(
-    () => [10, 25, 50, 100].map((value) => value.toString()),
-    []
-  );
+  const pageSizeOptions = useMemo(() => ["25", "50", "100", "250"], []);
 
   const paginationInfo = useMemo(() => {
     if (totalStudents === 0) {

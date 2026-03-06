@@ -18,7 +18,7 @@ function Page() {
   const [page, setPage] = useState(1);
   const [month, setMonth] = useState<string | undefined>(undefined);
   const [year, setYear] = useState<string | undefined>(undefined);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
 
   // Unpaid tab states
   const [unpaidMonth, setUnpaidMonth] = useState<number>(
@@ -29,7 +29,7 @@ function Page() {
   );
   const [unpaidSearch, setUnpaidSearch] = useState("");
   const [unpaidPage, setUnpaidPage] = useState(1);
-  const [unpaidPageSize, setUnpaidPageSize] = useState(10);
+  const [unpaidPageSize, setUnpaidPageSize] = useState(250);
   const [statusFilter, setStatusFilter] = useState("all");
 
   // Data fetching for paid payments

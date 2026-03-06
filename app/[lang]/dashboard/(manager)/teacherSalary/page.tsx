@@ -118,7 +118,7 @@ function Page() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
 
   // Form state
   const [selectedTeacher, setSelectedTeacher] = useState<string>("");
@@ -1132,7 +1132,7 @@ function Page() {
                   size="sm"
                   className="sm:w-[150px]"
                 >
-                  {[10, 25, 50, 100].map((value) => (
+                  {[25, 50, 100, 250].map((value) => (
                     <SelectItem key={value.toString()}>{value}</SelectItem>
                   ))}
                 </Select>

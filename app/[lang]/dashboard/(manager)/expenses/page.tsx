@@ -42,7 +42,7 @@ function Page() {
   const { formatCurrency } = useLocalization();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [editingId, setEditingId] = useState<string | undefined>(undefined);

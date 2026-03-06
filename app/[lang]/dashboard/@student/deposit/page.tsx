@@ -17,7 +17,7 @@ const formatImageUrl = (url: string | null | undefined): string => {
 function Page() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
   // const [editingId, setEditingId] = useState<string | null>(null);
   const [filterByPayment, setFilterByPayment] = useState<string>("all");
 

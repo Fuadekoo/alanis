@@ -51,7 +51,7 @@ interface CustomTableProps {
   }) => void;
 }
 
-const PAGE_SIZES = [10, 25, 50, 100];
+const PAGE_SIZES = [25, 50, 100, 250];
 
 function CustomTable({
   rows,

@@ -47,7 +47,7 @@ function Page() {
   const [year, setYear] = useState<string | undefined>(undefined);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
   const [processingDeleteId, setProcessingDeleteId] = useState<string | null>(
     null
   );
@@ -66,7 +66,7 @@ function Page() {
   );
   const [unpaidSearch, setUnpaidSearch] = useState("");
   const [unpaidPage, setUnpaidPage] = useState(1);
-  const [unpaidPageSize, setUnpaidPageSize] = useState(10);
+  const [unpaidPageSize, setUnpaidPageSize] = useState(250);
   const [controllerId, setControllerId] = useState<string | undefined>(
     undefined
   );

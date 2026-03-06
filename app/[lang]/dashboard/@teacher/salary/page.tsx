@@ -155,14 +155,10 @@ function getPaymentBadge(status: string, isAm: boolean) {
 export default function Page() {
   const isAm = useAmharic();
 
-  const [filterMonth, setFilterMonth] = useState<number | undefined>(
-    undefined
-  );
-  const [filterYear, setFilterYear] = useState<number | undefined>(
-    undefined
-  );
+  const [filterMonth, setFilterMonth] = useState<number | undefined>(undefined);
+  const [filterYear, setFilterYear] = useState<number | undefined>(undefined);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
   const [selectedSalary, setSelectedSalary] = useState<string>("");
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
@@ -174,13 +170,13 @@ export default function Page() {
     filterYear,
     filterMonth,
     page,
-    pageSize
+    pageSize,
   );
 
   const [salaryDetail] = useData(
     getTeacherSalaryDetail,
     () => {},
-    selectedSalary
+    selectedSalary,
   );
 
   const salaryData = salaryResponse?.data?.salaries ?? [];
@@ -209,15 +205,12 @@ export default function Page() {
         (value) => ({
           value: value.toString(),
           label: value.toString(),
-        })
+        }),
       ),
     ];
   }, [isAm]);
 
-  const pageSizeOptions = useMemo(
-    () => [5, 10, 25, 50].map((value) => value.toString()),
-    []
-  );
+  // no pageSizeOptions constant; options provided inline in the Select below
 
   const selectedDetail = salaryDetail?.success
     ? (salaryDetail.data as SalaryDetail)
@@ -330,7 +323,7 @@ export default function Page() {
                   size="sm"
                   className="sm:w-[150px]"
                 >
-                  {pageSizeOptions.map((value) => (
+                  {[25, 50, 100, 250].map((value) => (
                     <SelectItem key={value}>{value}</SelectItem>
                   ))}
                 </Select>
@@ -453,8 +446,8 @@ export default function Page() {
                                   ? row.status === "approved"
                                     ? "ጸድቋል"
                                     : row.status === "pending"
-                                    ? "በመጠባበቅ"
-                                    : "ተቀባይነት አልተገኘም"
+                                      ? "በመጠባበቅ"
+                                      : "ተቀባይነት አልተገኘም"
                                   : badge.label}
                               </span>
                             </td>
@@ -485,15 +478,15 @@ export default function Page() {
                     ? isAm
                       ? `ውጤቶች ${(page - 1) * pageSize + 1}-${Math.min(
                           page * pageSize,
-                          totalCount
+                          totalCount,
                         )} ከ ${totalCount}`
                       : `Showing ${(page - 1) * pageSize + 1}-${Math.min(
                           page * pageSize,
-                          totalCount
+                          totalCount,
                         )} of ${totalCount}`
                     : isAm
-                    ? "ውጤት የለም"
-                    : "No results"}
+                      ? "ውጤት የለም"
+                      : "No results"}
                 </span>
                 <Pagination
                   total={totalPages}
@@ -560,7 +553,9 @@ export default function Page() {
                         {isAm ? "ተፈጥሯበት" : "Created"}
                       </span>
                       <span className="font-semibold text-default-800">
-                        {new Date(selectedDetail.createdAt).toLocaleDateString()}
+                        {new Date(
+                          selectedDetail.createdAt,
+                        ).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -576,8 +571,8 @@ export default function Page() {
                           ? selectedDetail.status === "approved"
                             ? "ጸድቋል"
                             : selectedDetail.status === "pending"
-                            ? "በመጠባበቅ"
-                            : "ተቀባይነት አልተገኘም"
+                              ? "በመጠባበቅ"
+                              : "ተቀባይነት አልተገኘም"
                           : getStatusBadge(selectedDetail.status).label}
                       </span>
                     </div>
@@ -646,7 +641,7 @@ export default function Page() {
                           {selectedDetail.teacherProgresses.map((progress) => {
                             const paymentBadge = getPaymentBadge(
                               progress.paymentStatus,
-                              isAm
+                              isAm,
                             );
                             return (
                               <tr
@@ -660,7 +655,7 @@ export default function Page() {
                                 </td>
                                 <td className="border border-default-200 p-2">
                                   {new Date(
-                                    progress.createdAt
+                                    progress.createdAt,
                                   ).toLocaleDateString()}
                                 </td>
                                 <td className="border border-default-200 p-2 text-center">
@@ -736,20 +731,19 @@ export default function Page() {
                           {selectedDetail.shiftTeacherData.map((shift) => {
                             const paymentBadge = getPaymentBadge(
                               shift.paymentStatus,
-                              isAm
+                              isAm,
                             );
                             return (
-                              <tr
-                                key={shift.id}
-                                className="hover:bg-primary/5"
-                              >
+                              <tr key={shift.id} className="hover:bg-primary/5">
                                 <td className="border border-default-200 p-2">
                                   {shift.student.firstName}{" "}
                                   {shift.student.fatherName}{" "}
                                   {shift.student.lastName}
                                 </td>
                                 <td className="border border-default-200 p-2">
-                                  {new Date(shift.createdAt).toLocaleDateString()}
+                                  {new Date(
+                                    shift.createdAt,
+                                  ).toLocaleDateString()}
                                 </td>
                                 <td className="border border-default-200 p-2 text-center">
                                   <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-success-50 px-2 py-0.5 text-xs font-semibold text-success-600 dark:bg-success-500/10 dark:text-success-200">

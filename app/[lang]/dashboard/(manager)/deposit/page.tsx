@@ -43,7 +43,7 @@ function Page() {
   const { t, formatCurrency } = useLocalization();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
   const [filterByPayment, setFilterByPayment] = useState<string>("all");
   const [startDate, setStartDate] = useState<string | undefined>(undefined);
   const [endDate, setEndDate] = useState<string | undefined>(undefined);

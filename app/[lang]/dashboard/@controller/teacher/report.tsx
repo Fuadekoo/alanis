@@ -13,7 +13,7 @@ export function Report() {
   const [activeTab, setActiveTab] = useState<string>("current");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
 
   const isAm = useAmharic();
 

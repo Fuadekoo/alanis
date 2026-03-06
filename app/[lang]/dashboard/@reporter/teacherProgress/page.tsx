@@ -60,7 +60,7 @@ export default function Page() {
   const [month, setMonth] = useState("all");
   const [year, setYear] = useState("all");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(250);
 
   const [teachersData, isLoadingTeachers] = useData(
     getAllTeachersForReporter,
@@ -132,10 +132,7 @@ export default function Page() {
     ];
   }, [isAm]);
 
-  const pageSizeOptions = useMemo(
-    () => [10, 25, 50, 100].map((size) => size.toString()),
-    []
-  );
+  const pageSizeOptions = useMemo(() => ["25", "50", "100", "250"], []);
 
   const progressList = useMemo(() => {
     if (!progressData?.success || !Array.isArray(progressData.data)) return [];

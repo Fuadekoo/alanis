@@ -27,7 +27,7 @@ import Select from "react-select";
 function UserPaymentDetail({ studentId }: { studentId: string }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(250);
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Fetch payment data for the student
