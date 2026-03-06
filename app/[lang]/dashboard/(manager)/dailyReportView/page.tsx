@@ -46,6 +46,7 @@ export default function Page() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -71,7 +72,8 @@ export default function Page() {
     () => {},
     selectedTeacher || "",
     year,
-    month
+    month,
+    statusFilter
   );
 
   const filteredCalendarData = useMemo(() => {
@@ -95,7 +97,7 @@ export default function Page() {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedTeacher, month, year, searchTerm, pageSize]);
+  }, [selectedTeacher, month, year, searchTerm, pageSize, statusFilter]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -153,6 +155,17 @@ export default function Page() {
           { value: "12", label: "December" },
         ];
     return monthNames;
+  }, [isAm]);
+
+  const statusOptions = useMemo(() => {
+    return [
+      { value: "all", label: isAm ? "ሁሉም" : "All" },
+      { value: "new", label: isAm ? "አዲስ" : "New" },
+      { value: "active", label: isAm ? "ተንቀሳቃሽ" : "Active" },
+      { value: "inactive", label: isAm ? "ያልነቃ" : "Inactive" },
+      { value: "onProgress", label: isAm ? "በሂደት ላይ" : "On Progress" },
+      { value: "remedanLeft", label: isAm ? "ረመዳን ያለፈ" : "Remedan Left" },
+    ];
   }, [isAm]);
 
   const yearOptions = useMemo(() => {
