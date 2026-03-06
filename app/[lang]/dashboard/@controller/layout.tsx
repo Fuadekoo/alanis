@@ -6,6 +6,7 @@ import {
   User,
   Users,
   CreditCard,
+  FileText,
 } from "lucide-react";
 import React from "react";
 
@@ -60,10 +61,10 @@ export default async function Layout({
       },
       {
         english: "daily report",
-        amharic: "የቀንበሩ መመሪያ",
+        amharic: "የቀን ሪፖርቶች",
         oromo: "Gabaasa Guyyaa",
         url: "dailyReport",
-        Icon: <Calendar className="size-6" />,
+        Icon: <FileText className="size-6" />,
       },
       {
         english: "attendance",
