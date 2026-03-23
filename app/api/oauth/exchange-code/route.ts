@@ -72,7 +72,7 @@ async function exchange(request: NextRequest) {
   try {
     const { code, userId } = await readInput(request);
     const result = await resolveUserIdFromInput(code, userId);
-    if ("error" in result) {
+    if ("error" in result && result.error) {
       const response = NextResponse.json(result.error.body, { status: result.error.status });
       return addCorsHeaders(request, response);
     }
