@@ -9,7 +9,7 @@ import { Eye, EyeOff, KeyRound, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 export default function Page() {
   const { lang, credentials } = useParams<{
@@ -24,15 +24,19 @@ export default function Page() {
       }
     });
   const [hidden, setHidden] = useState(true);
+  const attemptedLogin = useRef(false);
 
   useEffect(() => {
+    if (attemptedLogin.current) return;
     const [username, password] = credentials ?? ["", ""];
     if (username && password) {
+      attemptedLogin.current = true;
       setValue("username", username);
       setValue("password", password);
-      onSubmit();
+      setTimeout(() => onSubmit(), 0);
     }
-  }, [credentials, onSubmit, setValue]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [credentials]);
 
   return (
     <div className="grid place-content-center">
