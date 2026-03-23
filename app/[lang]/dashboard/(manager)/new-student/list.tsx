@@ -63,7 +63,9 @@ export default function List() {
               }}
             >
               {statusOptions.map((opt) => (
-                <SelectItem key={opt.value}>{opt.label}</SelectItem>
+                <SelectItem key={opt.value}>
+                  {opt.label}
+                </SelectItem>
               ))}
             </Select>
           </div>
@@ -76,18 +78,18 @@ export default function List() {
           {data.list.map(
             (
               { id, firstName, fatherName, lastName, country, phoneNumber },
-              i,
+              i
             ) => (
               <div
                 key={i + ""}
                 className={cn(
-                  "h-fit p-2 bg-default-50/50 rounded-xl grid md:grid-cols-[1fr_auto_auto_auto] gap-2 items-center  ",
+                  "h-fit p-2 bg-default-50/50 rounded-xl grid md:grid-cols-[1fr_auto_auto_auto] gap-2 items-center  "
                 )}
               >
                 <p className="text-start ">
                   {highlight(
                     `${firstName} ${fatherName} ${lastName}`,
-                    filter.search,
+                    filter.search
                   )}
                 </p>
                 <p className="w-48 text-start ">{country}</p>
@@ -114,7 +116,7 @@ export default function List() {
                   </Button>
                 </div>
               </div>
-            ),
+            )
           )}
         </ScrollShadow>
       )}

@@ -82,17 +82,17 @@ const selectStyles = {
       backgroundColor: isDisabled
         ? undefined
         : isSelected
-          ? data.color
-          : isFocused
-            ? color.alpha(0.1).css()
-            : undefined,
+        ? data.color
+        : isFocused
+        ? color.alpha(0.1).css()
+        : undefined,
       color: isDisabled
         ? "#ccc"
         : isSelected
-          ? chroma.contrast(color, "white") > 2
-            ? "white"
-            : "black"
-          : data.color,
+        ? chroma.contrast(color, "white") > 2
+          ? "white"
+          : "black"
+        : data.color,
       cursor: isDisabled ? "not-allowed" : "default",
 
       ":active": {
@@ -136,7 +136,7 @@ function Page() {
 
   // State for upload progress tracking - changed to single file
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
-    null,
+    null
   );
   const [isUploading, setIsUploading] = useState(false);
 
@@ -149,7 +149,7 @@ function Page() {
     statusFilter,
     page,
     pageSize,
-    search,
+    search
   );
 
   const uploadFile = async (file: File, uuid: string): Promise<string> => {
@@ -185,9 +185,7 @@ function Page() {
 
       // Update progress for this file
       setUploadProgress((prev) =>
-        prev
-          ? { ...prev, progress: Math.round(((i + 1) / total) * 100) }
-          : null,
+        prev ? { ...prev, progress: Math.round(((i + 1) / total) * 100) } : null
       );
     }
 
@@ -224,7 +222,7 @@ function Page() {
 
       // Mark as completed
       setUploadProgress((prev) =>
-        prev ? { ...prev, serverFilename, progress: 100 } : null,
+        prev ? { ...prev, serverFilename, progress: 100 } : null
       );
     } catch (error) {
       console.error("Failed to upload file:", file.name, error);
@@ -259,7 +257,7 @@ function Page() {
         setEditingId(null);
         form.onOpenChange();
       }
-    },
+    }
   );
 
   // Delete logic
@@ -589,15 +587,9 @@ function Page() {
                   className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="all">{t("common.all") || "All Status"}</option>
-                  <option value="pending">
-                    {t("deposit.pending") || "Pending"}
-                  </option>
-                  <option value="approved">
-                    {t("deposit.approved") || "Approved"}
-                  </option>
-                  <option value="rejected">
-                    {t("deposit.rejected") || "Rejected"}
-                  </option>
+                  <option value="pending">{t("deposit.pending") || "Pending"}</option>
+                  <option value="approved">{t("deposit.approved") || "Approved"}</option>
+                  <option value="rejected">{t("deposit.rejected") || "Rejected"}</option>
                 </select>
               </div>
             </div>

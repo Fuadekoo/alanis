@@ -4,13 +4,7 @@ import React from "react";
 import { useController } from "./provider";
 import SearchPlace from "@/components/searchPlace";
 import useAmharic from "@/hooks/useAmharic";
-import {
-  Button,
-  ScrollShadow,
-  Skeleton,
-  Select,
-  SelectItem,
-} from "@/components/ui/heroui";
+import { Button, ScrollShadow, Skeleton, Select, SelectItem } from "@/components/ui/heroui";
 import { Plus } from "lucide-react";
 import { cn } from "@heroui/react";
 import { highlight } from "@/lib/utils";
@@ -69,7 +63,7 @@ export default function List() {
                 "h-fit p-2 bg-default-50/50 border-2 flex-col gap-1 items-start text-base md:text-xl ",
                 id == selected
                   ? "border-primary-400 text-primary-600"
-                  : "border-default-400",
+                  : "border-default-400"
               )}
               onPress={() => {
                 onSelected(id);
@@ -80,7 +74,7 @@ export default function List() {
                 {i + 1}{" "}
                 {highlight(
                   `${firstName} ${fatherName} ${lastName}`,
-                  filter.search,
+                  filter.search
                 )}
               </p>
             </Button>

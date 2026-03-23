@@ -1,13 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  Button,
-  ScrollShadow,
-  Skeleton,
-  Select,
-  SelectItem,
-} from "@/components/ui/heroui";
+import { Button, ScrollShadow, Skeleton, Select, SelectItem } from "@/components/ui/heroui";
 import SearchPlace from "@/components/searchPlace";
 import PaginationPlace from "@/components/paginationPlace";
 import useAmharic from "@/hooks/useAmharic";
@@ -42,11 +36,11 @@ export default function List() {
                 <SelectItem key={opt}>{opt}</SelectItem>
               ))}
             </Select>
-            <Select
-              className="w-28 md:w-36"
-              size="sm"
-              placeholder={isAm ? "ሁኔታ" : "Status"}
-              selectedKeys={new Set([filter.status || "new"])}
+            <Select 
+              className="w-28 md:w-36" 
+              size="sm" 
+              placeholder={isAm ? "ሁኔታ" : "Status"} 
+              selectedKeys={new Set([filter.status || "new"])} 
               onSelectionChange={(keys) => {
                 const value = Array.from(keys)[0] as string;
                 if (value) filter.onStatusChange(value);
@@ -54,15 +48,9 @@ export default function List() {
             >
               <SelectItem key="new">{isAm ? "አዲስ" : "New"}</SelectItem>
               <SelectItem key="active">{isAm ? "ንቁ" : "Active"}</SelectItem>
-              <SelectItem key="inactive">
-                {isAm ? "ንቁ አይደለም" : "Inactive"}
-              </SelectItem>
-              <SelectItem key="onProgress">
-                {isAm ? "በሂደት ላይ" : "On Progress"}
-              </SelectItem>
-              <SelectItem key="remedanLeft">
-                {isAm ? "ረመዳን ያለቀበት" : "Ramadan Left"}
-              </SelectItem>
+              <SelectItem key="inactive">{isAm ? "ንቁ አይደለም" : "Inactive"}</SelectItem>
+              <SelectItem key="onProgress">{isAm ? "በሂደት ላይ" : "On Progress"}</SelectItem>
+              <SelectItem key="remedanLeft">{isAm ? "ረመዳን ያለቀበት" : "Ramadan Left"}</SelectItem>
             </Select>
           </>
         }
@@ -74,18 +62,18 @@ export default function List() {
           {data.list.map(
             (
               { id, firstName, fatherName, lastName, country, phoneNumber },
-              i,
+              i
             ) => (
               <div
                 key={i + ""}
                 className={cn(
-                  "h-fit p-2 bg-default-50/50 rounded-xl grid md:grid-cols-[1fr_auto_auto_auto] gap-2 items-center  ",
+                  "h-fit p-2 bg-default-50/50 rounded-xl grid md:grid-cols-[1fr_auto_auto_auto] gap-2 items-center  "
                 )}
               >
                 <p className="text-start ">
                   {highlight(
                     `${firstName} ${fatherName} ${lastName}`,
-                    filter.search,
+                    filter.search
                   )}
                 </p>
                 <p className="w-48 text-start ">{country}</p>
@@ -112,7 +100,7 @@ export default function List() {
                   </Button>
                 </div>
               </div>
-            ),
+            )
           )}
         </ScrollShadow>
       )}

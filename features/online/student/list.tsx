@@ -40,10 +40,7 @@ export default function List() {
               size="sm"
               variant="flat"
               aria-label="Rows per page"
-              classNames={{
-                base: "w-20",
-                trigger: "bg-default-50/50 text-small h-[32px] min-h-[32px]",
-              }}
+              classNames={{ base: "w-20", trigger: "bg-default-50/50 text-small h-[32px] min-h-[32px]" }}
               selectedKeys={new Set([filter.row + ""])}
               onSelectionChange={(v) => {
                 const selected = parseInt(Array.from(v)[0] as string);
@@ -60,10 +57,7 @@ export default function List() {
               size="sm"
               variant="flat"
               placeholder={isAm ? "ሁኔታ" : "Status"}
-              classNames={{
-                base: "min-w-24 max-w-xs",
-                trigger: "bg-default-50/50 text-small h-[32px] min-h-[32px]",
-              }}
+              classNames={{ base: "min-w-24 max-w-xs", trigger: "bg-default-50/50 text-small h-[32px] min-h-[32px]" }}
               selectedKeys={new Set([filter.status || "all"])}
               onSelectionChange={(v) => {
                 const selected = Array.from(v)[0] as string;
@@ -74,18 +68,11 @@ export default function List() {
                 { key: "all", label: isAm ? "ሁሉም" : "All" },
                 { key: "new", label: isAm ? "አዲስ" : "New" },
                 { key: "onProgress", label: isAm ? "በሂደት ላይ" : "On Progress" },
-                {
-                  key: "remedanLeft",
-                  label: isAm ? "ረመዳን ያለቀበት" : "Remedan Left",
-                },
+                { key: "remedanLeft", label: isAm ? "ረመዳን ያለቀበት" : "Remedan Left" },
                 { key: "active", label: isAm ? "ንቁ" : "Active" },
                 { key: "inactive", label: isAm ? "ኢ-ንቁ" : "Inactive" },
               ].map((item) => (
-                <SelectItem
-                  variant="flat"
-                  key={item.key}
-                  textValue={item.label}
-                >
+                <SelectItem variant="flat" key={item.key} textValue={item.label}>
                   {item.label}
                 </SelectItem>
               ))}
@@ -132,7 +119,7 @@ export default function List() {
                   roomStudent,
                   status,
                 },
-                i,
+                i
               ) => (
                 <div
                   key={i + ""}
@@ -140,7 +127,7 @@ export default function List() {
                     "h-fit p-2 bg-default-50/30 backdrop-blur-sm border-2 rounded-xl flex-col gap-1 items-start ",
                     id == selected
                       ? "border-primary-400 text-primary-600 "
-                      : "border-default-400",
+                      : "border-default-400"
                   )}
                 >
                   <div className="space-y-2">
@@ -157,7 +144,7 @@ export default function List() {
                         {i + 1}{" "}
                         {highlight(
                           `${firstName} ${fatherName} ${lastName}`,
-                          filter.search,
+                          filter.search
                         )}
                       </p>
                       {status !== "active" && (
@@ -166,32 +153,24 @@ export default function List() {
                             status === "inactive"
                               ? "danger"
                               : status === "new"
-                                ? "default"
-                                : status === "onProgress"
-                                  ? "primary"
-                                  : status === "remedanLeft"
-                                    ? "warning"
-                                    : "default"
+                              ? "default"
+                              : status === "onProgress"
+                              ? "primary"
+                              : status === "remedanLeft"
+                              ? "warning"
+                              : "default"
                           }
                           variant="flat"
                         >
                           {status === "inactive"
-                            ? isAm
-                              ? "ኢ-ንቁ"
-                              : "Inactive"
+                            ? isAm ? "ኢ-ንቁ" : "Inactive"
                             : status === "new"
-                              ? isAm
-                                ? "አዲስ"
-                                : "New"
-                              : status === "onProgress"
-                                ? isAm
-                                  ? "በሂደት"
-                                  : "On Progress"
-                                : status === "remedanLeft"
-                                  ? isAm
-                                    ? "ረመዳን"
-                                    : "Remedan Left"
-                                  : status}
+                            ? isAm ? "አዲስ" : "New"
+                            : status === "onProgress"
+                            ? isAm ? "በሂደት" : "On Progress"
+                            : status === "remedanLeft"
+                            ? isAm ? "ረመዳን" : "Remedan Left"
+                            : status}
                         </Chip>
                       )}
                     </Button>
@@ -314,7 +293,7 @@ export default function List() {
                     )}
                   </div>
                 </div>
-              ),
+              )
             )}
           </ScrollShadow>
         </PullToRefresh>
