@@ -24,7 +24,7 @@ export default async function Layout({
     select: { status: true },
   });
 
-  if (!session?.user || data?.status !== "active") {
+  if (!session?.user || data?.status === "inactive") {
     return (
       <div className="grid place-content-center gap-5">
         <div className="p-10 bg-danger/10 border border-danger-300 rounded-xl text-danger-600 ">
