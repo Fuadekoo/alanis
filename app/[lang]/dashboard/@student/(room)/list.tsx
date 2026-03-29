@@ -19,7 +19,7 @@ export default function List() {
   // const router = useRouter();
   const {
     controller,
-    room: { data, isLoading, action, refresh },
+    room: { data, isLoading, action, actionLoading, refresh },
   } = useRoom();
 
   return (
