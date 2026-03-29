@@ -4,9 +4,9 @@ import { getStudentController } from "@/actions/student/room";
 import { getRooms, registerRoomAttendance } from "@/actions/student/room";
 import { useContext } from "@/hooks/useContext";
 import useData, { UseData } from "@/hooks/useData";
-import useMutation from "@/hooks/useMutation";
+import { addToast } from "@heroui/react";
 // import { useRouter } from "next/navigation";
-import React, { createContext, useState } from "react";
+import React, { createContext, useTransition } from "react";
 
 const RoomContext = createContext<{
   controller:
@@ -17,7 +17,7 @@ const RoomContext = createContext<{
     | null
     | undefined;
   room: UseData<typeof getRooms> & {
-    action: (link: string, id: string) => void;
+    action: (link: string, id: string) => Promise<void>;
     actionLoading: boolean;
     refresh: () => void;
   };
@@ -26,15 +26,10 @@ const RoomContext = createContext<{
 export const useRoom = () => useContext(RoomContext);
 
 export function Provider({ children }: { children: React.ReactNode }) {
-  const [link, setLink] = useState("");
+  const [actionLoading, startTransition] = useTransition();
   // const router = useRouter();
   const [controller] = useData(getStudentController, () => []);
   const [data, isLoading, refresh] = useData(getRooms, () => {});
-  const [action, actionLoading] = useMutation(registerRoomAttendance, () => {
-    if (link) {
-      // router.push(link);
-    }
-  });
 
   return (
     <RoomContext.Provider
@@ -43,9 +38,20 @@ export function Provider({ children }: { children: React.ReactNode }) {
         room: {
           data,
           isLoading,
-          action: (link, id) => {
-            setLink(link);
-            action(id);
+          action: async (link, id) => {
+            startTransition(async () => {
+              const result = await registerRoomAttendance(id);
+              if (!result.status) {
+                addToast({
+                  title: "Error",
+                  description: result.message || "failed to register attendance",
+                  color: "danger",
+                });
+                return;
+              }
+
+              window.open(link, "_blank", "noopener,noreferrer");
+            });
           },
           actionLoading,
           refresh,

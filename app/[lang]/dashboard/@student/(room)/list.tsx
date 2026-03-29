@@ -77,10 +77,16 @@ export default function List() {
                       href={link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (actionLoading) return;
                         action(link, id);
                       }}
-                      className="h-20 w-full p-2 text-center font-bold bg-primary text-primary-foreground rounded-l-xl flex items-center justify-center hover:bg-primary/90 transition-colors cursor-pointer"
+                      className={`h-20 w-full p-2 text-center font-bold bg-primary text-primary-foreground rounded-l-xl flex items-center justify-center transition-colors cursor-pointer ${
+                        actionLoading
+                          ? "opacity-70 pointer-events-none"
+                          : "hover:bg-primary/90"
+                      }`}
                     >
                       <p className="text-wrap">
                         {lang == "am"
