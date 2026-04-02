@@ -6,10 +6,12 @@ import { isAuthorized } from "@/lib/utils";
 export async function registerRoomAttendance(roomId: string) {
   try {
     const student = await isAuthorized("student");
+    console.log("student is authorized >> ", student);
     const studentData = await prisma.user.findUnique({
       where: { id: student.id },
       select: { id: true, startDate: true, status: true },
     });
+    console.log("student data >> ", studentData);
 
     if (!studentData) {
       return { status: false, message: "student account not found" };
@@ -27,14 +29,17 @@ export async function registerRoomAttendance(roomId: string) {
       select: { id: true },
     });
 
+    console.log("room data >> ", room);
+
     if (!room) {
       return { status: false, message: "room not found for this student" };
     }
 
     await prisma.$transaction(async (tx) => {
-      await tx.roomAttendance.create({
+      const res = await tx.roomAttendance.create({
         data: { userId: student.id, roomId: room.id },
       });
+      console.log("room attendance >> ", res);
 
       if (!studentData.startDate) {
         await tx.user.update({
