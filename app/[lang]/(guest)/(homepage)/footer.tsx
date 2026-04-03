@@ -59,24 +59,37 @@ export function Footer() {
       </div>
 
       <div className="p-5 grid md:grid-cols-2 gap-y-5 gap-x-40 items-center -justify-center ">
-        <p className="flex gap-2 items-center justify-center  ">
-          <span
-            className=""
-            onClick={() => {
-              router.push("/am/screen");
-            }}
-          >
-            2025
-          </span>
-          <Copyright className="size-4" />
-          <span className="">Al Anis</span>
-        </p>
-        {/* <Link
-          href="https://at-abdelkerim.vercel.app"
-          className="w-full grid place-content-center font-semibold text-indigo-900  "
-        >
-          developer by 
-        </Link> */}
+        <div className="flex flex-col gap-2 items-center md:items-start">
+          <p className="flex gap-2 items-center justify-center  ">
+            <span
+              className=""
+              onClick={() => {
+                router.push("/am/screen");
+              }}
+            >
+              2025
+            </span>
+            <Copyright className="size-4" />
+            <span className="">Al Anis</span>
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-primary-700/70">
+            <Link href={`/${lang}/mission`} className="hover:text-primary-900 hover:underline">
+              {lang == "am" ? "ተልዕኮ" : lang == "or" ? "Ergaa" : "Mission"}
+            </Link>
+            <Link href={`/${lang}/terms`} className="hover:text-primary-900 hover:underline">
+              {lang == "am" ? "ውሎች" : lang == "or" ? "Waliigaltee" : "Terms"}
+            </Link>
+            <Link href={`/${lang}/support`} className="hover:text-primary-900 hover:underline">
+              {lang == "am" ? "ድጋፍ" : lang == "or" ? "Deeggarsa" : "Support"}
+            </Link>
+            <Link href={`/${lang}/documentation`} className="hover:text-primary-900 hover:underline">
+              {lang == "am" ? "ሰነድ" : lang == "or" ? "Galmeewwan" : "Documentation"}
+            </Link>
+            <Link href={`/${lang}/policy`} className="hover:text-primary-900 hover:underline">
+              {lang == "am" ? "ፖሊሲ" : lang == "or" ? "Imaammata" : "Policy"}
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

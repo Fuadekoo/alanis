@@ -26,7 +26,7 @@ enum gender {
 
 enum userStatus {
   new
-  onProgress  
+  onProgress
   remedanLeft
   active
   inactive
@@ -74,6 +74,26 @@ model user {
   teacherDailyReportsAsTeacher teacherDailyReport[]  @relation("TeacherDailyReportTeacher")
   teacherDailyReportsAsStudent teacherDailyReport[]  @relation("TeacherDailyReportStudent")
   announcementTeachers         announcementTeacher[]
+  zoomAttach                   zoomAttach?
+}
+
+model zoomAttach {
+  id     String @id @default(cuid())
+  user   user   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  zoomUserId      String    @unique
+  zoomEmail       String
+  zoomDisplayName String?
+  zoomAccountType String?   @default("personal")
+  accessToken     String?
+  refreshToken    String?
+  tokenExpiresAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId])
 }
 
 model room {

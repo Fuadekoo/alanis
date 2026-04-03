@@ -10,6 +10,7 @@ import React, { createContext } from "react";
 const RoomContext = createContext<{
   room: UseData<typeof getRooms> & {
     registration: UseRegistration<typeof uploadLink>;
+    refresh: () => void;
   };
 } | null>(null);
 
@@ -24,7 +25,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
   });
 
   return (
-    <RoomContext.Provider value={{ room: { data, isLoading, registration } }}>
+    <RoomContext.Provider value={{ room: { data, isLoading, registration, refresh } }}>
       {children}
     </RoomContext.Provider>
   );

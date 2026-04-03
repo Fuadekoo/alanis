@@ -14,10 +14,18 @@ export function getFormErrors<TFieldValues extends FieldValues>(
   );
 }
 
-export async function isAuthorized(role: Role) {
+export async function isAuthorized(role: Role | Role[]) {
   const error = new Error("You need have authorized to access this 😉");
   const session = await auth();
-  if (!session?.user || session.user.role !== role) throw error;
+  
+  if (!session?.user) throw error;
+  
+  const hasRole = Array.isArray(role) 
+    ? role.includes(session.user.role) 
+    : session.user.role === role;
+    
+  if (!hasRole) throw error;
+  
   const user = await prisma.user.findFirst({
     where: { id: session.user.id },
     select: { id: true, role: true },

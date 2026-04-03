@@ -3,27 +3,41 @@ import { ChangePassword } from "./changePassword";
 import { ChangeUsername } from "./changeUsername";
 import prisma from "@/lib/db";
 import { isAuthorized } from "@/lib/utils";
+import ZoomAttachSection from "@/components/zoomAttachSection";
 
 export default async function Page() {
   const controller = await isAuthorized("teacher");
-  const data = await prisma.user.findFirst({
-    where: { id: controller.id },
-    select: {
-      firstName: true,
-      fatherName: true,
-      lastName: true,
-      gender: true,
-      age: true,
-      phoneNumber: true,
-      country: true,
-      username: true,
-    },
-  });
+  const [data, zoomAttach] = await Promise.all([
+    prisma.user.findFirst({
+      where: { id: controller.id },
+      select: {
+        firstName: true,
+        fatherName: true,
+        lastName: true,
+        gender: true,
+        age: true,
+        phoneNumber: true,
+        country: true,
+        username: true,
+      },
+    }),
+    prisma.zoomAttach.findFirst({
+      where: { userId: controller.id },
+      select: {
+        id: true,
+        zoomUserId: true,
+        zoomEmail: true,
+        zoomDisplayName: true,
+        zoomAccountType: true,
+      },
+    }),
+  ]);
 
   if (!data) return null;
 
   return (
     <div className="p-2 md:p-10 flex flex-col gap-5 text-xl">
+      <ZoomAttachSection data={zoomAttach ?? undefined} />
       {[
         ["Name", `${data.firstName} ${data.fatherName} ${data.lastName}`],
         ["Gender", data.gender],

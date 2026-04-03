@@ -28,7 +28,7 @@ export default async function RootLayout({
   const session = await auth();
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`select-none  antialiased fixed inset-0 grid`}>
+      <body className={`select-none antialiased fixed inset-0 grid`}>
         <SessionProvider session={session}>
           <UIProvider>
             <div className="h-dvh bg-gradient-to-br from-primary-200 to-secondary-200 text-foreground grid overflow-hidden ">

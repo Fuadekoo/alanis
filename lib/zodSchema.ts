@@ -185,6 +185,8 @@ export const studyRoomSchema = z.object({
 
 export type StudyRoomSchema = z.infer<typeof studyRoomSchema>;
 
+
+
 export const depositSchema = z.object({
   studentId: z.string().nonempty("student is required").default(""),
   amount: z.coerce.number().positive("amount must be positive"),

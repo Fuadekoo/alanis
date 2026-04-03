@@ -16,13 +16,36 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import { Announcement } from "./announcement";
 import ActiveTeaching from "./activeTeaching";
+import useMutation from "@/hooks/useMutation";
+import { generateZoomLink } from "@/actions/teacher/room";
 
 export default function List() {
   const { lang } = useParams<{ lang: string }>();
 
   const {
-    room: { data, isLoading, registration },
+    room: { data, isLoading, registration, refresh },
   } = useRoom();
+
+  const [handleGenerateLink, isGeneratingLink] = useMutation(
+    generateZoomLink,
+    (result) => {
+      if (result.status) {
+        addToast({
+          title: "Success",
+          description: result.message,
+          color: "success",
+        });
+      } else {
+        addToast({
+          title: "Error",
+          description: result.message,
+          color: "danger",
+        });
+      }
+      // refresh list after generation
+      refresh();
+    }
+  );
 
   return (
     <div className="p-2 grid gap-5 md:justify-center- auto-rows-min">
@@ -96,50 +119,23 @@ export default function List() {
                   {link ? (
                     <Button
                       color="primary"
-                      className="w-full px-2 justify-start "
+                      className="w-full px-2 justify-center"
                       as={Link}
                       href={link}
+                      target="_blank"
                     >
-                      {link}
+                      {lang == "am" ? "ወደ ክፍል ይግቡ" : lang == "or" ? "Gara daree seeni" : "Go to Class"}
                     </Button>
                   ) : (
-                    <div className="w-full p-2 border border-primary-300 rounded-l-xl content-center text-center text-primary-600 ">
-                      {lang == "am" ? "ሊንክ አልተላከም" : lang == "or" ? "Linki hin ergamne" : "No Link"}
-                    </div>
-                  )}
-                  {link && (
                     <Button
-                      isIconOnly
-                      color="primary"
-                      onPress={() => {
-                        navigator.clipboard
-                          .writeText(link)
-                          .then(() => {
-                            addToast({
-                              title: "Success",
-                              description: "successfully copied",
-                              color: "success",
-                            });
-                          })
-                          .catch(() => {
-                            addToast({
-                              title: "Error",
-                              description: "failed to copied",
-                              color: "danger",
-                            });
-                          });
-                      }}
+                      color="secondary"
+                      className="w-full"
+                      isLoading={isGeneratingLink}
+                      onPress={() => handleGenerateLink(id)}
                     >
-                      <Copy className="size-4 " />
+                      {lang == "am" ? "ሊንክ ይፍጠሩ" : lang == "or" ? "Linki uumi" : "Generate Link"}
                     </Button>
                   )}
-                  <Button
-                    isIconOnly
-                    color="primary"
-                    onPress={() => registration.edit({ id, link: "" })}
-                  >
-                    <Pen className="size-4 " />
-                  </Button>
                 </ButtonGroup>
               </div>
             )
