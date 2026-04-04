@@ -101,10 +101,10 @@ export default function TermsPage({ params }: { params: { lang: string } }) {
                 6. Limitation of Liability
               </h2>
               <p>
-                Al-Anis Tilawa is provided "as is" and "as available" without
-                any warranties. We shall not be liable for any direct, indirect,
-                incidental, special, or consequential damages resulting from the
-                use or inability to use our services.
+                Al-Anis Tilawa is provided &quot;as is&quot; and &quot;as
+                available&quot; without any warranties. We shall not be liable
+                for any direct, indirect, incidental, special, or consequential
+                damages resulting from the use or inability to use our services.
               </p>
             </section>
 

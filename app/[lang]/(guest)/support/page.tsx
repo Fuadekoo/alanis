@@ -20,7 +20,8 @@ export default function SupportPage({ params }: { params: { lang: string } }) {
               Support Center
             </h1>
             <p className="mt-4 text-lg text-default-500">
-              We're here to help you with any questions or issues you may have.
+              We&apos;re here to help you with any questions or issues you may
+              have.
             </p>
           </div>
 

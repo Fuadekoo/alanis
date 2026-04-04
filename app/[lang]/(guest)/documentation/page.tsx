@@ -61,8 +61,8 @@ export default function DocumentationPage({
                   </h4>
                   <p className="mt-2 text-sm text-default-600">
                     Once assigned to a class, login to your dashboard to see
-                    scheduled classes. Use the "Join Class" button to open the
-                    Zoom meeting.
+                    scheduled classes. Use the &quot;Join Class&quot; button to
+                    open the Zoom meeting.
                   </p>
                 </div>
                 <div className="p-4 bg-default-50 rounded-lg border border-default-100">
@@ -70,8 +70,8 @@ export default function DocumentationPage({
                     <GraduationCap className="size-4" /> Progress Tracking
                   </h4>
                   <p className="mt-2 text-sm text-default-600">
-                    View your attendance and progress reports in the "Reports"
-                    section of your dashboard.
+                    View your attendance and progress reports in the
+                    &quot;Reports&quot; section of your dashboard.
                   </p>
                 </div>
               </div>

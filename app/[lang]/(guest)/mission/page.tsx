@@ -120,8 +120,8 @@ export default function MissionPage({ params }: { params: { lang: string } }) {
 
             <section className="text-center pt-8">
               <p className="text-default-500 italic">
-                "The best among you are those who learn the Quran and teach it."
-                - Prophet Muhammad (ﷺ)
+                &quot;The best among you are those who learn the Quran and teach
+                it.&quot; - Prophet Muhammad (ﷺ)
               </p>
             </section>
 

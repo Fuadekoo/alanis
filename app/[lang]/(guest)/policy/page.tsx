@@ -38,8 +38,8 @@ export default function PrivacyPolicyPage({
                 1. Introduction
               </h2>
               <p>
-                Welcome to <strong>Al-Anis Tilawa</strong> ("we," "our," or
-                "us"). We are committed to protecting your privacy and ensuring
+                Welcome to <strong>Al-Anis Tilawa</strong> (&quot;we,&quot; &quot;our,&quot; or
+                &quot;us&quot;). We are committed to protecting your privacy and ensuring
                 you have a positive experience on our educational platform. This
                 Privacy Policy applies to our website (alanistilawa.com), our
                 educational platform, and our integrations with third-party
@@ -176,13 +176,13 @@ export default function PrivacyPolicyPage({
 
             <section>
               <h2 className="text-2xl font-bold text-default-900 mb-4">
-                7. Children's Privacy
+                7. Children&apos;s Privacy
               </h2>
               <p>
                 As an educational platform, we may collect information from
                 students under the age of 13. This information is collected
                 solely for educational purposes and is strictly managed by
-                administrators and authorized teachers. We do not use children's
+                administrators and authorized teachers. We do not use children&apos;s
                 data for marketing or advertising purposes under any
                 circumstances.
               </p>
@@ -196,7 +196,7 @@ export default function PrivacyPolicyPage({
                 We may update this Privacy Policy from time to time to reflect
                 changes in our practices or for other operational, legal, or
                 regulatory reasons. We will notify users of any material changes
-                by updating the "Last Updated" date at the top of this page.
+                by updating the &quot;Last Updated&quot; date at the top of this page.
               </p>
             </section>
 

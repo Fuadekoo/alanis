@@ -7,7 +7,6 @@ import {
   Skeleton,
 } from "@/components/ui/heroui";
 import { addToast } from "@heroui/react";
-import { Copy, Pen } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 import { useRoom } from "./provider";
@@ -23,7 +22,7 @@ export default function List() {
   const { lang } = useParams<{ lang: string }>();
 
   const {
-    room: { data, isLoading, registration, refresh },
+    room: { data, isLoading, refresh },
   } = useRoom();
 
   const [handleGenerateLink, isGeneratingLink] = useMutation(
@@ -44,7 +43,7 @@ export default function List() {
       }
       // refresh list after generation
       refresh();
-    }
+    },
   );
 
   return (
@@ -66,7 +65,7 @@ export default function List() {
                 student: { firstName, fatherName, lastName, controller },
                 link,
               },
-              i
+              i,
             ) => (
               <div
                 key={i + ""}
@@ -124,7 +123,11 @@ export default function List() {
                       href={link}
                       target="_blank"
                     >
-                      {lang == "am" ? "ወደ ክፍል ይግቡ" : lang == "or" ? "Gara daree seeni" : "Go to Class"}
+                      {lang == "am"
+                        ? "ወደ ክፍል ይግቡ"
+                        : lang == "or"
+                          ? "Gara daree seeni"
+                          : "Go to Class"}
                     </Button>
                   ) : (
                     <Button
@@ -133,12 +136,16 @@ export default function List() {
                       isLoading={isGeneratingLink}
                       onPress={() => handleGenerateLink(id)}
                     >
-                      {lang == "am" ? "ሊንክ ይፍጠሩ" : lang == "or" ? "Linki uumi" : "Generate Link"}
+                      {lang == "am"
+                        ? "ሊንክ ይፍጠሩ"
+                        : lang == "or"
+                          ? "Linki uumi"
+                          : "Generate Link"}
                     </Button>
                   )}
                 </ButtonGroup>
               </div>
-            )
+            ),
           )}
         </ScrollShadow>
       )}

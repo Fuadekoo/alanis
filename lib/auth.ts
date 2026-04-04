@@ -1,24 +1,9 @@
-import NextAuth, { CredentialsSignin, NextAuthConfig } from "next-auth";
-import { DefaultJWT } from "next-auth/jwt";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcryptjs from "bcryptjs";
 import prisma from "@/lib/db";
 import { loginSchema } from "@/lib/zodSchema";
-import { role as Role } from "@prisma/client";
-
-declare module "next-auth" {
-  interface User {
-    id: string;
-    role: Role;
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT extends DefaultJWT {
-    id: string;
-    role: Role;
-  }
-}
+import { authConfig } from "./auth.config";
 
 export class CustomError extends CredentialsSignin {
   constructor(message: string) {
@@ -28,45 +13,8 @@ export class CustomError extends CredentialsSignin {
   }
 }
 
-const authConfig = {
-  pages: {
-    signIn: "/am/login",
-    signOut: "/am/logout",
-  },
-  trustHost: true,
-  callbacks: {
-    authorized: async ({ auth, request: { nextUrl } }) => {
-      // Allow OAuth routes to handle their own flow
-      if (nextUrl.pathname.includes("/oauth")) {
-        return true;
-      }
-      
-      // console.log("AK >> ", !!auth, nextUrl.pathname);
-      if (auth?.user) {
-        const pathname = nextUrl.pathname.split("/");
-        if (["am", "en", "or"].includes(pathname[1]) && pathname[2] !== "dashboard") {
-          console.log("AK >> ", nextUrl.pathname);
-          return Response.redirect(
-            new URL(
-              `/${nextUrl.pathname.split(`/`)[1] || "am"}/dashboard/`,
-              nextUrl
-            )
-          );
-        } else return true;
-      } else {
-        if (nextUrl.pathname.split(`/`)[2] == "dashboard") {
-          return false;
-          // ?
-        } else return true;
-      }
-    },
-    jwt: async ({ token, user }) => {
-      return { ...token, ...user };
-    },
-    session: async ({ session, token }) => {
-      return { ...session, user: { ...session.user, ...token } };
-    },
-  },
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       async authorize(credentials) {
@@ -77,7 +25,6 @@ const authConfig = {
           where: { username },
           select: { id: true, role: true, password: true },
         });
-        console.log("User >> ", user);
 
         if (!user) throw new CustomError("username is incorrect");
 
@@ -87,6 +34,4 @@ const authConfig = {
       },
     }),
   ],
-} satisfies NextAuthConfig;
-
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+});
