@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function MissionPage({ params }: { params: { lang: string } }) {
   const { lang } = params;
   return (
-    <div className="min-h-screen bg-default-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-full bg-default-50/50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto bg-white dark:bg-default-100 shadow-sm rounded-2xl overflow-hidden border border-default-200">
         <div className="px-6 py-8 sm:p-10">
           <div className="mb-10 border-b border-default-200 pb-6 text-center">

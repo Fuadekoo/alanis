@@ -3,9 +3,11 @@ import { GuestHeader } from "./header";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="overflow-auto scroll-smooth">
+    <div className="h-full overflow-y-auto scroll-smooth flex flex-col">
       <GuestHeader />
-      {children}
+      <main className="flex-1">
+        {children}
+      </main>
     </div>
   );
 }
