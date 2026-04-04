@@ -1,0 +1,102 @@
+================================================================================
+AL-ANIS TILAWA SYSTEM ARCHITECTURE & FLOW DIAGRAMS
+================================================================================
+
+This document provides a comprehensive overview of the Al-Anis Tilawa system 
+architecture, focusing on its integration with Zoom, databases, servers, and 
+third-party applications.
+
+--------------------------------------------------------------------------------
+1. HIGH-LEVEL ARCHITECTURAL DIAGRAM
+--------------------------------------------------------------------------------
+
+[ USER INTERFACE ]
+       |
+       v
+[ CLIENT (Browser) ] <---- (HTTPS/WSS) ----> [ NEXT.JS SERVER ]
+(React, Tailwind, HeroUI)                   (App Router, Server Actions, API Routes)
+                                                  |
+       +------------------------------------------+--------------------------+
+       |                                          |                          |
+       v                                          v                          v
+[ POSTGRESQL DATABASE ]                 [ ZOOM API SERVICE ]        [ TELEGRAM BOT API ]
+(via Prisma ORM)                        (OAuth 2.0 & Meetings)      (Student Notifications)
+- User Profiles                         - Auth Flow (Teachers)      - Instant Class Links
+- Room/Class Data                       - Meeting Creation          - Session Reminders
+- Zoom OAuth Tokens                     - Token Management          - Admin Notifications
+- Attendance Records
+- Progress Reports
+
+
+--------------------------------------------------------------------------------
+2. COMPONENT ROLES
+--------------------------------------------------------------------------------
+
+A. NEXT.JS SERVER (CORE)
+   - Handles both frontend rendering and backend logic.
+   - API Routes (/api/zoom/*) manage OAuth callbacks.
+   - Server Actions (actions/*) handle database operations and API calls.
+   - Middleware handles authentication and localization.
+
+B. PRISMA & POSTGRESQL
+   - Stores all persistent data.
+   - Manages relational data between Teachers, Students, and Classes (Rooms).
+   - Securely stores Zoom access and refresh tokens for teachers.
+
+C. ZOOM API INTEGRATION
+   - Scope: user:read, meeting:write.
+   - OAuth flow allows teachers to securely link their Zoom accounts.
+   - Automated meeting generation creates instant classroom links.
+
+D. TELEGRAM BOT API
+   - Acts as the primary notification channel for students.
+   - Sends direct links to students when a teacher starts or schedules a class.
+
+
+--------------------------------------------------------------------------------
+3. FLOW DIAGRAM: ZOOM OAUTH INTEGRATION (TEACHER)
+--------------------------------------------------------------------------------
+
+1. TEACHER: Clicks "Connect Zoom" on Profile page.
+2. SERVER: Generates Zoom OAuth URL and redirects teacher.
+3. ZOOM: Teacher logs in and authorizes Al-Anis Tilawa.
+4. ZOOM: Redirects back to /api/zoom/callback with an authorization code.
+5. SERVER: 
+   a. Exchanges code for Access Token & Refresh Token.
+   b. Fetches Zoom user profile (Email, Display Name).
+   c. Upserts data into `ZoomAttach` table linked to the Teacher's account.
+6. TEACHER: Redirected back to profile, now "Connected".
+
+
+--------------------------------------------------------------------------------
+4. FLOW DIAGRAM: CLASS START & NOTIFICATION
+--------------------------------------------------------------------------------
+
+1. TEACHER: Clicks "Generate Zoom Link" for a specific Room/Student.
+2. SERVER (actions/teacher/room.ts):
+   a. Checks if teacher's Zoom token is expired.
+   b. If expired, uses Refresh Token to get a new Access Token.
+   c. Calls Zoom API (POST /users/me/meetings) to create an instant meeting.
+   d. Receives `join_url` from Zoom.
+   e. Saves the link to the `Room` record in the database.
+3. SERVER: 
+   a. Formats a notification message for the student (Amharic/English).
+   b. Calls Telegram Bot API to send the message with an inline "Join Class" button.
+4. STUDENT: Receives Telegram message and clicks link to enter the Zoom class.
+
+
+--------------------------------------------------------------------------------
+5. SECURITY & DATA PRIVACY
+--------------------------------------------------------------------------------
+
+- TOKENS: Access and Refresh tokens are stored securely in the database.
+- SCOPES: Minimal permissions requested (meeting:write) to maintain user trust.
+- DISCONNECT: Teachers can revoke access at any time, which deletes their 
+  tokens from the Al-Anis database.
+- ISOLATION: Students do not need Zoom accounts to join; they only need the 
+  links provided by their teachers.
+
+================================================================================
+Generated on: 2026-04-03
+System: Al-Anis Tilawa Educational Platform
+================================================================================
