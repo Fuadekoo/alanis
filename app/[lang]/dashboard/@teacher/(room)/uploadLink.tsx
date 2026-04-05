@@ -11,8 +11,10 @@ import {
   Textarea,
 } from "@/components/ui/heroui";
 import { useRoom } from "./provider";
+import { useParams } from "next/navigation";
 
 export default function UploadLink() {
+  const { lang } = useParams<{ lang: string }>();
   const {
     room: {
       registration: {
@@ -32,16 +34,35 @@ export default function UploadLink() {
         <ModalContent>
           {(onClose) => (
             <>
-              <ModalHeader>Link Upload</ModalHeader>
+              <ModalHeader>
+                {lang == "am"
+                  ? "ሊንክ ይስቀሉ"
+                  : lang == "or"
+                    ? "Linki fe&apos;i"
+                    : "Upload Link"}
+              </ModalHeader>
               <ModalBody>
-                <Textarea placeholder="copy link here" {...register("link")} />
+                <Textarea
+                  placeholder={
+                    lang == "am"
+                      ? "የክፍል ሊንክ እዚህ ይለጥፉ"
+                      : lang == "or"
+                        ? "Linki daree asitti fidi"
+                        : "Paste class link here"
+                  }
+                  {...register("link")}
+                />
               </ModalBody>
               <ModalFooter>
                 <Button variant="flat" onPress={onClose}>
-                  Back
+                  {lang == "am" ? "ተመለስ" : lang == "or" ? "Gara duubaa" : "Back"}
                 </Button>
                 <Button color="primary" type="submit" isLoading={isLoading}>
-                  Submit
+                  {lang == "am"
+                    ? "አስገባ"
+                    : lang == "or"
+                      ? "Ergi"
+                      : "Submit"}
                 </Button>
               </ModalFooter>
             </>

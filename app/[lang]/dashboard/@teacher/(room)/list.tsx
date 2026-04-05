@@ -3,10 +3,12 @@
 import {
   Button,
   ButtonGroup,
+  Input,
   ScrollShadow,
   Skeleton,
 } from "@/components/ui/heroui";
 import { addToast } from "@heroui/react";
+import { Copy, Pen } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 import { useRoom } from "./provider";
@@ -22,8 +24,17 @@ export default function List() {
   const { lang } = useParams<{ lang: string }>();
 
   const {
-    room: { data, isLoading, refresh },
+    room: { data, isZoomConnected, isLoading, registration, refresh },
   } = useRoom();
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    addToast({
+      title: "Success",
+      description: "Link copied to clipboard",
+      color: "success",
+    });
+  };
 
   const [handleGenerateLink, isGeneratingLink] = useMutation(
     generateZoomLink,
@@ -115,6 +126,21 @@ export default function List() {
                   variant="flat"
                   className="gap-[2px] items-stretch overflow-hidden"
                 >
+                  <Button
+                    isIconOnly
+                    className="shrink-0"
+                    onPress={() => registration.edit({ id, link: link || "" })}
+                  >
+                    <Pen className="size-5" />
+                  </Button>
+                  <Button
+                    isIconOnly
+                    className="shrink-0"
+                    isDisabled={!link}
+                    onPress={() => handleCopy(link || "")}
+                  >
+                    <Copy className="size-5" />
+                  </Button>
                   {link ? (
                     <Button
                       color="primary"
@@ -134,6 +160,7 @@ export default function List() {
                       color="secondary"
                       className="w-full"
                       isLoading={isGeneratingLink}
+                      isDisabled={!isZoomConnected}
                       onPress={() => handleGenerateLink(id)}
                     >
                       {lang == "am"

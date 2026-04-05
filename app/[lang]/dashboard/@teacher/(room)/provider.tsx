@@ -2,13 +2,16 @@
 
 import { getRooms, uploadLink } from "@/actions/teacher/room";
 import { useContext } from "@/hooks/useContext";
-import useData, { UseData } from "@/hooks/useData";
+import useData from "@/hooks/useData";
 import { UseRegistration, useRegistration } from "@/hooks/useRegistration";
 import { linkSchema } from "@/lib/zodSchema";
 import React, { createContext } from "react";
 
 const RoomContext = createContext<{
-  room: UseData<typeof getRooms> & {
+  room: {
+    data: Awaited<ReturnType<typeof getRooms>>["data"] | null;
+    isZoomConnected: boolean;
+    isLoading: boolean;
     registration: UseRegistration<typeof uploadLink>;
     refresh: () => void;
   };
@@ -17,7 +20,11 @@ const RoomContext = createContext<{
 export const useRoom = () => useContext(RoomContext);
 
 export function Provider({ children }: { children: React.ReactNode }) {
-  const [data, isLoading, refresh] = useData(getRooms, () => {});
+  const [roomData, isLoading, refresh] = useData(getRooms, () => {});
+
+  const data = roomData?.data || null;
+  const isZoomConnected = roomData?.isZoomConnected || false;
+
   const registration = useRegistration(uploadLink, linkSchema, (state) => {
     if (state.status) {
       refresh();
@@ -25,7 +32,11 @@ export function Provider({ children }: { children: React.ReactNode }) {
   });
 
   return (
-    <RoomContext.Provider value={{ room: { data, isLoading, registration, refresh } }}>
+    <RoomContext.Provider
+      value={{
+        room: { data, isZoomConnected, isLoading, registration, refresh },
+      }}
+    >
       {children}
     </RoomContext.Provider>
   );

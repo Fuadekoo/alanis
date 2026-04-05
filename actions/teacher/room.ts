@@ -265,6 +265,12 @@ export async function getRoom() {}
 export async function getRooms() {
   const teacher = await isAuthorized("teacher");
 
+  const zoomAttach = await prisma.zoomAttach.findUnique({
+    where: { userId: teacher.id },
+  });
+
+  const isZoomConnected = !!(zoomAttach && zoomAttach.accessToken);
+
   const data = await prisma.room
     .findMany({
       where: { teacherId: teacher.id },
@@ -292,7 +298,7 @@ export async function getRooms() {
         .sort((a, b) => (a.time > b.time ? 1 : a.time < b.time ? -1 : 0));
     });
 
-  return data;
+  return { data, isZoomConnected };
 }
 
 export async function getActiveTeachingStats() {
