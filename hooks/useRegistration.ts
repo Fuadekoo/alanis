@@ -19,19 +19,21 @@ import { addToast } from "@heroui/react";
 
 export type UseRegistration<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  F extends (data: any) => any
-> = ReturnType<typeof useRegistration<Parameters<F>[0], ReturnType<F>>>;
+  F extends (data: any) => Promise<any>,
+> = ReturnType<
+  typeof useRegistration<Parameters<F>[0], Awaited<ReturnType<F>>>
+>;
 
 export function useRegistration<
   TFieldValues extends FieldValues,
-  TReturn extends MutationState
+  TReturn extends MutationState,
 >(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // serverAction: (value: any) => Promise<TReturn>,
   serverAction: (value: TFieldValues, editingId?: string) => Promise<TReturn>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: z.ZodSchema<TFieldValues, any, any>,
-  onSuccess?: (data: TReturn) => void
+  onSuccess?: (data: TReturn) => void,
 ): {
   isOpen: boolean;
   add: () => void;
