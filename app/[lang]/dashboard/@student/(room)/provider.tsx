@@ -17,8 +17,6 @@ const RoomContext = createContext<{
     | null
     | undefined;
   room: UseData<typeof getRooms> & {
-    action: (link: string, id: string) => Promise<void>;
-    actionLoading: boolean;
     refresh: () => void;
   };
 } | null>(null);
@@ -26,8 +24,6 @@ const RoomContext = createContext<{
 export const useRoom = () => useContext(RoomContext);
 
 export function Provider({ children }: { children: React.ReactNode }) {
-  const [actionLoading, startTransition] = useTransition();
-  // const router = useRouter();
   const [controller] = useData(getStudentController, () => []);
   const [data, isLoading, refresh] = useData(getRooms, () => {});
 
@@ -38,22 +34,6 @@ export function Provider({ children }: { children: React.ReactNode }) {
         room: {
           data,
           isLoading,
-          action: async (link, id) => {
-            startTransition(async () => {
-              const result = await registerRoomAttendance(id);
-              if (!result.status) {
-                addToast({
-                  title: "Error",
-                  description: result.message || "failed to register attendance",
-                  color: "danger",
-                });
-                return;
-              }
-
-              window.open(link, "_blank", "noopener,noreferrer");
-            });
-          },
-          actionLoading,
           refresh,
         },
       }}

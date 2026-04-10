@@ -2,162 +2,273 @@
 
 import {
   Button,
-  ButtonGroup,
   ScrollShadow,
   Skeleton,
 } from "@/components/ui/heroui";
-import React from "react";
+import { Spinner } from "@heroui/react";
+import React, { useState } from "react";
 import { useRoom } from "./provider";
 import { timeFormat12 } from "@/lib/utils";
 import { useParams } from "next/navigation";
-import { RefreshCcw } from "lucide-react";
+import { RefreshCcw, CheckCircle2, ArrowRightCircle } from "lucide-react";
 import Image from "next/image";
 import { Announcement } from "./announcement";
+import { registerRoomAttendance, verifyRoomAttendance } from "@/actions/student/room";
+import { addToast } from "@heroui/react";
+
+type RoomData = {
+  id: string;
+  time: string;
+  teacher: {
+    firstName: string;
+    fatherName: string;
+    lastName: string;
+    gender: string;
+  };
+  link: string;
+};
+
+function RoomItem({ room, index, lang }: { room: RoomData; index: number; lang: string }) {
+  const [step, setStep] = useState<"idle" | "checking" | "saving" | "verifying" | "done">("checking");
+  const { id, time, teacher, link } = room;
+
+  React.useEffect(() => {
+    async function checkStatus() {
+      const verification = await verifyRoomAttendance(id);
+      if (verification.status) {
+        setStep("done");
+      } else {
+        setStep("idle");
+      }
+    }
+    checkStatus();
+  }, [id]);
+
+  const handleAttendance = async () => {
+    setStep("saving");
+    const res = await registerRoomAttendance(id);
+    if (!res.status) {
+      addToast({
+        title: "Error",
+        description: res.message || "Failed to save attendance",
+        color: "danger",
+      });
+      setStep("idle");
+      return;
+    }
+
+    setStep("verifying");
+    // Artificial delay to show verification step as requested by user
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    const verification = await verifyRoomAttendance(id);
+    if (!verification.status) {
+      addToast({
+        title: "Wait",
+        description: "Attendance not confirmed yet, please try again",
+        color: "warning",
+      });
+      setStep("idle");
+      return;
+    }
+
+    setStep("done");
+  };
+
+  const handleJoin = async () => {
+    setStep("verifying");
+    const verification = await verifyRoomAttendance(id);
+    if (verification.status) {
+      setStep("done");
+      window.open(link, "_blank", "noopener,noreferrer");
+    } else {
+      addToast({
+        title: "Error",
+        description: "Attendance not confirmed. Please try saving again.",
+        color: "danger",
+      });
+      setStep("idle");
+    }
+  };
+
+  return (
+    <div className="p-4 border border-primary/20 bg-default-50/30 backdrop-blur-md rounded-2xl grid gap-4 transition-all hover:border-primary/50 shadow-sm">
+      <div className="flex justify-between items-start">
+        <div className="font-black text-4xl text-primary drop-shadow-sm">
+          {timeFormat12(time)}
+        </div>
+        <div className="bg-primary/10 px-3 py-1 rounded-full text-xs font-bold text-primary italic">
+          #{index + 1}
+        </div>
+      </div>
+
+      <div className="text-lg font-medium capitalize text-default-700">
+        {teacher.gender === "Female"
+          ? lang === "am"
+            ? "ኡስታዛ"
+            : lang === "or"
+            ? "Ustazah"
+            : "Ustazah"
+          : lang === "am"
+          ? "ኡስታዝ"
+          : lang === "or"
+          ? "Ustaz"
+          : "Ustaz"}{" "}
+        {teacher.firstName} {teacher.fatherName}
+      </div>
+
+      <div className="mt-2">
+        {!link ? (
+          <div className="w-full p-4 border-2 border-dashed border-default-200 rounded-xl text-center text-default-400 font-medium">
+            {lang === "am" ? "ሊንክ አልተላከም" : lang === "or" ? "Linki hin ergamne" : "Link not sent yet"}
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            {step === "checking" && (
+              <Button
+                size="lg"
+                isDisabled
+                className="h-16 text-lg font-bold bg-default-100 text-default-400 transition-all"
+                startContent={<Spinner size="sm" color="default" />}
+              >
+                {lang === "am" ? "በማጣራት ላይ..." : lang === "or" ? "Qulqulleessaa jira..." : "Checking..."}
+              </Button>
+            )}
+
+            {step === "idle" && (
+              <Button
+                size="lg"
+                color="primary"
+                className="h-16 text-lg font-bold shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
+                onPress={handleAttendance}
+                startContent={<CheckCircle2 className="size-6" />}
+              >
+                {lang === "am" 
+                  ? "አሁን ይግቡ (መገኘት ይመዝገብ)" 
+                  : lang === "or" 
+                  ? "Amma Seenaa (Hirmaannaa galmeessi)" 
+                  : "Join Now (Register Attendance)"}
+              </Button>
+            )}
+
+            {step === "saving" && (
+              <Button
+                size="lg"
+                isDisabled
+                className="h-16 text-lg font-bold bg-warning-100 text-warning-700 animate-pulse"
+                startContent={<Spinner size="sm" color="warning" />}
+              >
+                {lang === "am" ? "በመመዝገብ ላይ..." : lang === "or" ? "Galmeessaa jira..." : "Saving Attendance..."}
+              </Button>
+            )}
+
+            {step === "verifying" && (
+              <Button
+                size="lg"
+                isDisabled
+                className="h-16 text-lg font-bold bg-secondary-100 text-secondary-700 animate-pulse"
+                startContent={<Spinner size="sm" color="secondary" />}
+              >
+                {lang === "am" ? "በማረጋገጥ ላይ..." : lang === "or" ? "Mirkaneessaa jira..." : "Verifying..."}
+              </Button>
+            )}
+
+            {step === "done" && (
+              <Button
+                size="lg"
+                color="success"
+                className="h-16 text-xl font-black text-success-foreground shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:scale-[1.02] active:scale-95 transition-all"
+                onPress={handleJoin}
+                startContent={<ArrowRightCircle className="size-6" />}
+              >
+                {lang === "am" ? "ወደ ክፍል ይግቡ" : lang === "or" ? "Gara kutaa seenaa" : "Go to Classroom"}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function List() {
   const { lang } = useParams<{ lang: string }>();
-  // const router = useRouter();
   const {
     controller,
-    room: { data, isLoading, action, actionLoading, refresh },
+    room: { data, isLoading, refresh },
   } = useRoom();
 
   return (
-    <div className="p-2 grid gap-5 overflow-hidden auto-rows-min ">
+    <div className="p-4 flex flex-col gap-6 max-w-7xl mx-auto">
       <Announcement />
 
-      {isLoading || !data ? (
-        <Skeleton className="" />
-      ) : (
-        <ScrollShadow
-          size={100}
-          className=" p-2 pb-40 border border-default-50/50 rounded-xl  gap-2 grid md:grid-cols-2 xl:grid-cols-3 auto-rows-min "
-        >
-          {data.map(
-            (
-              {
-                id,
-                time,
-                teacher: { firstName, fatherName, lastName, gender },
-                link,
-              },
-              i
-            ) => (
-              <div
-                key={i + ""}
-                className="p-2 border border-primary/50 bg-default-50/30 rounded-xl grid grid-rows-2 "
-              >
-                <div className="px-2 font-extrabold text-3xl ">
-                  {timeFormat12(time)}
-                </div>
-                <div className="p-2 capitalize ">
-                  {i + 1}{" "}
-                  {gender == "Female"
-                    ? lang == "am"
-                      ? "ከ ኡስታዛ"
-                      : lang == "or"
-                      ? "irraa ustazah"
-                      : "ustazah"
-                    : gender == "Male"
-                    ? lang == "am"
-                      ? "ከ ኡስታዝ"
-                      : lang == "or"
-                      ? "irraa ustaz"
-                      : "ustaz"
-                    : ""}{" "}
-                  {firstName} {fatherName} {lastName}
-                </div>
-                <ButtonGroup
-                  size="lg"
-                  variant="flat"
-                  className="gap-[2px] items-stretch overflow-hidden"
-                >
-                  {link ? (
-                    <a
-                      href={link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (actionLoading) return;
-                        action(link, id);
-                      }}
-                      className={`h-20 w-full p-2 text-center font-bold bg-primary text-primary-foreground rounded-l-xl flex items-center justify-center transition-colors cursor-pointer ${
-                        actionLoading
-                          ? "opacity-70 pointer-events-none"
-                          : "hover:bg-primary/90"
-                      }`}
-                    >
-                      <p className="text-wrap">
-                        {lang == "am"
-                          ? "አሁን ሊንክ ተልኮሎዎታል እባክዎ ወደ መማሪያ ክፍሎዎ ይግቡ (እዚህ ይጫኑ)"
-                          : lang == "or"
-                          ? "Amma linki ergameera maaloo gara kutaa keessaniitti seenaa (as tuqaa)"
-                          : "go to classroom"}
-                      </p>
-                    </a>
-                  ) : (
-                    <div className="w-full p-2 border border-primary-300 rounded-xl  content-center text-center text-primary-600 ">
-                      {lang == "am" ? "ሊንክ አልተላከም" : lang == "or" ? "Linki hin ergamne" : "No Link"}
-                    </div>
-                  )}
-                </ButtonGroup>
-              </div>
-            )
-          )}
-          <div className="border border-primary-700  rounded-xl p-5 grid gap-5 place-content-center">
-            <p className="">
-              {lang == "am"
-                ? "መምህሩ ሊንክ የላከ መሆኑን ለማረጋገጥ ከታች ያለውን ይጫኑ። ካልመጣልዎት ትንሽ ጠብቀው በድጋሜ ይሞክሩ። ኡስታዙ ሊንክ ሳይልክ ብዙ ከቆየብዎት ለተቆጣጣሪዎች ሪፖርት ያድርጉ"
-                : lang == "or"
-                ? "Barsiisaan linki akka erge mirkaneessuuf armaan gadii tuqaa. Yoo hin dhufne xiqqoo eegdanii irra deebi'aa yaalaa. Ustazaan linki osoo hin ergin yeroo dheeraa yoo tureef to'atoota gabaasaa"
-                : "Click below to verify that the teacher sent the link."}
-            </p>
-            {controller?.phoneNumber && (
-              <div className="grid gap-2 grid-cols-[1fr_auto_auto]">
-                <p className="p-2 border border-primary/30 rounded-xl">
-                  {controller.phoneNumber}
-                </p>
-                <a
-                  href={`https://wa.me/${controller.phoneNumber}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="size-fit p-1 bg-green-500/20 text-green-700 rounded-lg flex items-center justify-center hover:bg-green-500/30 transition-colors"
-                >
-                  <Image
-                    alt=""
-                    src={"/whatsapp.svg"}
-                    width={100}
-                    height={100}
-                    className="size-10"
-                  />
-                </a>
-                <a
-                  href={`https://t.me/+${controller.phoneNumber}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="size-fit p-1 bg-sky-500/20 text-sky-700 rounded-lg flex items-center justify-center hover:bg-sky-500/30 transition-colors"
-                >
-                  <Image
-                    alt=""
-                    src={"/telegram.svg"}
-                    width={100}
-                    height={100}
-                    className="size-10"
-                  />
-                </a>
-              </div>
-            )}
-            <Button
-              color="primary"
-              endContent={<RefreshCcw className="size-4 " />}
-              onPress={refresh}
-            >
-              {lang == "am" ? "ያድሱ" : lang == "or" ? "Haaromsi" : "Refresh"}
-            </Button>
+      <div className="flex flex-col gap-4">
+        <h2 className="text-2xl font-bold px-1 border-l-4 border-primary ml-1">
+          {lang === "am" ? "የዛሬ የትምህርት ክፍለ ጊዜ" : lang === "or" ? "Kutaa Barnootaa Har'aa" : "Today's Learning Sessions"}
+        </h2>
+
+        {isLoading || !data ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-64 rounded-2xl" />
+            ))}
           </div>
-        </ScrollShadow>
-      )}
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.map((room, i) => (
+              <RoomItem key={room.id} room={room} index={i} lang={lang} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-8 p-6 bg-primary/5 border border-primary/20 rounded-2xl grid gap-6 md:grid-cols-[2fr_1fr]">
+        <div className="space-y-3">
+          <p className="text-default-700 leading-relaxed font-medium">
+            {lang === "am"
+              ? "መምህሩ ሊንክ የላከ መሆኑን ለማረጋገጥ ከታች ያለውን ይጫኑ። ካልመጣልዎት ትንሽ ጠብቀው በድጋሜ ይሞክሩ። ኡስታዙ ሊንክ ሳይልክ ብዙ ከቆየብዎት ለተቆጣጣሪዎች ሪፖርት ያድርጉ"
+              : lang === "or"
+              ? "Barsiisaan linki akka erge mirkaneessuuf armaan gadii tuqaa. Yoo hin dhufne xiqqoo eegdanii irra deebi'aa yaalaa. Ustazaan linki osoo hin ergin yeroo dheeraa yoo tureef to'atoota gabaasaa"
+              : "Verify that the teacher has sent the link. If it doesn't appear, wait a moment and try again. Report to controllers if the link takes too long."}
+          </p>
+          <Button
+            color="primary"
+            variant="shadow"
+            className="font-bold"
+            endContent={<RefreshCcw className="size-4" />}
+            onPress={refresh}
+          >
+            {lang === "am" ? "ያድሱ" : lang === "or" ? "Haaromsi" : "Refresh Page"}
+          </Button>
+        </div>
+
+        {controller?.phoneNumber && (
+          <div className="flex flex-col gap-3 justify-center items-center border-l border-primary/20 pl-6 md:pl-10">
+             <span className="text-xs font-bold uppercase tracking-widest text-primary/60">Support Controller</span>
+            <p className="text-xl font-bold text-primary font-mono bg-primary/10 px-4 py-2 rounded-lg">
+              {controller.phoneNumber}
+            </p>
+            <div className="flex gap-4">
+              <a
+                href={`https://wa.me/${controller.phoneNumber}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-[#25D366]/10 text-[#25D366] rounded-xl hover:bg-[#25D366]/20 transition-colors border border-[#25D366]/30"
+              >
+                <Image alt="WhatsApp" src={"/whatsapp.svg"} width={40} height={40} className="size-8" />
+              </a>
+              <a
+                href={`https://t.me/+${controller.phoneNumber}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-[#0088cc]/10 text-[#0088cc] rounded-xl hover:bg-[#0088cc]/20 transition-colors border border-[#0088cc]/30"
+              >
+                <Image alt="Telegram" src={"/telegram.svg"} width={40} height={40} className="size-8" />
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -35,6 +35,23 @@ export async function registerRoomAttendance(roomId: string) {
       return { status: false, message: "room not found for this student" };
     }
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const existingAttendance = await prisma.roomAttendance.findFirst({
+      where: {
+        userId: student.id,
+        roomId: room.id,
+        date: {
+          gte: today,
+        },
+      },
+    });
+
+    if (existingAttendance) {
+      return { status: true, message: "Attendance already registered" };
+    }
+
     await prisma.$transaction(async (tx) => {
       const res = await tx.roomAttendance.create({
         data: { userId: student.id, roomId: room.id },
@@ -96,4 +113,31 @@ export async function getStudentController() {
   });
 
   return data?.controller;
+}
+export async function verifyRoomAttendance(roomId: string) {
+  try {
+    const student = await isAuthorized("student");
+    
+    // Check if there is a roomAttendance for today and this room
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const attendance = await prisma.roomAttendance.findFirst({
+      where: {
+        userId: student.id,
+        roomId: roomId,
+        date: {
+          gte: today
+        }
+      }
+    });
+
+    if (attendance) {
+      return { status: true, message: "Attendance verified" };
+    } else {
+      return { status: false, message: "Attendance not found" };
+    }
+  } catch {
+    return { status: false, message: "Verification failed" };
+  }
 }
