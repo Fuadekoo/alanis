@@ -242,32 +242,34 @@ export default function List() {
           </Button>
         </div>
 
-        {controller?.phoneNumber && (
-          <div className="flex flex-col gap-3 justify-center items-center border-l border-primary/20 pl-6 md:pl-10">
-             <span className="text-xs font-bold uppercase tracking-widest text-primary/60">Support Controller</span>
-            <p className="text-xl font-bold text-primary font-mono bg-primary/10 px-4 py-2 rounded-lg">
-              {controller.phoneNumber}
+        <div className="flex flex-col gap-4 justify-center items-center border-l-0 md:border-l border-primary/20 pl-0 md:pl-10 pt-6 md:pt-0">
+          <span className="text-xs font-bold uppercase tracking-widest text-primary/60">Support Controller</span>
+          <div className="flex flex-wrap justify-center items-center gap-4">
+            <p className="text-xl font-bold text-primary font-mono bg-primary/10 px-6 py-3 rounded-2xl border border-primary/20 shadow-inner">
+              {controller?.phoneNumber || "251924232389"}
             </p>
             <div className="flex gap-4">
               <a
-                href={`https://wa.me/${controller.phoneNumber}`}
+                href={`https://wa.me/${(controller?.phoneNumber || "251924232389").replace(/\D/g, "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 bg-[#25D366]/10 text-[#25D366] rounded-xl hover:bg-[#25D366]/20 transition-colors border border-[#25D366]/30"
+                className="p-3 bg-success-50 text-success rounded-2xl hover:bg-success-100 hover:scale-110 active:scale-95 transition-all border border-success-200 shadow-sm group"
+                title="WhatsApp"
               >
-                <Image alt="WhatsApp" src={"/whatsapp.svg"} width={40} height={40} className="size-8" />
+                <Image alt="WhatsApp" src={"/whatsapp.svg"} width={40} height={40} className="size-8 group-hover:drop-shadow-md" />
               </a>
               <a
-                href={`https://t.me/+${controller.phoneNumber}`}
+                href={`https://t.me/+${(controller?.phoneNumber || "251924232389").replace(/\D/g, "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 bg-[#0088cc]/10 text-[#0088cc] rounded-xl hover:bg-[#0088cc]/20 transition-colors border border-[#0088cc]/30"
+                className="p-3 bg-primary-50 text-primary rounded-2xl hover:bg-primary-100 hover:scale-110 active:scale-95 transition-all border border-primary-200 shadow-sm group"
+                title="Telegram"
               >
-                <Image alt="Telegram" src={"/telegram.svg"} width={40} height={40} className="size-8" />
+                <Image alt="Telegram" src={"/telegram.svg"} width={40} height={40} className="size-8 group-hover:drop-shadow-md" />
               </a>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

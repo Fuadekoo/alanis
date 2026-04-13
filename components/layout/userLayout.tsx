@@ -19,8 +19,8 @@ export default function UserLayout({
   }[][];
 }) {
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-primary-200 to-secondary-200 grid ">
-      <div className="z-0 absolute inset-0 grid place-content-center">
+    <div className="relative min-h-screen bg-gradient-to-br from-primary-200 to-secondary-200 grid ">
+      <div className="z-0 fixed inset-0 grid place-content-center pointer-events-none">
         <Image
           alt=""
           src={"/al-anis.png"}
@@ -29,12 +29,12 @@ export default function UserLayout({
           className="size-60 md:size-96 opacity-20"
         />
       </div>
-      <div className="z-10 grid lg:grid-cols-[auto_1fr] overflow-hidden">
+      <div className="z-10 grid lg:grid-cols-[auto_1fr]">
         <input type="checkbox" id="sidebar" className="hidden peer/sidebar" />
         <SideBar {...{ menu }} />
-        <div className="overflow-hidden grid grid-rows-[auto_1fr]">
+        <div className="grid grid-rows-[auto_1fr] min-h-screen">
           <Header />
-          <article className="grid overflow-hidden">{children}</article>
+          <article className="p-4 md:p-6 overflow-y-auto">{children}</article>
         </div>
       </div>
     </div>
