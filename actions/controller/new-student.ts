@@ -14,12 +14,7 @@ export async function approvedNewStudent(id: string) {
 }
 
 export async function deleteNewStudent(id: string) {
-  try {
-    await prisma.user.delete({ where: { id } });
-    return { status: true, message: "successfully delete new student" };
-  } catch {
-    return { status: false, message: "failed to delete new student" };
-  }
+  return { status: false, message: "deletion is not allowed" };
 }
 
 export async function getNewStudents({

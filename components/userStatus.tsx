@@ -39,7 +39,7 @@ export function UserStatus({
       aria-label="Status"
       isLoading={isLoading}
       classNames={{
-        base: "min-w-40 max-w-xs",
+        base: "min-w-20 max-w-xs",
         trigger: "h-9 min-h-9",
       }}
       selectedKeys={new Set([status])}

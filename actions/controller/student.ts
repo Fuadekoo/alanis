@@ -52,8 +52,7 @@ export async function registerStudent({
 }
 
 export async function deleteStudent(id: string): Promise<MutationState> {
-  await prisma.user.delete({ where: { id } });
-  return { status: true, message: "deletion is successfully" };
+  return { status: false, message: "deletion is not allowed" };
 }
 
 export async function getStudentList(search: string = "") {

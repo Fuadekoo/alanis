@@ -39,14 +39,14 @@ export default function UserDetailCard({
     lastName: string;
   } | null;
   onEdit: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   const isAm = useAmharic();
 
   // Remove spaces and non-numeric characters for messaging links
   const sanitizedPhone = phoneNumber ? phoneNumber.replace(/\D/g, "") : "";
   return (
-    <div className="p-2 bg-default-50/50 rounded-xl ">
+    <div className="p-2 bg-default-50/50 rounded-xl  ">
       <p className="capitalize font-semibold">{`${firstName} ${fatherName} ${lastName}`}</p>
       <p className="capitalize font-semibold">{`Balance: ${balance} ETB`}</p>
       {/* <p className="capitalize font-semibold">{`Username: ${username}`}</p> */}
@@ -144,14 +144,16 @@ export default function UserDetailCard({
         >
           {isAm ? "ያስተካክሉ" : "Edit"}
         </Button>
-        <Button
-          color="danger"
-          variant="flat"
-          startContent={<Trash className="size-4 shrink-0" />}
-          onPress={onDelete}
-        >
-          {isAm ? "ይሰርዙ" : "Delete"}
-        </Button>
+        {onDelete && (
+          <Button
+            color="danger"
+            variant="flat"
+            startContent={<Trash className="size-4 shrink-0" />}
+            onPress={onDelete}
+          >
+            {isAm ? "ይሰርዙ" : "Delete"}
+          </Button>
+        )}
       </div>
     </div>
   );

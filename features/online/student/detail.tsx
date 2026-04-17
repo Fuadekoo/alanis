@@ -10,6 +10,7 @@ import { Attendance } from "./attendance";
 import UserPaymentDetail from "@/components/userPaymentDetail";
 import DetailTab from "./detailTab";
 import { useState } from "react";
+import Notes from "./notes";
 
 export default function Detail() {
   const {
@@ -26,20 +27,23 @@ export default function Detail() {
       className={cn(
         "md:grid overflow-hidden",
         isDetail
-          ? "z-20 max-md:grid max-md:absolute max-md:inset-0 max-md:bg-default-900/20 max-md:backdrop-blur-3xl "
+          ? "z-20 max-md:grid max-md:absolute max-md:inset-0 max-md:h-dvh max-md:bg-default-900/20 max-md:backdrop-blur-3xl "
           : "max-md:hidden"
       )}
     >
-      <div className="md:w-[30rem] p-2 grid overflow-hidden">
+      <div className="md:w-[30rem] p-1 h-dvh grid overflow-hidden">
         {!data || isLoading ? (
           <Skeleton className="h-full" />
         ) : (
-          <div className="grid gap-2 grid-rows-[auto_1fr] overflow-hidden ">
+          <div className="h-dvh grid gap-2 grid-rows-[auto_1fr] overflow-hidden  ">
             <DetailTab
               back={onDetail.bind(undefined, false)}
               tab={tab}
               setTab={setTab}
             />
+             
+
+            
             {tab == "profile" ? (
               <UserDetailCard
                 {...data}
@@ -61,8 +65,9 @@ export default function Detail() {
                     startDate: data.startDate?.toString() ?? "",
                   })
                 }
-                onDelete={() => deletion.open(data.id)}
               />
+            ) : tab == "notes" ? (
+              <Notes />
             ) : tab == "room" ? (
               <AssignedRoom />
             ) : tab == "payment" ? (

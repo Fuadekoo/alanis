@@ -88,16 +88,6 @@ export default function List() {
                   >
                     {isAm ? "ያፅድቁ" : "approved"}
                   </Button>
-                  <Button
-                    color="danger"
-                    variant="flat"
-                    startContent={<Trash className="size-4 " />}
-                    onPress={() => {
-                      deletion.open(id);
-                    }}
-                  >
-                    {isAm ? "ይሰርዙ" : "delete"}
-                  </Button>
                 </div>
               </div>
             )

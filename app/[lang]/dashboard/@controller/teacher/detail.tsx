@@ -31,7 +31,7 @@ export default function Detail() {
           : "max-md:hidden"
       )}
     >
-      <div className="md:w-[30rem] p-2 grid overflow-hidden">
+      <div className="md:w-[30rem] p-1 grid overflow-hidden">
         {!data || isLoading ? (
           <Skeleton className="h-full" />
         ) : (

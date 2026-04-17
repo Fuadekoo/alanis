@@ -3,7 +3,6 @@ import { Provider } from "./provider";
 import List from "./list";
 import Detail from "./detail";
 import Registration from "./registration";
-import Deletion from "./deletion";
 
 export function Student() {
   return (
@@ -12,7 +11,6 @@ export function Student() {
         <List />
         <Detail />
         <Registration />
-        <Deletion />
       </div>
     </Provider>
   );

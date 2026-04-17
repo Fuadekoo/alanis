@@ -34,7 +34,7 @@ export default function UserLayout({
         <SideBar {...{ menu }} />
         <div className="grid grid-rows-[auto_1fr] min-h-screen">
           <Header />
-          <article className="p-4 md:p-6 overflow-y-auto">{children}</article>
+          <article className="p-0 md:p-6 overflow-y-auto">{children}</article>
         </div>
       </div>
     </div>

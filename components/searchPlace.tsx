@@ -20,21 +20,30 @@ export default function SearchPlace({
   return (
     <div
       className={cn(
-        "p-1 bg-default-400/20 border border-default-400/80 rounded-xl flex flex-wrap items-center gap-2 md:gap-3",
+        "p-2 bg-default-400/20 border border-default-400/80 rounded-xl flex flex-col gap-2",
         className
       )}
     >
-      {startContent}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+        {startContent}
+        {endContent}
+      </div>
       <Input
         size="sm"
-        classNames={{ base: "w-full min-w-0 flex-1", inputWrapper: "bg-default-50/50" }}
+        classNames={{
+          base: "w-full min-w-0",
+          inputWrapper: "bg-default-50/50",
+        }}
         placeholder={
-          placeholder ?? lang == "am" ? "እዚህ ይፈልጉ ... " : lang == "or" ? "asitti barbaadi ... " : "search here ... "
+          placeholder ?? lang == "am"
+            ? "እዚህ ይፈልጉ ... "
+            : lang == "or"
+            ? "asitti barbaadi ... "
+            : "search here ... "
         }
         startContent={<Search className="size-4" />}
         onValueChange={handleSearch}
       />
-      {endContent}
     </div>
   );
 }

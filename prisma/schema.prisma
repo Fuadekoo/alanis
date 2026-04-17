@@ -49,6 +49,7 @@ model user {
   socket              String                @default("")
   registerDate        DateTime              @default(now())
   startDate           DateTime?
+  profileNotes        String?               @db.Text
   status              userStatus            @default(new)
   controller          user?                 @relation("students", fields: [controllerId], references: [id])
   controllerId        String?
@@ -75,6 +76,19 @@ model user {
   teacherDailyReportsAsStudent teacherDailyReport[]  @relation("TeacherDailyReportStudent")
   announcementTeachers         announcementTeacher[]
   zoomAttach                   zoomAttach?
+  notesReceived                notes[]               @relation("NotesToUser")
+  notesWritten                 notes[]               @relation("NotesFromUser")
+}
+
+model notes {
+  id         String   @id @default(cuid())
+  writenTo   user     @relation("NotesToUser", fields: [writentoId], references: [id], onDelete: Cascade)
+  writentoId String
+  writenBy   user     @relation("NotesFromUser", fields: [writenbyId], references: [id], onDelete: Cascade)
+  writenbyId String
+  note       String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model zoomAttach {
