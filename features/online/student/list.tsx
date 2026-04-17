@@ -98,7 +98,7 @@ export default function List() {
               startContent={<Plus className="size-4" />}
               onPress={registration.add.bind(undefined)}
             >
-              {isAm ? "አዲስ ተማሪ" : "New Student"}
+              {isAm ? "አዲስ" : "add"}
             </Button>
           </>
         }
