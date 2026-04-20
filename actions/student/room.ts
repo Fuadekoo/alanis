@@ -3,15 +3,28 @@
 import prisma from "@/lib/db";
 import { isAuthorized } from "@/lib/utils";
 
+function getTodayAttendanceRange() {
+  const ethiopiaOffsetMs = 3 * 60 * 60 * 1000;
+  const ethiopiaNow = new Date(Date.now() + ethiopiaOffsetMs);
+  const start = new Date(
+    Date.UTC(
+      ethiopiaNow.getUTCFullYear(),
+      ethiopiaNow.getUTCMonth(),
+      ethiopiaNow.getUTCDate()
+    ) - ethiopiaOffsetMs
+  );
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+  return { start, end };
+}
+
 export async function registerRoomAttendance(roomId: string) {
   try {
     const student = await isAuthorized("student");
-    console.log("student is authorized >> ", student);
     const studentData = await prisma.user.findUnique({
       where: { id: student.id },
       select: { id: true, startDate: true, status: true },
     });
-    console.log("student data >> ", studentData);
 
     if (!studentData) {
       return { status: false, message: "student account not found" };
@@ -29,21 +42,19 @@ export async function registerRoomAttendance(roomId: string) {
       select: { id: true },
     });
 
-    console.log("room data >> ", room);
-
     if (!room) {
       return { status: false, message: "room not found for this student" };
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const { start, end } = getTodayAttendanceRange();
 
     const existingAttendance = await prisma.roomAttendance.findFirst({
       where: {
         userId: student.id,
         roomId: room.id,
         date: {
-          gte: today,
+          gte: start,
+          lt: end,
         },
       },
     });
@@ -53,10 +64,9 @@ export async function registerRoomAttendance(roomId: string) {
     }
 
     await prisma.$transaction(async (tx) => {
-      const res = await tx.roomAttendance.create({
+      await tx.roomAttendance.create({
         data: { userId: student.id, roomId: room.id },
       });
-      console.log("room attendance >> ", res);
 
       if (!studentData.startDate) {
         await tx.user.update({
@@ -67,7 +77,8 @@ export async function registerRoomAttendance(roomId: string) {
     });
 
     return { status: true, message: "successfully register attendance" };
-  } catch {
+  } catch (error) {
+    console.error("registerRoomAttendance failed:", error);
     return { status: false, message: "failed to register attendance" };
   }
 }
@@ -117,27 +128,26 @@ export async function getStudentController() {
 export async function verifyRoomAttendance(roomId: string) {
   try {
     const student = await isAuthorized("student");
-    
-    // Check if there is a roomAttendance for today and this room
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
+    const { start, end } = getTodayAttendanceRange();
+
     const attendance = await prisma.roomAttendance.findFirst({
       where: {
         userId: student.id,
         roomId: roomId,
         date: {
-          gte: today
-        }
-      }
+          gte: start,
+          lt: end,
+        },
+      },
     });
 
     if (attendance) {
       return { status: true, message: "Attendance verified" };
-    } else {
-      return { status: false, message: "Attendance not found" };
     }
-  } catch {
+
+    return { status: false, message: "Attendance not found" };
+  } catch (error) {
+    console.error("verifyRoomAttendance failed:", error);
     return { status: false, message: "Verification failed" };
   }
 }

@@ -2,7 +2,6 @@
 
 import {
   Button,
-  ScrollShadow,
   Skeleton,
 } from "@/components/ui/heroui";
 import { Spinner } from "@heroui/react";
@@ -58,37 +57,12 @@ function RoomItem({ room, index, lang }: { room: RoomData; index: number; lang: 
     }
 
     setStep("verifying");
-    // Artificial delay to show verification step as requested by user
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    const verification = await verifyRoomAttendance(id);
-    if (!verification.status) {
-      addToast({
-        title: "Wait",
-        description: "Attendance not confirmed yet, please try again",
-        color: "warning",
-      });
-      setStep("idle");
-      return;
-    }
-
     setStep("done");
   };
 
   const handleJoin = async () => {
-    setStep("verifying");
-    const verification = await verifyRoomAttendance(id);
-    if (verification.status) {
-      setStep("done");
-      window.open(link, "_blank", "noopener,noreferrer");
-    } else {
-      addToast({
-        title: "Error",
-        description: "Attendance not confirmed. Please try saving again.",
-        color: "danger",
-      });
-      setStep("idle");
-    }
+    window.open(link, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -215,9 +189,19 @@ export default function List() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data.map((room, i) => (
-              <RoomItem key={room.id} room={room} index={i} lang={lang} />
-            ))}
+            {data.length ? (
+              data.map((room, i) => (
+                <RoomItem key={room.id} room={room} index={i} lang={lang} />
+              ))
+            ) : (
+              <div className="md:col-span-2 lg:col-span-3 rounded-2xl border border-dashed border-default-300 bg-default-50 px-6 py-10 text-center text-default-500">
+                {lang === "am"
+                  ? "እስካሁን ምንም የዛሬ ክፍል አልተመደበልዎትም።"
+                  : lang === "or"
+                  ? "Ammaaf kutaan har'aa siif hin ramadamne."
+                  : "No learning session has been assigned for today yet."}
+              </div>
+            )}
           </div>
         )}
       </div>
