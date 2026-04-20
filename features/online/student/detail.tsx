@@ -11,6 +11,7 @@ import UserPaymentDetail from "@/components/userPaymentDetail";
 import DetailTab from "./detailTab";
 import { useState } from "react";
 import Notes from "./notes";
+import LastTeacherHistory from "./lastTeacherHistory";
 
 export default function Detail() {
   const {
@@ -76,6 +77,8 @@ export default function Detail() {
               </>
             ) : tab == "attendance" ? (
               <Attendance />
+            ) : tab == "last" ? (
+              <LastTeacherHistory />
             ) : (
               ""
             )}

@@ -4,6 +4,11 @@ import { Filter, MutationState } from "@/lib/definitions";
 import { getLocalDate, sorting } from "@/lib/utils";
 import { StudentSchema } from "@/lib/zodSchema";
 import prisma from "@/lib/db";
+import {
+  closeControllerAssignmentHistory,
+  ensureOpenControllerAssignmentHistory,
+  isMissingAssignmentHistoryTableError,
+} from "@/lib/assignmentHistory";
 import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 
@@ -13,38 +18,85 @@ export async function registerStudent({
   ...data
 }: StudentSchema): Promise<MutationState> {
   if (id) {
-    await prisma.user.update({
-      where: { id },
-      data: {
-        firstName: data.firstName,
-        fatherName: data.fatherName,
-        lastName: data.lastName,
-        gender: data.gender,
-        age: +data.age,
-        phoneNumber: data.phoneNumber,
-        country: data.country,
-        username: data.username,
-        controllerId: data.controllerId,
-        startDate: data.startDate ? new Date(data.startDate) : null,
-        ...(password ? { password: await bcrypt.hash(password, 12) } : {}),
-      },
+    const hashedPassword = password ? await bcrypt.hash(password, 12) : null;
+
+    await prisma.$transaction(async (tx) => {
+      const existingStudent = await tx.user.findUnique({
+        where: { id },
+        select: { controllerId: true },
+      });
+
+      if (!existingStudent) {
+        throw new Error("student not found");
+      }
+
+      if (existingStudent.controllerId) {
+        await ensureOpenControllerAssignmentHistory(tx, {
+          studentId: id,
+          controllerId: existingStudent.controllerId,
+        });
+      }
+
+      await tx.user.update({
+        where: { id },
+        data: {
+          firstName: data.firstName,
+          fatherName: data.fatherName,
+          lastName: data.lastName,
+          gender: data.gender,
+          age: +data.age,
+          phoneNumber: data.phoneNumber,
+          country: data.country,
+          username: data.username,
+          controllerId: data.controllerId,
+          startDate: data.startDate ? new Date(data.startDate) : null,
+          ...(hashedPassword ? { password: hashedPassword } : {}),
+        },
+      });
+
+      if (
+        existingStudent.controllerId &&
+        existingStudent.controllerId !== data.controllerId
+      ) {
+        await closeControllerAssignmentHistory(tx, {
+          studentId: id,
+          controllerId: existingStudent.controllerId,
+        });
+      }
+
+      if (
+        data.controllerId &&
+        existingStudent.controllerId !== data.controllerId
+      ) {
+        await ensureOpenControllerAssignmentHistory(tx, {
+          studentId: id,
+          controllerId: data.controllerId,
+        });
+      }
     });
   } else {
-    await prisma.user.create({
-      data: {
-        role: "student",
-        firstName: data.firstName,
-        fatherName: data.fatherName,
-        lastName: data.lastName,
-        gender: data.gender,
-        age: +data.age,
-        phoneNumber: data.phoneNumber,
-        country: data.country,
-        username: data.username,
+    await prisma.$transaction(async (tx) => {
+      const student = await tx.user.create({
+        data: {
+          role: "student",
+          firstName: data.firstName,
+          fatherName: data.fatherName,
+          lastName: data.lastName,
+          gender: data.gender,
+          age: +data.age,
+          phoneNumber: data.phoneNumber,
+          country: data.country,
+          username: data.username,
+          controllerId: data.controllerId,
+          startDate: data.startDate ? new Date(data.startDate) : null,
+          password: await bcrypt.hash(password, 12),
+        },
+      });
+
+      await ensureOpenControllerAssignmentHistory(tx, {
+        studentId: student.id,
         controllerId: data.controllerId,
-        startDate: data.startDate ? new Date(data.startDate) : null,
-        password: await bcrypt.hash(password, 12),
-      },
+      });
     });
   }
 
@@ -239,23 +291,82 @@ export async function getStudent(id: string) {
           },
         },
       },
-    })
-    .then((res) => {
-      return res
-        ? {
-            ...res,
-            room: res.roomStudent
-              .map((v) => ({
-                ...v,
-                link:
-                  Date.now() - v.updated.getTime() < 40 * 60 * 1000
-                    ? v.link
-                    : "",
-              }))
-              .sort((a, b) => (a.time > b.time ? 1 : a.time < b.time ? -1 : 0)),
-          }
-        : null;
     });
 
-  return data;
+  if (!data) {
+    return null;
+  }
+
+  let lastTeachers: Array<{
+    id: string;
+    assignedAt: Date;
+    detachedAt: Date | null;
+    time: string;
+    duration: number;
+    teacherId: string;
+    teacherFirstName: string;
+    teacherFatherName: string;
+    teacherLastName: string;
+  }> = [];
+
+  try {
+    lastTeachers = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        assignedAt: Date;
+        detachedAt: Date | null;
+        time: string;
+        duration: number;
+        teacherId: string;
+        teacherFirstName: string;
+        teacherFatherName: string;
+        teacherLastName: string;
+      }>
+    >`
+      SELECT
+        tah."id",
+        tah."assignedAt",
+        tah."detachedAt",
+        tah."time",
+        tah."duration",
+        u."id" AS "teacherId",
+        u."firstName" AS "teacherFirstName",
+        u."fatherName" AS "teacherFatherName",
+        u."lastName" AS "teacherLastName"
+      FROM "teacher_assignment_history" tah
+      INNER JOIN "user" u
+        ON u."id" = tah."teacherId"
+      WHERE tah."studentId" = ${id}
+        AND tah."detachedAt" IS NOT NULL
+      ORDER BY tah."detachedAt" DESC, tah."assignedAt" DESC
+    `;
+  } catch (error) {
+    if (!isMissingAssignmentHistoryTableError(error, "teacher_assignment_history")) {
+      throw error;
+    }
+  }
+
+  return {
+    ...data,
+    lastTeachers: lastTeachers.map((item) => ({
+      id: item.id,
+      assignedAt: item.assignedAt,
+      detachedAt: item.detachedAt,
+      time: item.time,
+      duration: item.duration,
+      teacher: {
+        id: item.teacherId,
+        firstName: item.teacherFirstName,
+        fatherName: item.teacherFatherName,
+        lastName: item.teacherLastName,
+      },
+    })),
+    room: data.roomStudent
+      .map((v) => ({
+        ...v,
+        link:
+          Date.now() - v.updated.getTime() < 40 * 60 * 1000 ? v.link : "",
+      }))
+      .sort((a, b) => (a.time > b.time ? 1 : a.time < b.time ? -1 : 0)),
+  };
 }

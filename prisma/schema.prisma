@@ -75,6 +75,10 @@ model user {
   teacherDailyReportsAsTeacher teacherDailyReport[]  @relation("TeacherDailyReportTeacher")
   teacherDailyReportsAsStudent teacherDailyReport[]  @relation("TeacherDailyReportStudent")
   announcementTeachers         announcementTeacher[]
+  teacherAssignmentHistoryAsStudent    teacherAssignmentHistory[]    @relation("TeacherAssignmentHistoryStudent")
+  teacherAssignmentHistoryAsTeacher    teacherAssignmentHistory[]    @relation("TeacherAssignmentHistoryTeacher")
+  controllerAssignmentHistoryAsStudent controllerAssignmentHistory[] @relation("ControllerAssignmentHistoryStudent")
+  controllerAssignmentHistoryAsController controllerAssignmentHistory[] @relation("ControllerAssignmentHistoryController")
   zoomAttach                   zoomAttach?
   notesReceived                notes[]               @relation("NotesToUser")
   notesWritten                 notes[]               @relation("NotesFromUser")
@@ -121,6 +125,40 @@ model room {
   link           String           @default("")
   updated        DateTime         @updatedAt
   roomAttendance roomAttendance[]
+}
+
+model teacherAssignmentHistory {
+  id         String   @id @default(cuid())
+  student    user     @relation("TeacherAssignmentHistoryStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  studentId  String
+  teacher    user     @relation("TeacherAssignmentHistoryTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId  String
+  assignedAt DateTime @default(now())
+  detachedAt DateTime?
+  time       String
+  duration   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([studentId, detachedAt])
+  @@index([teacherId, detachedAt])
+  @@map("teacher_assignment_history")
+}
+
+model controllerAssignmentHistory {
+  id           String   @id @default(cuid())
+  student      user     @relation("ControllerAssignmentHistoryStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  studentId    String
+  controller   user     @relation("ControllerAssignmentHistoryController", fields: [controllerId], references: [id], onDelete: Cascade)
+  controllerId String
+  assignedAt   DateTime @default(now())
+  detachedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([studentId, detachedAt])
+  @@index([controllerId, detachedAt])
+  @@map("controller_assignment_history")
 }
 
 // model paymentGroup {

@@ -9,7 +9,7 @@ import { AssignedItem } from "@/components/assignedItem";
 
 export default function AssignedRoom() {
   const {
-    student: { selected },
+    student: { selected, refresh: refreshStudents },
     detail: { data, registration, refresh },
   } = useStudent();
   const isAm = useAmharic();
@@ -59,7 +59,10 @@ export default function AssignedRoom() {
                 });
               },
               deleteFunc: deleteRoom,
-              refresh,
+              refresh() {
+                refresh();
+                refreshStudents();
+              },
             }}
           />
         ))}

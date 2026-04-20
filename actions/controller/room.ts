@@ -3,64 +3,239 @@
 import { MutationState } from "@/lib/definitions";
 import { RoomSchema } from "@/lib/zodSchema";
 import prisma from "@/lib/db";
+import {
+  closeTeacherAssignmentHistory,
+  ensureOpenTeacherAssignmentHistory,
+} from "@/lib/assignmentHistory";
+import { Prisma } from "@prisma/client";
+
+type Tx = Prisma.TransactionClient;
+
+async function ensureOpenTeacherProgress(
+  tx: Tx,
+  {
+    studentId,
+    teacherId,
+    learningSlot,
+  }: {
+    studentId: string;
+    teacherId: string;
+    learningSlot: string;
+  }
+) {
+  const existingProgress = await tx.teacherProgress.findFirst({
+    where: {
+      studentId,
+      teacherId,
+      progressStatus: "open",
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingProgress) {
+    await tx.teacherProgress.update({
+      where: { id: existingProgress.id },
+      data: { learningSlot },
+    });
+    return;
+  }
+
+  await tx.teacherProgress.create({
+    data: {
+      teacherId,
+      studentId,
+      learningCount: 0,
+      missingCount: 0,
+      totalCount: 0,
+      progressStatus: "open",
+      paymentStatus: "pending",
+      learningSlot,
+    },
+  });
+}
+
+async function shiftOpenTeacherProgress(
+  tx: Tx,
+  {
+    teacherId,
+    studentId,
+  }: {
+    teacherId: string;
+    studentId: string;
+  }
+) {
+  const teacherProgress = await tx.teacherProgress.findFirst({
+    where: {
+      teacherId,
+      studentId,
+      progressStatus: "open",
+    },
+    include: {
+      dailyReports: true,
+    },
+  });
+
+  if (!teacherProgress) return;
+
+  const shiftData = await tx.shiftTeacherData.create({
+    data: {
+      teacherId: teacherProgress.teacherId,
+      studentId: teacherProgress.studentId,
+      learningCount: teacherProgress.learningCount,
+      missingCount: teacherProgress.missingCount,
+      totalCount: teacherProgress.totalCount,
+      progressStatus: "closed",
+      paymentStatus: teacherProgress.paymentStatus,
+      learningSlot: teacherProgress.learningSlot,
+      teacherSalaryId: teacherProgress.teacherSalaryId,
+      originalProgressId: teacherProgress.id,
+    },
+  });
+
+  if (teacherProgress.dailyReports.length > 0) {
+    await tx.dailyReport.updateMany({
+      where: { teacherProgressId: teacherProgress.id },
+      data: {
+        shiftTeacherDataId: shiftData.id,
+        teacherProgressId: null,
+      },
+    });
+  }
+
+  await tx.teacherProgress.delete({
+    where: { id: teacherProgress.id },
+  });
+}
 
 export async function registerRoom({
+  id,
   studentId,
   teacherId,
   time,
   duration,
 }: RoomSchema): Promise<MutationState> {
   try {
-    // Check if this teacher-student pair already has a room
-    const existingRoom = await prisma.room.findFirst({
-      where: { studentId, teacherId },
-    });
+    const parsedDuration = +duration;
 
-    if (existingRoom) {
-      // Update existing room
-      await prisma.room.update({
-        where: { id: existingRoom.id },
-        data: { time, duration: +duration },
+    await prisma.$transaction(async (tx) => {
+      const roomById = id
+        ? await tx.room.findUnique({
+            where: { id },
+          })
+        : null;
+
+      if (roomById) {
+        await ensureOpenTeacherAssignmentHistory(tx, {
+          studentId: roomById.studentId,
+          teacherId: roomById.teacherId,
+          time: roomById.time,
+          duration: roomById.duration,
+        });
+
+        const samePair =
+          roomById.studentId === studentId && roomById.teacherId === teacherId;
+
+        if (samePair) {
+          await tx.room.update({
+            where: { id: roomById.id },
+            data: { time, duration: parsedDuration },
+          });
+
+          await ensureOpenTeacherAssignmentHistory(tx, {
+            studentId,
+            teacherId,
+            time,
+            duration: parsedDuration,
+          });
+          await ensureOpenTeacherProgress(tx, {
+            studentId,
+            teacherId,
+            learningSlot: time,
+          });
+          return;
+        }
+
+        await closeTeacherAssignmentHistory(tx, {
+          studentId: roomById.studentId,
+          teacherId: roomById.teacherId,
+        });
+        await shiftOpenTeacherProgress(tx, {
+          teacherId: roomById.teacherId,
+          studentId: roomById.studentId,
+        });
+
+        const existingTargetRoom = await tx.room.findFirst({
+          where: { studentId, teacherId },
+        });
+
+        if (existingTargetRoom) {
+          await tx.room.update({
+            where: { id: existingTargetRoom.id },
+            data: { time, duration: parsedDuration },
+          });
+        } else {
+          await tx.room.create({
+            data: {
+              studentId,
+              teacherId,
+              time,
+              duration: parsedDuration,
+            },
+          });
+        }
+
+        await ensureOpenTeacherAssignmentHistory(tx, {
+          studentId,
+          teacherId,
+          time,
+          duration: parsedDuration,
+        });
+        await ensureOpenTeacherProgress(tx, {
+          studentId,
+          teacherId,
+          learningSlot: time,
+        });
+
+        await tx.room.delete({
+          where: { id: roomById.id },
+        });
+        return;
+      }
+
+      const existingRoom = await tx.room.findFirst({
+        where: { studentId, teacherId },
       });
-    } else {
-      // Create new room and TeacherProgress in a transaction
-      await prisma.$transaction(async (tx) => {
-        // Create the new room
+
+      if (existingRoom) {
+        await tx.room.update({
+          where: { id: existingRoom.id },
+          data: { time, duration: parsedDuration },
+        });
+      } else {
         await tx.room.create({
           data: {
             studentId,
             teacherId,
             time,
-            duration: +duration,
+            duration: parsedDuration,
           },
         });
+      }
 
-        // Check if TeacherProgress already exists
-        const existingProgress = await tx.teacherProgress.findFirst({
-          where: {
-            studentId,
-            teacherId,
-            progressStatus: "open",
-          },
-        });
-
-        // Create new TeacherProgress if it doesn't exist
-        if (!existingProgress) {
-          await tx.teacherProgress.create({
-            data: {
-              teacherId,
-              studentId,
-              learningCount: 0,
-              missingCount: 0,
-              totalCount: 0,
-              progressStatus: "open",
-              paymentStatus: "pending",
-              learningSlot: time,
-            },
-          });
-        }
+      await ensureOpenTeacherAssignmentHistory(tx, {
+        studentId,
+        teacherId,
+        time,
+        duration: parsedDuration,
       });
-    }
+      await ensureOpenTeacherProgress(tx, {
+        studentId,
+        teacherId,
+        learningSlot: time,
+      });
+    });
 
     return { status: true, message: "successfully assign room" };
   } catch (error) {
@@ -71,9 +246,7 @@ export async function registerRoom({
 
 export async function deleteRoom(id: string): Promise<MutationState> {
   try {
-    // Use transaction to ensure data consistency
     await prisma.$transaction(async (tx) => {
-      // 1. Get the room with teacher and student info
       const room = await tx.room.findUnique({
         where: { id },
         include: {
@@ -86,54 +259,21 @@ export async function deleteRoom(id: string): Promise<MutationState> {
         throw new Error("Room not found");
       }
 
-      // 2. Find the associated TeacherProgress (if exists)
-      const teacherProgress = await tx.teacherProgress.findFirst({
-        where: {
-          teacherId: room.teacherId,
-          studentId: room.studentId,
-          progressStatus: "open",
-        },
-        include: {
-          dailyReports: true,
-        },
+      await ensureOpenTeacherAssignmentHistory(tx, {
+        studentId: room.studentId,
+        teacherId: room.teacherId,
+        time: room.time,
+        duration: room.duration,
+      });
+      await closeTeacherAssignmentHistory(tx, {
+        studentId: room.studentId,
+        teacherId: room.teacherId,
+      });
+      await shiftOpenTeacherProgress(tx, {
+        teacherId: room.teacherId,
+        studentId: room.studentId,
       });
 
-      // 3. If there's an active TeacherProgress, shift it to historical data
-      if (teacherProgress) {
-        // Create ShiftTeacherData to preserve the history
-        const shiftData = await tx.shiftTeacherData.create({
-          data: {
-            teacherId: teacherProgress.teacherId,
-            studentId: teacherProgress.studentId,
-            learningCount: teacherProgress.learningCount,
-            missingCount: teacherProgress.missingCount,
-            totalCount: teacherProgress.totalCount,
-            progressStatus: "closed",
-            paymentStatus: teacherProgress.paymentStatus,
-            learningSlot: teacherProgress.learningSlot,
-            teacherSalaryId: teacherProgress.teacherSalaryId,
-            originalProgressId: teacherProgress.id,
-          },
-        });
-
-        // Move all daily reports to the shifted data
-        if (teacherProgress.dailyReports.length > 0) {
-          await tx.dailyReport.updateMany({
-            where: { teacherProgressId: teacherProgress.id },
-            data: {
-              shiftTeacherDataId: shiftData.id,
-              teacherProgressId: null, // Remove from current progress
-            },
-          });
-        }
-
-        // Delete the TeacherProgress
-        await tx.teacherProgress.delete({
-          where: { id: teacherProgress.id },
-        });
-      }
-
-      // 4. Finally, delete the room
       await tx.room.delete({
         where: { id },
       });

@@ -25,7 +25,8 @@ export default function DetailTab({
         orientation="horizontal"
         className="flex-1 p-1 bg-default-50/30 rounded-xl flex gap-1 no-scrollbar overflow-x-auto"
       >
-        {["profile", "notes", "room", "attendance", "payment"].map((v, i) => (
+        {["profile", "notes", "room", "attendance", "last", "payment"].map(
+          (v, i) => (
           <Button
             key={i + ""}
             size="sm"
@@ -36,7 +37,8 @@ export default function DetailTab({
           >
             {v}
           </Button>
-        ))}
+          )
+        )}
       </ScrollShadow>
     </div>
   );

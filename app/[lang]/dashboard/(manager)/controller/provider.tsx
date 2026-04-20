@@ -72,6 +72,8 @@ export function Provider({ children }: { children: React.ReactNode }) {
     assignControllerSchema,
     (state) => {
       if (state.status) {
+        controllerRefresh();
+        detailRefresh?.();
       }
     }
   );

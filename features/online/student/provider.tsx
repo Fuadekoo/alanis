@@ -66,6 +66,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
 
   const assignRoom = useRegistration(registerRoom, roomSchema, (state) => {
     if (state.status) {
+      studentRefresh();
       detailRefresh();
     }
   });

@@ -2,6 +2,11 @@
 
 import prisma from "@/lib/db";
 import { Filter } from "@/lib/definitions";
+import {
+  closeControllerAssignmentHistory,
+  ensureOpenControllerAssignmentHistory,
+  isMissingAssignmentHistoryTableError,
+} from "@/lib/assignmentHistory";
 import { sorting } from "@/lib/utils";
 import { AssignControllerSchema, ControllerSchema } from "@/lib/zodSchema";
 import bcrypt from "bcryptjs";
@@ -122,16 +127,113 @@ export async function getController(id: string) {
     },
   });
 
-  return data;
+  if (!data) {
+    return null;
+  }
+
+  let lastStudents: Array<{
+    id: string;
+    assignedAt: Date;
+    detachedAt: Date | null;
+    studentId: string;
+    studentFirstName: string;
+    studentFatherName: string;
+    studentLastName: string;
+  }> = [];
+
+  try {
+    lastStudents = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        assignedAt: Date;
+        detachedAt: Date | null;
+        studentId: string;
+        studentFirstName: string;
+        studentFatherName: string;
+        studentLastName: string;
+      }>
+    >`
+      SELECT
+        cah."id",
+        cah."assignedAt",
+        cah."detachedAt",
+        u."id" AS "studentId",
+        u."firstName" AS "studentFirstName",
+        u."fatherName" AS "studentFatherName",
+        u."lastName" AS "studentLastName"
+      FROM "controller_assignment_history" cah
+      INNER JOIN "user" u
+        ON u."id" = cah."studentId"
+      WHERE cah."controllerId" = ${id}
+        AND cah."detachedAt" IS NOT NULL
+      ORDER BY cah."detachedAt" DESC, cah."assignedAt" DESC
+    `;
+  } catch (error) {
+    if (
+      !isMissingAssignmentHistoryTableError(
+        error,
+        "controller_assignment_history"
+      )
+    ) {
+      throw error;
+    }
+  }
+
+  return {
+    ...data,
+    lastStudents: lastStudents.map((item) => ({
+      id: item.id,
+      assignedAt: item.assignedAt,
+      detachedAt: item.detachedAt,
+      student: {
+        id: item.studentId,
+        firstName: item.studentFirstName,
+        fatherName: item.studentFatherName,
+        lastName: item.studentLastName,
+      },
+    })),
+  };
 }
 
 export async function assignController({
   controllerId,
   id,
 }: AssignControllerSchema) {
-  await prisma.user.update({
-    where: { id, role: "student" },
-    data: { controllerId },
+  await prisma.$transaction(async (tx) => {
+    const student = await tx.user.findFirst({
+      where: { id, role: "student" },
+      select: { id: true, controllerId: true },
+    });
+
+    if (!student) {
+      throw new Error("student not found");
+    }
+
+    if (student.controllerId) {
+      await ensureOpenControllerAssignmentHistory(tx, {
+        studentId: student.id,
+        controllerId: student.controllerId,
+      });
+    }
+
+    await tx.user.update({
+      where: { id: student.id },
+      data: { controllerId },
+    });
+
+    if (student.controllerId && student.controllerId !== controllerId) {
+      await closeControllerAssignmentHistory(tx, {
+        studentId: student.id,
+        controllerId: student.controllerId,
+      });
+    }
+
+    if (student.controllerId !== controllerId) {
+      await ensureOpenControllerAssignmentHistory(tx, {
+        studentId: student.id,
+        controllerId,
+      });
+    }
   });
 
   return { status: true, message: "successfully assign controller" };
