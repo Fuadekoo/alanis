@@ -3,10 +3,10 @@
 import prisma from "@/lib/db";
 import { Filter } from "@/lib/definitions";
 import {
-  closeControllerAssignmentHistory,
   ensureOpenControllerAssignmentHistory,
   isMissingAssignmentHistoryTableError,
 } from "@/lib/assignmentHistory";
+import { setPendingControllerId } from "@/lib/pendingController";
 import { sorting } from "@/lib/utils";
 import { AssignControllerSchema, ControllerSchema } from "@/lib/zodSchema";
 import bcrypt from "bcryptjs";
@@ -199,6 +199,8 @@ export async function assignController({
   controllerId,
   id,
 }: AssignControllerSchema) {
+  let message = "successfully assign controller";
+
   await prisma.$transaction(async (tx) => {
     const student = await tx.user.findFirst({
       where: { id, role: "student" },
@@ -216,25 +218,36 @@ export async function assignController({
       });
     }
 
-    await tx.user.update({
-      where: { id: student.id },
-      data: { controllerId },
-    });
+    const controllerChangeRequested =
+      !!student.controllerId && student.controllerId !== controllerId;
 
-    if (student.controllerId && student.controllerId !== controllerId) {
-      await closeControllerAssignmentHistory(tx, {
-        studentId: student.id,
-        controllerId: student.controllerId,
+    if (controllerChangeRequested) {
+      const supported = await setPendingControllerId(tx, student.id, controllerId);
+
+      if (!supported) {
+        throw new Error(
+          "pending controller migration is missing. run prisma migration first"
+        );
+      }
+    } else {
+      await tx.user.update({
+        where: { id: student.id },
+        data: { controllerId },
       });
+      await setPendingControllerId(tx, student.id, null);
     }
 
-    if (student.controllerId !== controllerId) {
+    if (!student.controllerId) {
       await ensureOpenControllerAssignmentHistory(tx, {
         studentId: student.id,
         controllerId,
       });
     }
+
+    if (controllerChangeRequested) {
+      message = "controller change is waiting for the new controller to accept";
+    }
   });
 
-  return { status: true, message: "successfully assign controller" };
+  return { status: true, message };
 }

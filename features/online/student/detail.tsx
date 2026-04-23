@@ -1,6 +1,6 @@
 "use client";
 
-import { Skeleton } from "@/components/ui/heroui";
+import { Button, Skeleton } from "@/components/ui/heroui";
 import { useStudent } from "./provider";
 import AssignedRoom from "./assignedRoom";
 import { cn } from "@heroui/react";
@@ -12,11 +12,20 @@ import DetailTab from "./detailTab";
 import { useState } from "react";
 import Notes from "./notes";
 import LastTeacherHistory from "./lastTeacherHistory";
+import LastControllerHistory from "./lastControllerHistory";
+import { CheckCircle2 } from "lucide-react";
 
 export default function Detail() {
   const {
-    student: { registration, deletion },
-    detail: { data, isLoading, refresh },
+    student: { registration },
+    detail: {
+      data,
+      isLoading,
+      refresh,
+      acceptAssignment,
+      acceptAssignmentLoading,
+      acceptingStudentId,
+    },
     isDetail,
     onDetail,
   } = useStudent();
@@ -46,27 +55,59 @@ export default function Detail() {
 
             
             {tab == "profile" ? (
-              <UserDetailCard
-                {...data}
-                status={
-                  <UserStatus
-                    id={data.id}
-                    status={data.status}
-                    refresh={refresh}
-                  />
-                }
-                onEdit={() =>
-                  registration.edit({
-                    ...data,
-                    phoneNumber: data.phoneNumber,
-                    age: data.age + "",
-                    username: data.username,
-                    controllerId: data.controllerId ?? "",
-                    password: "",
-                    startDate: data.startDate?.toString() ?? "",
-                  })
-                }
-              />
+              <div className="grid gap-2 overflow-auto">
+                {data.pendingController && (
+                  <div className="rounded-xl border border-warning-200 bg-warning-50 p-4 grid gap-3">
+                    <div className="grid gap-1">
+                      <p className="font-semibold text-warning-800">
+                        Pending Controller Change
+                      </p>
+                      <p className="text-sm text-warning-700">
+                        {data.requiresControllerAcceptance
+                          ? "This student is waiting for your acceptance before joining your active student list."
+                          : `Waiting for ${data.pendingController.firstName} ${data.pendingController.fatherName} ${data.pendingController.lastName} to accept this controller change.`}
+                      </p>
+                    </div>
+                    {data.requiresControllerAcceptance && (
+                      <Button
+                        color="success"
+                        className="justify-self-start"
+                        startContent={<CheckCircle2 className="size-4" />}
+                        isLoading={
+                          acceptAssignmentLoading &&
+                          acceptingStudentId === data.id
+                        }
+                        onPress={() => acceptAssignment(data.id)}
+                      >
+                        Accept Student
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                <UserDetailCard
+                  {...data}
+                  status={
+                    <UserStatus
+                      id={data.id}
+                      status={data.status}
+                      refresh={refresh}
+                    />
+                  }
+                  onEdit={() =>
+                    registration.edit({
+                      ...data,
+                      phoneNumber: data.phoneNumber,
+                      age: data.age + "",
+                      username: data.username,
+                      controllerId:
+                        data.pendingControllerId ?? data.controllerId ?? "",
+                      password: "",
+                      startDate: data.startDate?.toString() ?? "",
+                    })
+                  }
+                />
+              </div>
             ) : tab == "notes" ? (
               <Notes />
             ) : tab == "room" ? (
@@ -77,8 +118,10 @@ export default function Detail() {
               </>
             ) : tab == "attendance" ? (
               <Attendance />
-            ) : tab == "last" ? (
+            ) : tab == "tLast" ? (
               <LastTeacherHistory />
+            ) : tab == "cLast" ? (
+              <LastControllerHistory />
             ) : (
               ""
             )}

@@ -1,8 +1,8 @@
 import { changeUserStatus } from "@/actions/common/user";
 import useMutation from "@/hooks/useMutation";
 import { userStatus } from "@prisma/client";
-import { Select, SelectItem } from "./ui/heroui";
 import { Chip } from "@heroui/react";
+import { Select, SelectItem } from "./ui/heroui";
 
 const statusOptions: {
   key: userStatus;
@@ -10,14 +10,52 @@ const statusOptions: {
   labelAm: string;
   color: "default" | "primary" | "warning" | "success" | "danger";
 }[] = [
-  { key: "new", label: "New", labelAm: "አዲስ", color: "default" },
-  { key: "onProgress", label: "On Progress", labelAm: "በሂደት ላይ", color: "primary" },
-  { key: "remedanLeft", label: "Remedan Left", labelAm: "ረመዳን ያለቀበት", color: "warning" },
-  { key: "active", label: "Active", labelAm: "ንቁ", color: "success" },
-  { key: "inactive", label: "Inactive", labelAm: "ኢ-ንቁ", color: "danger" },
+  { key: "new", label: "New", labelAm: "áŠ á‹²áˆµ", color: "default" },
+  {
+    key: "onProgress",
+    label: "On Progress",
+    labelAm: "á‰ áˆ‚á‹°á‰µ áˆ‹á‹­",
+    color: "primary",
+  },
+  {
+    key: "remedanLeft",
+    label: "Remedan Left",
+    labelAm: "áˆ¨áˆ˜á‹³áŠ• á‹«áˆˆá‰€á‰ á‰µ",
+    color: "warning",
+  },
+  { key: "active", label: "Active", labelAm: "áŠ•á‰", color: "success" },
+  {
+    key: "inactive",
+    label: "Inactive",
+    labelAm: "áŠ¢-áŠ•á‰",
+    color: "danger",
+  },
 ];
 
+function getSelectedStatus(value: unknown): userStatus | undefined {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value) as userStatus;
+  }
 
+  if (
+    value &&
+    typeof value === "object" &&
+    "currentKey" in value &&
+    value.currentKey != null
+  ) {
+    return String(value.currentKey) as userStatus;
+  }
+
+  if (
+    value &&
+    typeof (value as Iterable<unknown>)[Symbol.iterator] === "function"
+  ) {
+    const selected = Array.from(value as Iterable<unknown>)[0];
+    return selected != null ? (String(selected) as userStatus) : undefined;
+  }
+
+  return undefined;
+}
 
 export function UserStatus({
   id,
@@ -28,8 +66,10 @@ export function UserStatus({
   status: userStatus;
   refresh?: () => void;
 }) {
-  const [action, isLoading] = useMutation(changeUserStatus, () => {
-    refresh?.();
+  const [action, isLoading] = useMutation(changeUserStatus, (state) => {
+    if (state.status) {
+      refresh?.();
+    }
   });
 
   return (
@@ -43,14 +83,14 @@ export function UserStatus({
         trigger: "h-9 min-h-9",
       }}
       selectedKeys={new Set([status])}
-      onSelectionChange={(v) => {
-        const selected = Array.from(v)[0] as userStatus;
+      onSelectionChange={(value) => {
+        const selected = getSelectedStatus(value);
         if (selected && selected !== status) {
           action(id, selected);
         }
       }}
       renderValue={() => {
-        const current = statusOptions.find((s) => s.key === status);
+        const current = statusOptions.find((item) => item.key === status);
         return current ? (
           <Chip
             size="sm"
@@ -65,7 +105,12 @@ export function UserStatus({
     >
       {statusOptions.map((item) => (
         <SelectItem key={item.key} textValue={item.label}>
-          <Chip size="sm" variant="flat" color={item.color} className="capitalize">
+          <Chip
+            size="sm"
+            variant="flat"
+            color={item.color}
+            className="capitalize"
+          >
             {item.label}
           </Chip>
         </SelectItem>
@@ -73,4 +118,3 @@ export function UserStatus({
     </Select>
   );
 }
-

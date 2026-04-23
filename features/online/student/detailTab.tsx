@@ -10,6 +10,16 @@ export default function DetailTab({
   setTab: (id: string) => void;
   back: () => void;
 }) {
+  const tabs = [
+    { id: "profile", label: "Profile" },
+    { id: "notes", label: "Notes" },
+    { id: "room", label: "Room" },
+    { id: "attendance", label: "Attendance" },
+    { id: "tLast", label: "TLast" },
+    { id: "cLast", label: "CLast" },
+    { id: "payment", label: "Payment" },
+  ];
+
   return (
     <div className="grid grid-cols-[auto_1fr] gap-2  ">
       <Button
@@ -25,20 +35,18 @@ export default function DetailTab({
         orientation="horizontal"
         className="flex-1 p-1 bg-default-50/30 rounded-xl flex gap-1 no-scrollbar overflow-x-auto"
       >
-        {["profile", "notes", "room", "attendance", "last", "payment"].map(
-          (v, i) => (
+        {tabs.map(({ id, label }) => (
           <Button
-            key={i + ""}
+            key={id}
             size="sm"
             color="primary"
-            variant={tab == v ? "flat" : "light"}
+            variant={tab == id ? "flat" : "light"}
             className="flex-shrink-0 capitalize"
-            onPress={() => setTab(v)}
+            onPress={() => setTab(id)}
           >
-            {v}
+            {label}
           </Button>
-          )
-        )}
+        ))}
       </ScrollShadow>
     </div>
   );

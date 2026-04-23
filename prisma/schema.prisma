@@ -53,7 +53,10 @@ model user {
   status              userStatus            @default(new)
   controller          user?                 @relation("students", fields: [controllerId], references: [id])
   controllerId        String?
+  pendingController   user?                 @relation("pendingStudents", fields: [pendingControllerId], references: [id])
+  pendingControllerId String?
   students            user[]                @relation("students")
+  pendingStudents     user[]                @relation("pendingStudents")
   chatTo              chat[]                @relation("to")
   chatFrom            chat[]                @relation("from")
   roomTeacher         room[]                @relation("teacher")

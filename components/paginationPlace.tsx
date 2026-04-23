@@ -68,7 +68,29 @@ export default function PaginationPlace({
       items.push(...createRange(rightSibling + 1, total - boundaries));
 
     items.push(...endPages);
-    return items;
+
+    const normalized: (number | "dots")[] = [];
+
+    items.forEach((item) => {
+      const previous = normalized[normalized.length - 1];
+
+      if (item === "dots") {
+        if (previous !== "dots" && normalized.length > 0) {
+          normalized.push(item);
+        }
+        return;
+      }
+
+      if (previous !== item) {
+        normalized.push(item);
+      }
+    });
+
+    if (normalized[normalized.length - 1] === "dots") {
+      normalized.pop();
+    }
+
+    return normalized;
   };
 
   const desktopItems = getItems(totalPage, currentPage, 1, 1);
@@ -123,7 +145,7 @@ export default function PaginationPlace({
                   </span>
                 ) : (
                   <Button
-                    key={item}
+                    key={`page-${item}-${idx}`}
                     size="sm"
                     variant={item === currentPage ? "flat" : "light"}
                     className={

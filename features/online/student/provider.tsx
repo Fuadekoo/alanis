@@ -2,15 +2,18 @@
 
 import { registerRoom } from "@/actions/controller/room";
 import {
+  acceptStudentControllerAssignment,
   deleteStudent,
   getStudent,
   getStudents,
   registerStudent,
 } from "@/actions/controller/student";
+import { addToast } from "@heroui/react";
 import { useContext } from "@/hooks/useContext";
 import useData, { UseData } from "@/hooks/useData";
 import useDelete, { UseDelete } from "@/hooks/useDelete";
 import { UseFilter, useFilter } from "@/hooks/useFilter";
+import useMutation from "@/hooks/useMutation";
 import { UseRegistration, useRegistration } from "@/hooks/useRegistration";
 import { roomSchema, studentSchema } from "@/lib/zodSchema";
 import React, { createContext, useState } from "react";
@@ -29,6 +32,9 @@ const StudentContext = createContext<{
   detail: UseData<typeof getStudent> & {
     registration: UseRegistration<typeof registerRoom>;
     refresh: () => void;
+    acceptAssignment: (id: string) => void;
+    acceptAssignmentLoading: boolean;
+    acceptingStudentId: string;
   };
 } | null>(null);
 
@@ -63,6 +69,28 @@ export function Provider({ children }: { children: React.ReactNode }) {
     () => {},
     selected
   );
+  const [acceptingStudentId, setAcceptingStudentId] = useState("");
+  const [acceptAssignmentAction, acceptAssignmentLoading] = useMutation(
+    acceptStudentControllerAssignment,
+    (state) => {
+      addToast({
+        title: state.status ? "Success" : "Error",
+        description:
+          state.message ??
+          (state.status
+            ? "student assignment accepted"
+            : "failed to accept student assignment"),
+        color: state.status ? "success" : "danger",
+      });
+
+      if (state.status) {
+        studentRefresh();
+        detailRefresh();
+      }
+
+      setAcceptingStudentId("");
+    }
+  );
 
   const assignRoom = useRegistration(registerRoom, roomSchema, (state) => {
     if (state.status) {
@@ -96,6 +124,12 @@ export function Provider({ children }: { children: React.ReactNode }) {
           isLoading: detailLoading,
           refresh: detailRefresh,
           registration: assignRoom,
+          acceptAssignment(id: string) {
+            setAcceptingStudentId(id);
+            acceptAssignmentAction(id);
+          },
+          acceptAssignmentLoading,
+          acceptingStudentId,
         },
       }}
     >
