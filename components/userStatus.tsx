@@ -10,24 +10,24 @@ const statusOptions: {
   labelAm: string;
   color: "default" | "primary" | "warning" | "success" | "danger";
 }[] = [
-  { key: "new", label: "New", labelAm: "áŠ á‹²áˆµ", color: "default" },
+  { key: "new", label: "New", labelAm: "አዲስ", color: "default" },
   {
     key: "onProgress",
     label: "On Progress",
-    labelAm: "á‰ áˆ‚á‹°á‰µ áˆ‹á‹­",
+    labelAm: "በሂደት ላይ",
     color: "primary",
   },
   {
     key: "remedanLeft",
     label: "Remedan Left",
-    labelAm: "áˆ¨áˆ˜á‹³áŠ• á‹«áˆˆá‰€á‰ á‰µ",
+    labelAm: "ረመዳን ያለቀበት",
     color: "warning",
   },
-  { key: "active", label: "Active", labelAm: "áŠ•á‰", color: "success" },
+  { key: "active", label: "Active", labelAm: "ንቁ", color: "success" },
   {
     key: "inactive",
     label: "Inactive",
-    labelAm: "áŠ¢-áŠ•á‰",
+    labelAm: "ያልነቃ",
     color: "danger",
   },
 ];

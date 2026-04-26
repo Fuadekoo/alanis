@@ -70,7 +70,7 @@ export default function List() {
             <Select
               size="sm"
               variant="flat"
-              placeholder={isAm ? "áˆáŠ”á‰³" : "Status"}
+              placeholder={isAm ? "ሁኔታ" : "Status"}
               classNames={{
                 base: "min-w-24 max-w-xs",
                 trigger: "bg-default-50/50 text-small h-[32px] min-h-[32px]",
@@ -82,20 +82,20 @@ export default function List() {
               }}
             >
               {[
-                { key: "all", label: isAm ? "áˆáˆ‰áˆ" : "All" },
-                { key: "new", label: isAm ? "áŠ á‹²áˆµ" : "New" },
+                { key: "all", label: isAm ? "ሁሉም" : "All" },
+                { key: "new", label: isAm ? "አዲስ" : "New" },
                 {
                   key: "onProgress",
-                  label: isAm ? "á‰ áˆ‚á‹°á‰µ áˆ‹á‹­" : "On Progress",
+                  label: isAm ? "በሂደት ላይ" : "On Progress",
                 },
                 {
                   key: "remedanLeft",
                   label: isAm
-                    ? "áˆ¨áˆ˜á‹³áŠ• á‹«áˆˆá‰€á‰ á‰µ"
+                    ? "ረመዳን ያለቀበት"
                     : "Remedan Left",
                 },
-                { key: "active", label: isAm ? "áŠ•á‰" : "Active" },
-                { key: "inactive", label: isAm ? "áŠ¢-áŠ•á‰" : "Inactive" },
+                { key: "active", label: isAm ? "ንቁ" : "Active" },
+                { key: "inactive", label: isAm ? "ያልነቃ" : "Inactive" },
               ].map((item) => (
                 <SelectItem
                   variant="flat"
@@ -127,7 +127,7 @@ export default function List() {
               startContent={<Plus className="size-4" />}
               onPress={registration.add.bind(undefined)}
             >
-              {isAm ? "áŠ á‹²áˆµ" : "add"}
+              {isAm ? "አዲስ" : "add"}
             </Button>
           </>
         }
@@ -222,19 +222,19 @@ export default function List() {
                           >
                             {status === "inactive"
                               ? isAm
-                                ? "áŠ¢-áŠ•á‰"
+                                ? "ያልነቃ"
                                 : "Inactive"
                               : status === "new"
                               ? isAm
-                                ? "áŠ á‹²áˆµ"
+                                ? "አዲስ"
                                 : "New"
                               : status === "onProgress"
                               ? isAm
-                                ? "á‰ áˆ‚á‹°á‰µ"
+                                ? "በሂደት ላይ"
                                 : "On Progress"
                               : status === "remedanLeft"
                               ? isAm
-                                ? "áˆ¨áˆ˜á‹³áŠ•"
+                                ? "ረመዳን"
                                 : "Remedan Left"
                               : status}
                           </Chip>
@@ -319,11 +319,11 @@ export default function List() {
                               href={roomStudent.link}
                               target="blank"
                             >
-                              {isAm ? "áŠ­ááˆ" : "room"}
+                              {isAm ? "ክፍል" : "room"}
                             </Button>
                           ) : (
                             <div className="p-2 border border-primary/50 rounded-xl">
-                              {isAm ? "áˆŠáŠ•áŠ­ áŠ áˆá‰°áˆ‹áŠ¨áˆ" : "no link"}
+                              {isAm ? "ሊንክ አልተላከም" : "no link"}
                             </div>
                           )}
                         </div>
