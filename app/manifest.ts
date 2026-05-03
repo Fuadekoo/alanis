@@ -6,12 +6,12 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "alanis",
     description: "A Quran system. Scan the QR code to access Quranic features.",
     start_url: "/",
+    scope: "/",
     display: "standalone",
     background_color: "#ffffff",
     theme_color: "#000000",
     protocol_handlers: [{ protocol: "web+menu", url: "/s%" }],
     display_override: ["standalone", "window-controls-overlay"],
-
     icons: [
       {
         src: "/al-anis.png",
