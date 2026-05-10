@@ -56,6 +56,7 @@ import CustomAlert from "@/components/customAlert";
 interface TeacherSalaryData {
   id?: string;
   teacher: {
+    id?: string;
     firstName: string;
     fatherName: string;
     lastName: string;
@@ -69,6 +70,20 @@ interface TeacherSalaryData {
   [key: string]: unknown;
 }
 
+type StudentInfo = {
+  id: string;
+  firstName: string;
+  fatherName: string;
+  lastName: string;
+};
+
+type SalaryLinkedDailyReport = {
+  id: string;
+  date: string | Date;
+  learningSlot?: string | null;
+  learningProgress: string;
+};
+
 interface SalaryDetail extends TeacherSalaryData {
   createdAt?: string;
   teacherProgresses: Array<{
@@ -78,11 +93,8 @@ interface SalaryDetail extends TeacherSalaryData {
     totalCount: number;
     paymentStatus: string;
     createdAt: string;
-    student: {
-      firstName: string;
-      fatherName: string;
-      lastName: string;
-    };
+    student: StudentInfo;
+    dailyReports: SalaryLinkedDailyReport[];
   }>;
   shiftTeacherData: Array<{
     id: string;
@@ -91,18 +103,184 @@ interface SalaryDetail extends TeacherSalaryData {
     totalCount: number;
     paymentStatus: string;
     createdAt: string;
-    student: {
-      firstName: string;
-      fatherName: string;
-      lastName: string;
-    };
-    teacher?: {
-      firstName: string;
-      fatherName: string;
-      lastName: string;
-    };
+    student: StudentInfo;
+    teacher?: StudentInfo;
+    dailyReports: SalaryLinkedDailyReport[];
   }>;
 }
+
+type DailyReportItem = {
+  id: string;
+  date: string | Date;
+  learningSlot?: string | null;
+  learningProgress: string;
+  student: StudentInfo;
+};
+
+interface DailyReportSummaryRow {
+  studentId: string;
+  studentName: string;
+  totalReports: number;
+  presentCount: number;
+  permissionCount: number;
+  absentCount: number;
+  presentPercentage: number;
+  permissionPercentage: number;
+  absentPercentage: number;
+}
+
+const getDateKey = (value: string | Date) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateKeyLabel = (dateKey: string) => {
+  if (!dateKey) return "-";
+
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+};
+
+const formatStudentName = (student: StudentInfo) =>
+  `${student.firstName} ${student.fatherName} ${student.lastName}`;
+
+const filterDailyReportsByDateRange = <T extends { date: string | Date }>(
+  items: T[],
+  startDate: string,
+  endDate: string
+) =>
+  items.filter((item) => {
+    const dateKey = getDateKey(item.date);
+    if (!dateKey) return false;
+    if (startDate && dateKey < startDate) return false;
+    if (endDate && dateKey > endDate) return false;
+    return true;
+  });
+
+const buildLinkedDailyReports = <
+  T extends {
+    student: StudentInfo;
+    dailyReports?: SalaryLinkedDailyReport[];
+  },
+>(
+  items: T[]
+) =>
+  items
+    .flatMap((item) =>
+      (item.dailyReports ?? []).map((report) => ({
+        id: report.id,
+        date: report.date,
+        learningSlot: report.learningSlot,
+        learningProgress: report.learningProgress,
+        student: item.student,
+      }))
+    )
+    .sort((a, b) => {
+      const timeDifference =
+        new Date(b.date).getTime() - new Date(a.date).getTime();
+
+      if (!Number.isNaN(timeDifference) && timeDifference !== 0) {
+        return timeDifference;
+      }
+
+      return formatStudentName(a.student).localeCompare(
+        formatStudentName(b.student)
+      );
+    });
+
+const buildDailyReportSummary = (items: DailyReportItem[]) => {
+  const grouped = new Map<
+    string,
+    {
+      studentId: string;
+      studentName: string;
+      totalReports: number;
+      presentCount: number;
+      permissionCount: number;
+      absentCount: number;
+    }
+  >();
+
+  items.forEach((item) => {
+    const studentId = item.student.id;
+    if (!studentId) return;
+
+    const current = grouped.get(studentId) ?? {
+      studentId,
+      studentName: formatStudentName(item.student),
+      totalReports: 0,
+      presentCount: 0,
+      permissionCount: 0,
+      absentCount: 0,
+    };
+
+    current.totalReports += 1;
+
+    if (item.learningProgress === "present") {
+      current.presentCount += 1;
+    } else if (item.learningProgress === "permission") {
+      current.permissionCount += 1;
+    } else if (item.learningProgress === "absent") {
+      current.absentCount += 1;
+    }
+
+    grouped.set(studentId, current);
+  });
+
+  return Array.from(grouped.values()).sort((a, b) =>
+    a.studentName.localeCompare(b.studentName)
+  ).map((item) => {
+    const percentage = (count: number) =>
+      item.totalReports > 0
+        ? Number(((count / item.totalReports) * 100).toFixed(1))
+        : 0;
+
+    return {
+      ...item,
+      presentPercentage: percentage(item.presentCount),
+      permissionPercentage: percentage(item.permissionCount),
+      absentPercentage: percentage(item.absentCount),
+    };
+  });
+};
+
+const summarizeDailyReports = (items: DailyReportItem[]) => {
+  let presentCount = 0;
+  let permissionCount = 0;
+  let absentCount = 0;
+
+  items.forEach((item) => {
+    if (item.learningProgress === "present") {
+      presentCount += 1;
+    } else if (item.learningProgress === "permission") {
+      permissionCount += 1;
+    } else if (item.learningProgress === "absent") {
+      absentCount += 1;
+    }
+  });
+
+  const totalReports = items.length;
+  const totalStudents = new Set(items.map((item) => item.student.id)).size;
+  const percentage = (count: number) =>
+    totalReports > 0 ? Number(((count / totalReports) * 100).toFixed(1)) : 0;
+
+  return {
+    totalReports,
+    totalStudents,
+    presentCount,
+    permissionCount,
+    absentCount,
+    presentPercentage: percentage(presentCount),
+    permissionPercentage: percentage(permissionCount),
+    absentPercentage: percentage(absentCount),
+  };
+};
 
 function Page() {
   const isAm = useAmharic();
@@ -155,6 +333,10 @@ function Page() {
   const [detailSummary, setDetailSummary] = useState<TeacherSalaryData | null>(
     null
   );
+  const [detailStartDate, setDetailStartDate] = useState("");
+  const [detailEndDate, setDetailEndDate] = useState("");
+  const [appliedDetailStartDate, setAppliedDetailStartDate] = useState("");
+  const [appliedDetailEndDate, setAppliedDetailEndDate] = useState("");
   const [isAutoModalOpen, setIsAutoModalOpen] = useState(false);
   const [autoMonth, setAutoMonth] = useState<number>(new Date().getMonth() + 1);
   const [autoYear, setAutoYear] = useState<number>(new Date().getFullYear());
@@ -224,6 +406,10 @@ function Page() {
     if (!salary?.id) return;
     setDetailSummary(salary);
     setDetailSalaryId(salary.id);
+    setDetailStartDate("");
+    setDetailEndDate("");
+    setAppliedDetailStartDate("");
+    setAppliedDetailEndDate("");
     setIsDetailModalOpen(true);
   };
 
@@ -231,6 +417,10 @@ function Page() {
     setIsDetailModalOpen(false);
     setDetailSalaryId("");
     setDetailSummary(null);
+    setDetailStartDate("");
+    setDetailEndDate("");
+    setAppliedDetailStartDate("");
+    setAppliedDetailEndDate("");
   };
   const detailData = (salaryDetail as SalaryDetail | null) ?? null;
   const summary = detailData ?? (detailSummary as SalaryDetail | null) ?? null;
@@ -250,6 +440,77 @@ function Page() {
       : "-";
   const teacherProgressList = detailData?.teacherProgresses ?? [];
   const shiftList = detailData?.shiftTeacherData ?? [];
+  const teacherProgressReports = useMemo(
+    () => buildLinkedDailyReports(teacherProgressList),
+    [teacherProgressList]
+  );
+  const shiftReports = useMemo(
+    () => buildLinkedDailyReports(shiftList),
+    [shiftList]
+  );
+  const detailDateKeys = useMemo(() => {
+    const keys = [...teacherProgressReports, ...shiftReports]
+      .map((item) => getDateKey(item.date))
+      .filter(Boolean);
+
+    return Array.from(new Set(keys)).sort((a, b) => a.localeCompare(b));
+  }, [teacherProgressReports, shiftReports]);
+  const detailMinDate = detailDateKeys[0] ?? "";
+  const detailMaxDate = detailDateKeys[detailDateKeys.length - 1] ?? "";
+  const isDetailDateRangeReady = Boolean(detailStartDate && detailEndDate);
+  const hasAppliedDetailDateRange = Boolean(
+    appliedDetailStartDate && appliedDetailEndDate
+  );
+  const detailRangeInvalid =
+    isDetailDateRangeReady && detailStartDate > detailEndDate;
+  const filteredTeacherProgressReports = useMemo(
+    () =>
+      hasAppliedDetailDateRange
+        ? filterDailyReportsByDateRange(
+            teacherProgressReports,
+            appliedDetailStartDate,
+            appliedDetailEndDate
+          )
+        : teacherProgressReports,
+    [
+      teacherProgressReports,
+      hasAppliedDetailDateRange,
+      appliedDetailStartDate,
+      appliedDetailEndDate,
+    ]
+  );
+  const filteredShiftReports = useMemo(
+    () =>
+      hasAppliedDetailDateRange
+        ? filterDailyReportsByDateRange(
+            shiftReports,
+            appliedDetailStartDate,
+            appliedDetailEndDate
+          )
+        : shiftReports,
+    [
+      shiftReports,
+      hasAppliedDetailDateRange,
+      appliedDetailStartDate,
+      appliedDetailEndDate,
+    ]
+  );
+  const teacherProgressDailySummary = useMemo(
+    () => buildDailyReportSummary(filteredTeacherProgressReports),
+    [filteredTeacherProgressReports]
+  );
+  const shiftDailySummary = useMemo(
+    () => buildDailyReportSummary(filteredShiftReports),
+    [filteredShiftReports]
+  );
+  const teacherProgressReportTotals = useMemo(
+    () => summarizeDailyReports(filteredTeacherProgressReports),
+    [filteredTeacherProgressReports]
+  );
+  const shiftReportTotals = useMemo(
+    () => summarizeDailyReports(filteredShiftReports),
+    [filteredShiftReports]
+  );
   const countBadgeClass =
     "inline-flex items-center rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:border-primary-400/40 dark:bg-primary-500/10 dark:text-primary-200";
   const successBadgeClass =
@@ -258,6 +519,22 @@ function Page() {
     "inline-flex min-w-[2.5rem] justify-center rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold text-danger-600 dark:bg-danger-500/10 dark:text-danger-200";
   const primaryBadgeClass =
     "inline-flex min-w-[2.5rem] justify-center rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:bg-primary-500/10 dark:text-primary-200";
+  const neutralBadgeClass =
+    "inline-flex min-w-[2.5rem] justify-center rounded-full bg-default-100 px-2 py-0.5 text-xs font-semibold text-default-700 dark:bg-default-800/60 dark:text-default-200";
+  const inlineMetricClass =
+    "inline-flex items-center gap-2 rounded-full border border-default-200 bg-white px-3 py-1 text-xs font-medium text-default-600 dark:border-default-700 dark:bg-default-900/60 dark:text-default-300";
+  const getReportStatusBadge = (status: string) => {
+    switch (status) {
+      case "present":
+        return { className: successBadgeClass, label: "Present" };
+      case "permission":
+        return { className: primaryBadgeClass, label: "Permission" };
+      case "absent":
+        return { className: dangerBadgeClass, label: "Absent" };
+      default:
+        return { className: neutralBadgeClass, label: status || "-" };
+    }
+  };
   const getPaymentBadge = (status: string) => {
     switch (status) {
       case "approved":
@@ -395,6 +672,34 @@ function Page() {
   const closePhotoPreview = () => {
     setIsPhotoPreviewOpen(false);
     setPreviewPhotoUrl("");
+  };
+
+  const teacherProgressIds = useMemo(
+    () => (teacherProgress ? teacherProgress.map((tp) => tp.id) : []),
+    [teacherProgress]
+  );
+  const shiftTeacherDataIds = useMemo(
+    () => (shiftTeacherData ? shiftTeacherData.map((std) => std.id) : []),
+    [shiftTeacherData]
+  );
+
+  const allTeacherProgressSelected =
+    teacherProgressIds.length > 0 &&
+    teacherProgressIds.every((id) => selectedTeacherProgress.has(id));
+  const allShiftTeacherDataSelected =
+    shiftTeacherDataIds.length > 0 &&
+    shiftTeacherDataIds.every((id) => selectedShiftTeacherData.has(id));
+
+  const toggleSelectAllTeacherProgress = () => {
+    setSelectedTeacherProgress(
+      allTeacherProgressSelected ? new Set() : new Set(teacherProgressIds)
+    );
+  };
+
+  const toggleSelectAllShiftTeacherData = () => {
+    setSelectedShiftTeacherData(
+      allShiftTeacherDataSelected ? new Set() : new Set(shiftTeacherDataIds)
+    );
   };
 
   // Calculate totalDayForLearning and amount
@@ -1613,6 +1918,20 @@ function Page() {
                   </span>
                 )}
               </label>
+              {selectedTeacher && teacherProgressIds.length > 0 && (
+                <div className="mb-2 flex justify-start sm:justify-end">
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    color={allTeacherProgressSelected ? "default" : "primary"}
+                    onPress={toggleSelectAllTeacherProgress}
+                  >
+                    {allTeacherProgressSelected
+                      ? "Clear all"
+                      : `Select all (${teacherProgressIds.length})`}
+                  </Button>
+                </div>
+              )}
               {!selectedTeacher ? (
                 <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
                   <p className="text-sm text-gray-500 text-center">
@@ -1724,6 +2043,20 @@ function Page() {
                   </span>
                 )}
               </label>
+              {selectedTeacher && shiftTeacherDataIds.length > 0 && (
+                <div className="mb-2 flex justify-start sm:justify-end">
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    color={allShiftTeacherDataSelected ? "default" : "primary"}
+                    onPress={toggleSelectAllShiftTeacherData}
+                  >
+                    {allShiftTeacherDataSelected
+                      ? "Clear all"
+                      : `Select all (${shiftTeacherDataIds.length})`}
+                  </Button>
+                </div>
+              )}
               {!selectedTeacher ? (
                 <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
                   <p className="text-sm text-gray-500 text-center">
@@ -1905,238 +2238,532 @@ function Page() {
               <Skeleton className="h-40 w-full rounded-xl" />
             ) : detailData ? (
               <>
-                <Card>
-                  <CardBody className="grid gap-2 text-sm md:grid-cols-2">
-                    <div className="flex justify-between">
-                      <span className="text-default-500">
-                        {isAm ? "መምህር" : "Teacher"}
-                      </span>
-                      <span className="font-semibold text-default-800">
+                <div className="space-y-4 rounded-2xl border border-default-200/70 bg-default-50/70 p-4 shadow-sm dark:bg-default-900/30">
+                  <div className="flex flex-wrap gap-2">
+                    <span className={inlineMetricClass}>
+                      Teacher
+                      <span className="font-semibold text-default-800 dark:text-default-100">
                         {summaryTeacherName}
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-default-500">
-                        {isAm ? "ወር" : "Month"}
-                      </span>
-                      <span className="font-semibold text-default-800">
+                    </span>
+                    <span className={inlineMetricClass}>
+                      Month
+                      <span className="font-semibold text-default-800 dark:text-default-100">
                         {summaryMonthLabel}
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-default-500">
-                        {isAm ? "ዓመት" : "Year"}
-                      </span>
-                      <span className="font-semibold text-default-800">
+                    </span>
+                    <span className={inlineMetricClass}>
+                      Year
+                      <span className="font-semibold text-default-800 dark:text-default-100">
                         {summaryYearLabel}
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-default-500">
-                        {isAm ? "ተፈጥሯበት" : "Created"}
-                      </span>
-                      <span className="font-semibold text-default-800">
+                    </span>
+                    <span className={inlineMetricClass}>
+                      Created
+                      <span className="font-semibold text-default-800 dark:text-default-100">
                         {summaryCreatedAt}
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-default-500">
-                        {isAm ? "የመማሪያ ቀናት" : "Learning Days"}
-                      </span>
-                      <span className="font-semibold text-default-800">
+                    </span>
+                    <span className={inlineMetricClass}>
+                      Salary Days
+                      <span className="font-semibold text-default-800 dark:text-default-100">
                         {summaryTotalDays}
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-default-500">
-                        {isAm ? "የአሃድ ዋጋ" : "Unit Price"}
-                      </span>
-                      <span className="font-semibold text-default-800">
+                    </span>
+                    <span className={inlineMetricClass}>
+                      Unit Price
+                      <span className="font-semibold text-default-800 dark:text-default-100">
                         {summaryUnitPrice.toLocaleString()}
                       </span>
-                    </div>
-                    <div className="flex justify-between md:col-span-2 border-t border-default-200 pt-2">
-                      <span className="text-default-500">
-                        {isAm ? "ጠቅላላ መጠን" : "Total Amount"}
-                      </span>
-                      <span className="font-bold text-lg text-primary">
+                    </span>
+                    <span className={inlineMetricClass}>
+                      Amount
+                      <span className="font-semibold text-primary">
                         {summaryAmount.toLocaleString()}
                       </span>
-                    </div>
-                  </CardBody>
-                </Card>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-lg font-semibold">
-                      {isAm ? "Teacher Progress" : "Teacher Progress"}
-                    </h4>
-                    <span className={countBadgeClass}>
-                      {teacherProgressList.length}
                     </span>
                   </div>
-                  {teacherProgressList.length > 0 ? (
-                    <div className="overflow-auto max-h-64">
-                      <table className="w-full border-collapse text-sm">
-                        <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
-                          <tr>
-                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[180px]">
-                              {isAm ? "ተማሪ" : "Student"}
-                            </th>
-                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[120px]">
-                              {isAm ? "ተፈጥሯበት" : "Created"}
-                            </th>
-                            <th className="border border-default-200 p-2 text-center font-semibold">
-                              {isAm ? "መማሪያ" : "Learning"}
-                            </th>
-                            <th className="border border-default-200 p-2 text-center font-semibold">
-                              {isAm ? "የጠፋ" : "Missing"}
-                            </th>
-                            <th className="border border-default-200 p-2 text-center font-semibold">
-                              {isAm ? "ጠቅላላ" : "Total"}
-                            </th>
-                            <th className="border border-default-200 p-2 text-center font-semibold">
-                              {isAm ? "ክፍያ" : "Payment"}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {teacherProgressList.map((progress) => (
-                            <tr
-                              key={progress.id}
-                              className="hover:bg-primary/5"
-                            >
-                              <td className="border border-default-200 p-2">
-                                {progress.student.firstName}{" "}
-                                {progress.student.fatherName}{" "}
-                                {progress.student.lastName}
-                              </td>
-                              <td className="border border-default-200 p-2">
-                                {new Date(
-                                  progress.createdAt
-                                ).toLocaleDateString()}
-                              </td>
-                              <td className="border border-default-200 p-2 text-center">
-                                <span className={successBadgeClass}>
-                                  {progress.learningCount ?? 0}
-                                </span>
-                              </td>
-                              <td className="border border-default-200 p-2 text-center">
-                                <span className={dangerBadgeClass}>
-                                  {progress.missingCount ?? 0}
-                                </span>
-                              </td>
-                              <td className="border border-default-200 p-2 text-center">
-                                <span className={primaryBadgeClass}>
-                                  {progress.totalCount ?? 0}
-                                </span>
-                              </td>
-                              <td className="border border-default-200 p-2 text-center">
-                                {(() => {
-                                  const badge = getPaymentBadge(
-                                    progress.paymentStatus
-                                  );
-                                  return (
-                                    <span className={badge.className}>
-                                      {badge.label}
-                                    </span>
-                                  );
-                                })()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
+                </div>
+
+                <div className="space-y-4 rounded-2xl border border-default-200/70 bg-white p-4 shadow-sm dark:bg-default-900/40">
+                  <div className="space-y-1">
+                    <h4 className="text-base font-semibold text-default-900 dark:text-default-100">
+                      Date Range Report Filter
+                    </h4>
                     <p className="text-sm text-default-500">
-                      {isAm
-                        ? "የመምህር ሂደት አልተገኘም"
-                        : "No teacher progress linked to this salary."}
+                      Filter the salary details by linked daily reports only.
+                      Totals below come from the daily report table, not the
+                      salary totals.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto_auto]">
+                    <Input
+                      type="date"
+                      label="Start Date"
+                      value={detailStartDate}
+                      onChange={(event) => setDetailStartDate(event.target.value)}
+                      min={detailMinDate || undefined}
+                      max={detailEndDate || detailMaxDate || undefined}
+                      variant="bordered"
+                    />
+                    <Input
+                      type="date"
+                      label="End Date"
+                      value={detailEndDate}
+                      onChange={(event) => setDetailEndDate(event.target.value)}
+                      min={detailStartDate || detailMinDate || undefined}
+                      max={detailMaxDate || undefined}
+                      variant="bordered"
+                    />
+                    <Button
+                      color="primary"
+                      onPress={() => {
+                        if (!isDetailDateRangeReady || detailRangeInvalid) return;
+                        setAppliedDetailStartDate(detailStartDate);
+                        setAppliedDetailEndDate(detailEndDate);
+                      }}
+                      isDisabled={!isDetailDateRangeReady || detailRangeInvalid}
+                      className="h-12 self-end"
+                    >
+                      Apply Filter
+                    </Button>
+                    <Button
+                      variant="flat"
+                      onPress={() => {
+                        setDetailStartDate("");
+                        setDetailEndDate("");
+                        setAppliedDetailStartDate("");
+                        setAppliedDetailEndDate("");
+                      }}
+                      isDisabled={
+                        !detailStartDate &&
+                        !detailEndDate &&
+                        !appliedDetailStartDate &&
+                        !appliedDetailEndDate
+                      }
+                      className="h-12 self-end"
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                  <div className="flex flex-col gap-2 text-xs text-default-500 sm:flex-row sm:items-center sm:justify-between">
+                    <span>
+                      Available Range:{" "}
+                      {detailMinDate && detailMaxDate
+                        ? `${formatDateKeyLabel(detailMinDate)} - ${formatDateKeyLabel(detailMaxDate)}`
+                        : "No linked daily reports"}
+                    </span>
+                    <span>
+                      {hasAppliedDetailDateRange
+                        ? `Selected Range: ${appliedDetailStartDate} - ${appliedDetailEndDate}`
+                        : "Showing all linked daily reports"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2 text-xs text-default-500 sm:flex-row sm:items-center sm:justify-between">
+                    <span>
+                      Teacher Progress Reports: {filteredTeacherProgressReports.length}/
+                      {teacherProgressReports.length}
+                    </span>
+                    <span>
+                      Shift Reports: {filteredShiftReports.length}/
+                      {shiftReports.length}
+                    </span>
+                  </div>
+                  {detailRangeInvalid && (
+                    <p className="text-sm font-medium text-danger">
+                      Start date must be on or before end date.
                     </p>
                   )}
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-lg font-semibold">
-                      {isAm ? "Shift Teacher Data" : "Shift Teacher Data"}
-                    </h4>
-                    <span className={countBadgeClass}>{shiftList.length}</span>
+                <div className="space-y-3 rounded-2xl border border-default-200/70 bg-white p-4 shadow-sm dark:bg-default-900/40">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-lg font-semibold">
+                        Teacher Progress Daily Reports
+                      </h4>
+                      <p className="text-sm text-default-500">
+                        Counts and rows below are calculated from linked daily
+                        report records only.
+                      </p>
+                    </div>
+                    <span className={countBadgeClass}>
+                      {hasAppliedDetailDateRange
+                        ? `${filteredTeacherProgressReports.length}/${teacherProgressReports.length}`
+                        : teacherProgressReports.length}
+                    </span>
                   </div>
-                  {shiftList.length > 0 ? (
-                    <div className="overflow-auto max-h-64">
-                      <table className="w-full border-collapse text-sm">
-                        <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
-                          <tr>
-                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[180px]">
-                              {isAm ? "ተማሪ" : "Student"}
-                            </th>
-                            <th className="border border-default-200 p-2 text-left font-semibold min-w-[120px]">
-                              {isAm ? "ተፈጥሯበት" : "Created"}
-                            </th>
-                            <th className="border border-default-200 p-2 text-center font-semibold">
-                              {isAm ? "መማሪያ" : "Learning"}
-                            </th>
-                            <th className="border border-default-200 p-2 text-center font-semibold">
-                              {isAm ? "የጠፋ" : "Missing"}
-                            </th>
-                            <th className="border border-default-200 p-2 text-center font-semibold">
-                              {isAm ? "ጠቅላላ" : "Total"}
-                            </th>
-                            <th className="border border-default-200 p-2 text-center font-semibold">
-                              {isAm ? "ክፍያ" : "Payment"}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {shiftList.map((shift) => (
-                            <tr key={shift.id} className="hover:bg-primary/5">
-                              <td className="border border-default-200 p-2">
-                                {shift.student.firstName}{" "}
-                                {shift.student.fatherName}{" "}
-                                {shift.student.lastName}
-                              </td>
-                              <td className="border border-default-200 p-2">
-                                {new Date(shift.createdAt).toLocaleDateString()}
-                              </td>
-                              <td className="border border-default-200 p-2 text-center">
-                                <span className={successBadgeClass}>
-                                  {shift.learningCount}
-                                </span>
-                              </td>
-                              <td className="border border-default-200 p-2 text-center">
-                                <span className={dangerBadgeClass}>
-                                  {shift.missingCount}
-                                </span>
-                              </td>
-                              <td className="border border-default-200 p-2 text-center">
-                                <span className={primaryBadgeClass}>
-                                  {shift.totalCount}
-                                </span>
-                              </td>
-                              <td className="border border-default-200 p-2 text-center">
-                                {(() => {
-                                  const badge = getPaymentBadge(
-                                    shift.paymentStatus
-                                  );
-                                  return (
+                  {filteredTeacherProgressReports.length > 0 ? (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        <span className={inlineMetricClass}>
+                          Total Reports
+                          <span className="font-semibold text-default-800 dark:text-default-100">
+                            {teacherProgressReportTotals.totalReports}
+                          </span>
+                        </span>
+                        <span className={inlineMetricClass}>
+                          Students
+                          <span className="font-semibold text-default-800 dark:text-default-100">
+                            {teacherProgressReportTotals.totalStudents}
+                          </span>
+                        </span>
+                        <span className={inlineMetricClass}>
+                          <span className={successBadgeClass}>
+                            {teacherProgressReportTotals.presentCount}
+                          </span>
+                          <span className="text-success-700 dark:text-success-300">
+                            Present {teacherProgressReportTotals.presentPercentage}%
+                          </span>
+                        </span>
+                        <span className={inlineMetricClass}>
+                          <span className={primaryBadgeClass}>
+                            {teacherProgressReportTotals.permissionCount}
+                          </span>
+                          <span className="text-primary">
+                            Permission {teacherProgressReportTotals.permissionPercentage}%
+                          </span>
+                        </span>
+                        <span className={inlineMetricClass}>
+                          <span className={dangerBadgeClass}>
+                            {teacherProgressReportTotals.absentCount}
+                          </span>
+                          <span className="text-danger">
+                            Absent {teacherProgressReportTotals.absentPercentage}%
+                          </span>
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-sm font-semibold text-default-700">
+                            Student Summary Table
+                          </h5>
+                          <span className="text-xs text-default-500">
+                            {teacherProgressDailySummary.length} unique students
+                          </span>
+                        </div>
+                        <div className="overflow-auto rounded-xl border border-default-200">
+                          <table className="w-full border-collapse text-sm">
+                            <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                              <tr>
+                                <th className="border border-default-200 p-2 text-left font-semibold min-w-[220px]">
+                                  Student
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[110px]">
+                                  Total
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[120px]">
+                                  Present
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[130px]">
+                                  Permission
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[110px]">
+                                  Absent
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[110px]">
+                                  Present %
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[130px]">
+                                  Permission %
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[110px]">
+                                  Absent %
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {teacherProgressDailySummary.map((row) => (
+                                <tr key={row.studentId} className="hover:bg-primary/5">
+                                  <td className="border border-default-200 p-2">
+                                    {row.studentName}
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center">
+                                    <span className={countBadgeClass}>
+                                      {row.totalReports}
+                                    </span>
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center">
+                                    <span className={successBadgeClass}>
+                                      {row.presentCount}
+                                    </span>
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center">
+                                    <span className={primaryBadgeClass}>
+                                      {row.permissionCount}
+                                    </span>
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center">
+                                    <span className={dangerBadgeClass}>
+                                      {row.absentCount}
+                                    </span>
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center font-semibold">
+                                    {row.presentPercentage}%
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center font-semibold">
+                                    {row.permissionPercentage}%
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center font-semibold">
+                                    {row.absentPercentage}%
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      <div className="overflow-auto rounded-xl border border-default-200">
+                        <div className="border-b border-default-200 bg-default-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-default-500">
+                          Daily Report Records
+                        </div>
+                        <table className="w-full border-collapse text-sm">
+                          <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                            <tr>
+                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[220px]">
+                                Student
+                              </th>
+                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[140px]">
+                                Report Date
+                              </th>
+                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[140px]">
+                                Slot
+                              </th>
+                              <th className="border border-default-200 p-2 text-center font-semibold min-w-[120px]">
+                                Status
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredTeacherProgressReports.map((report) => {
+                              const badge = getReportStatusBadge(
+                                report.learningProgress
+                              );
+
+                              return (
+                                <tr key={report.id} className="hover:bg-primary/5">
+                                  <td className="border border-default-200 p-2">
+                                    {formatStudentName(report.student)}
+                                  </td>
+                                  <td className="border border-default-200 p-2">
+                                    {new Date(report.date).toLocaleDateString()}
+                                  </td>
+                                  <td className="border border-default-200 p-2">
+                                    {report.learningSlot || "-"}
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center">
                                     <span className={badge.className}>
                                       {badge.label}
                                     </span>
-                                  );
-                                })()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
                   ) : (
                     <p className="text-sm text-default-500">
-                      {isAm
-                        ? "ከዚህ ደሞዝ ጋር የተያያዙ shift መረጃዎች የሉም።"
-                        : "No shift data linked to this salary."}
+                      {hasAppliedDetailDateRange
+                        ? "No teacher progress daily reports found in the selected date range."
+                        : "No teacher progress daily reports are linked to this salary."}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3 rounded-2xl border border-default-200/70 bg-white p-4 shadow-sm dark:bg-default-900/40">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-lg font-semibold">
+                        Shift Teacher Daily Reports
+                      </h4>
+                      <p className="text-sm text-default-500">
+                        Counts and rows below are calculated from linked daily
+                        report records only.
+                      </p>
+                    </div>
+                    <span className={countBadgeClass}>
+                      {hasAppliedDetailDateRange
+                        ? `${filteredShiftReports.length}/${shiftReports.length}`
+                        : shiftReports.length}
+                    </span>
+                  </div>
+                  {filteredShiftReports.length > 0 ? (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        <span className={inlineMetricClass}>
+                          Total Reports
+                          <span className="font-semibold text-default-800 dark:text-default-100">
+                            {shiftReportTotals.totalReports}
+                          </span>
+                        </span>
+                        <span className={inlineMetricClass}>
+                          Students
+                          <span className="font-semibold text-default-800 dark:text-default-100">
+                            {shiftReportTotals.totalStudents}
+                          </span>
+                        </span>
+                        <span className={inlineMetricClass}>
+                          <span className={successBadgeClass}>
+                            {shiftReportTotals.presentCount}
+                          </span>
+                          <span className="text-success-700 dark:text-success-300">
+                            Present {shiftReportTotals.presentPercentage}%
+                          </span>
+                        </span>
+                        <span className={inlineMetricClass}>
+                          <span className={primaryBadgeClass}>
+                            {shiftReportTotals.permissionCount}
+                          </span>
+                          <span className="text-primary">
+                            Permission {shiftReportTotals.permissionPercentage}%
+                          </span>
+                        </span>
+                        <span className={inlineMetricClass}>
+                          <span className={dangerBadgeClass}>
+                            {shiftReportTotals.absentCount}
+                          </span>
+                          <span className="text-danger">
+                            Absent {shiftReportTotals.absentPercentage}%
+                          </span>
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-sm font-semibold text-default-700">
+                            Student Summary Table
+                          </h5>
+                          <span className="text-xs text-default-500">
+                            {shiftDailySummary.length} unique students
+                          </span>
+                        </div>
+                        <div className="overflow-auto rounded-xl border border-default-200">
+                          <table className="w-full border-collapse text-sm">
+                            <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                              <tr>
+                                <th className="border border-default-200 p-2 text-left font-semibold min-w-[220px]">
+                                  Student
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[110px]">
+                                  Total
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[120px]">
+                                  Present
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[130px]">
+                                  Permission
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[110px]">
+                                  Absent
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[110px]">
+                                  Present %
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[130px]">
+                                  Permission %
+                                </th>
+                                <th className="border border-default-200 p-2 text-center font-semibold min-w-[110px]">
+                                  Absent %
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {shiftDailySummary.map((row) => (
+                                <tr key={row.studentId} className="hover:bg-primary/5">
+                                  <td className="border border-default-200 p-2">
+                                    {row.studentName}
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center">
+                                    <span className={countBadgeClass}>
+                                      {row.totalReports}
+                                    </span>
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center">
+                                    <span className={successBadgeClass}>
+                                      {row.presentCount}
+                                    </span>
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center">
+                                    <span className={primaryBadgeClass}>
+                                      {row.permissionCount}
+                                    </span>
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center">
+                                    <span className={dangerBadgeClass}>
+                                      {row.absentCount}
+                                    </span>
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center font-semibold">
+                                    {row.presentPercentage}%
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center font-semibold">
+                                    {row.permissionPercentage}%
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center font-semibold">
+                                    {row.absentPercentage}%
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      <div className="overflow-auto rounded-xl border border-default-200">
+                        <div className="border-b border-default-200 bg-default-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-default-500">
+                          Daily Report Records
+                        </div>
+                        <table className="w-full border-collapse text-sm">
+                          <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                            <tr>
+                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[220px]">
+                                Student
+                              </th>
+                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[140px]">
+                                Report Date
+                              </th>
+                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[140px]">
+                                Slot
+                              </th>
+                              <th className="border border-default-200 p-2 text-center font-semibold min-w-[120px]">
+                                Status
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredShiftReports.map((report) => {
+                              const badge = getReportStatusBadge(
+                                report.learningProgress
+                              );
+
+                              return (
+                                <tr key={report.id} className="hover:bg-primary/5">
+                                  <td className="border border-default-200 p-2">
+                                    {formatStudentName(report.student)}
+                                  </td>
+                                  <td className="border border-default-200 p-2">
+                                    {new Date(report.date).toLocaleDateString()}
+                                  </td>
+                                  <td className="border border-default-200 p-2">
+                                    {report.learningSlot || "-"}
+                                  </td>
+                                  <td className="border border-default-200 p-2 text-center">
+                                    <span className={badge.className}>
+                                      {badge.label}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-default-500">
+                      {hasAppliedDetailDateRange
+                        ? "No shift daily reports found in the selected date range."
+                        : "No shift daily reports are linked to this salary."}
                     </p>
                   )}
                 </div>

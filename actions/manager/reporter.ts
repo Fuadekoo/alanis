@@ -124,6 +124,183 @@ export async function getTeacherMonthlyCalendar(
 }
 
 /**
+ * Get teacher daily report summary for a custom date range
+ * Used by the manager daily report view filter tab
+ */
+export async function getTeacherDateRangeReportSummary(
+  teacherId: string,
+  startDate: string,
+  endDate: string
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!teacherId || !startDate || !endDate) {
+      return {
+        success: true,
+        data: {
+          reports: [],
+          studentSummaries: [],
+          summary: {
+            totalReports: 0,
+            totalStudents: 0,
+            presentCount: 0,
+            permissionCount: 0,
+            absentCount: 0,
+            presentPercentage: 0,
+            permissionPercentage: 0,
+            absentPercentage: 0,
+          },
+        },
+      };
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new Error("Invalid date range");
+    }
+
+    if (start > end) {
+      throw new Error("Start date must be on or before end date");
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    const isController = session.user.role === "controller";
+
+    const reports = await prisma.dailyReport.findMany({
+      where: {
+        activeTeacherId: teacherId,
+        date: {
+          gte: start,
+          lte: end,
+        },
+        ...(isController
+          ? {
+              student: {
+                controllerId: session.user.id,
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        studentId: true,
+        date: true,
+        learningSlot: true,
+        learningProgress: true,
+        studentApproved: true,
+        teacherApproved: true,
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: [{ date: "desc" }, { student: { firstName: "asc" } }],
+    });
+
+    const studentSummaryMap = new Map<
+      string,
+      {
+        student: {
+          id: string;
+          firstName: string;
+          fatherName: string;
+          lastName: string;
+        };
+        totalReports: number;
+        presentCount: number;
+        permissionCount: number;
+        absentCount: number;
+      }
+    >();
+
+    let presentCount = 0;
+    let permissionCount = 0;
+    let absentCount = 0;
+
+    reports.forEach((report) => {
+      const existing = studentSummaryMap.get(report.studentId) ?? {
+        student: report.student,
+        totalReports: 0,
+        presentCount: 0,
+        permissionCount: 0,
+        absentCount: 0,
+      };
+
+      existing.totalReports += 1;
+
+      if (report.learningProgress === "present") {
+        existing.presentCount += 1;
+        presentCount += 1;
+      } else if (report.learningProgress === "permission") {
+        existing.permissionCount += 1;
+        permissionCount += 1;
+      } else if (report.learningProgress === "absent") {
+        existing.absentCount += 1;
+        absentCount += 1;
+      }
+
+      studentSummaryMap.set(report.studentId, existing);
+    });
+
+    const totalReports = reports.length;
+    const percentage = (count: number) =>
+      totalReports > 0 ? Number(((count / totalReports) * 100).toFixed(1)) : 0;
+
+    const studentSummaries = Array.from(studentSummaryMap.values())
+      .map((item) => ({
+        ...item,
+        presentPercentage: percentage(item.presentCount),
+        permissionPercentage: percentage(item.permissionCount),
+        absentPercentage: percentage(item.absentCount),
+      }))
+      .sort((a, b) =>
+        `${a.student.firstName} ${a.student.fatherName} ${a.student.lastName}`.localeCompare(
+          `${b.student.firstName} ${b.student.fatherName} ${b.student.lastName}`
+        )
+      );
+
+    return {
+      success: true,
+      data: {
+        reports,
+        studentSummaries,
+        summary: {
+          totalReports,
+          totalStudents: studentSummaries.length,
+          presentCount,
+          permissionCount,
+          absentCount,
+          presentPercentage: percentage(presentCount),
+          permissionPercentage: percentage(permissionCount),
+          absentPercentage: percentage(absentCount),
+        },
+      },
+    };
+  } catch (error) {
+    console.error("Error getting teacher date range report summary:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get teacher date range report summary",
+    };
+  }
+}
+
+/**
  * Get list of teachers with their controller assignments
  * For reporter to select which teacher to view
  */

@@ -19,13 +19,16 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Tabs,
+  Tab,
 } from "@/components/ui/heroui";
 import {
-  getTeacherMonthlyCalendar,
+  getTeacherDateRangeReportSummary,
   getTeachersWithControllers,
+  getTeacherMonthlyCalendar,
 } from "@/actions/manager/reporter";
 import { deleteReport } from "@/actions/controller/report";
-import { Calendar, Search, Trash2 } from "lucide-react";
+import { Calendar, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import useData from "@/hooks/useData";
 import useAmharic from "@/hooks/useAmharic";
 import useAlert from "@/hooks/useAlert";
@@ -41,12 +44,33 @@ interface CalendarReport {
   teacherApproved: boolean | null;
 }
 
+interface DateRangeStudentSummary {
+  student: {
+    id: string;
+    firstName: string;
+    fatherName: string;
+    lastName: string;
+  };
+  totalReports: number;
+  presentCount: number;
+  permissionCount: number;
+  absentCount: number;
+  presentPercentage: number;
+  permissionPercentage: number;
+  absentPercentage: number;
+}
+
 export default function Page() {
+  const [activeTab, setActiveTab] = useState("monthly");
   const [selectedTeacher, setSelectedTeacher] = useState("");
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [rangeStartDate, setRangeStartDate] = useState("");
+  const [rangeEndDate, setRangeEndDate] = useState("");
+  const [appliedRangeStartDate, setAppliedRangeStartDate] = useState("");
+  const [appliedRangeEndDate, setAppliedRangeEndDate] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -75,6 +99,13 @@ export default function Page() {
     month,
     statusFilter
   );
+  const [dateRangeReportData, isLoadingDateRangeReport] = useData(
+    getTeacherDateRangeReportSummary,
+    () => {},
+    selectedTeacher || "",
+    appliedRangeStartDate,
+    appliedRangeEndDate
+  );
 
   const filteredCalendarData = useMemo(() => {
     if (!calendarData?.success || !calendarData.data) return [];
@@ -98,6 +129,14 @@ export default function Page() {
   useEffect(() => {
     setPage(1);
   }, [selectedTeacher, month, year, searchTerm, pageSize, statusFilter]);
+
+  useEffect(() => {
+    setRangeStartDate("");
+    setRangeEndDate("");
+    setAppliedRangeStartDate("");
+    setAppliedRangeEndDate("");
+    setActiveTab("monthly");
+  }, [selectedTeacher]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -184,6 +223,26 @@ export default function Page() {
       (item: { teacher: { id: string } }) => item.teacher.id === selectedTeacher
     )?.teacher;
   }, [teachersData, selectedTeacher]);
+
+  const isDateRangeReady = Boolean(rangeStartDate && rangeEndDate);
+  const isDateRangeInvalid =
+    isDateRangeReady && rangeStartDate > rangeEndDate;
+  const hasAppliedDateRange = Boolean(
+    appliedRangeStartDate && appliedRangeEndDate
+  );
+  const dateRangeSummary = dateRangeReportData?.success
+    ? dateRangeReportData.data?.summary
+    : null;
+  const dateRangeStudentSummaries = dateRangeReportData?.success
+    ? ((dateRangeReportData.data?.studentSummaries as DateRangeStudentSummary[]) ??
+      [])
+    : [];
+
+  const handleApplyDateRange = () => {
+    if (!isDateRangeReady || isDateRangeInvalid) return;
+    setAppliedRangeStartDate(rangeStartDate);
+    setAppliedRangeEndDate(rangeEndDate);
+  };
 
   const handleDeleteClick = (
     student: { firstName: string; fatherName: string; lastName: string },
@@ -300,6 +359,34 @@ export default function Page() {
       </Card>
 
       {selectedTeacher && (
+        <>
+          <Card className="border border-default-200/70 shadow-sm">
+            <CardBody className="p-3">
+              <Tabs
+                aria-label="Daily report view tabs"
+                selectedKey={activeTab}
+                onSelectionChange={(key: React.Key) =>
+                  setActiveTab(key as string)
+                }
+                variant="light"
+                color="primary"
+                classNames={{
+                  tabList:
+                    "gap-2 w-fit rounded-2xl border border-default-200 bg-default-50 dark:bg-default-900/60 p-2",
+                  cursor:
+                    "rounded-xl bg-white dark:bg-default-800 shadow-sm border border-default-200 dark:border-default-700",
+                  tab: "px-5 h-11",
+                  tabContent:
+                    "text-default-500 group-data-[selected=true]:text-default-900 font-semibold",
+                }}
+              >
+                <Tab key="monthly" title="Monthly View" />
+                <Tab key="filter" title="Filter Report" />
+              </Tabs>
+            </CardBody>
+          </Card>
+
+          {activeTab === "monthly" && (
         <Card className="flex-1 overflow-hidden border border-default-200/70 shadow-sm">
           <CardHeader className="p-4 border-b border-default-200 bg-default-50 dark:bg-default-900/30">
             <div className="flex items-center gap-2 w-full">
@@ -554,6 +641,279 @@ export default function Page() {
             )}
           </CardBody>
         </Card>
+          )}
+
+          {activeTab === "filter" && (
+            <Card className="flex-1 overflow-hidden border border-default-200/70 shadow-sm">
+              <CardHeader className="border-b border-default-200 bg-default-50 dark:bg-default-900/30 p-4">
+                <div className="flex w-full flex-col gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                      <SlidersHorizontal className="size-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <h2 className="text-lg font-semibold text-default-900">
+                        {isAm ? "á‰€áŠ• àˆà¤?à¤? àˆªá–áˆ­à‰µ áˆ›à¤¤à¥‹à¤¯" : "Date Range Report Filter"}
+                      </h2>
+                      <p className="text-sm text-default-500">
+                        {isAm
+                          ? "áˆ˜àŒ¨à¨“à¤? à‰€à¤? áŠ¥à¤?à¤¨ áˆ˜àŒ¨à¤? á‰€à¤? áˆ˜àˆ¨àŒ¡ àŠ¨á‰°àˆ˜à¨¨à¨ªà¤? àŒŠà¤? à‹¨á‰°áˆàŒ à¤? daily reports à‹­à‰†à¤? áŠ¥à¤?à¤¨ present, permission, absent àˆ˜àŒ àŠ• à‹­à¨‡."
+                          : "Select a start and end date to count reports in that range and display present, permission, and absent results."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto_auto]">
+                    <Input
+                      type="date"
+                      label={isAm ? "Start Date" : "Start Date"}
+                      value={rangeStartDate}
+                      onChange={(event) => setRangeStartDate(event.target.value)}
+                      variant="bordered"
+                    />
+                    <Input
+                      type="date"
+                      label={isAm ? "End Date" : "End Date"}
+                      value={rangeEndDate}
+                      onChange={(event) => setRangeEndDate(event.target.value)}
+                      variant="bordered"
+                    />
+                    <Button
+                      color="primary"
+                      onPress={handleApplyDateRange}
+                      isDisabled={!isDateRangeReady || isDateRangeInvalid}
+                      className="h-12 self-end"
+                    >
+                      {isAm ? "Apply" : "Apply Filter"}
+                    </Button>
+                    <Button
+                      variant="flat"
+                      onPress={() => {
+                        setRangeStartDate("");
+                        setRangeEndDate("");
+                        setAppliedRangeStartDate("");
+                        setAppliedRangeEndDate("");
+                      }}
+                      isDisabled={
+                        !rangeStartDate &&
+                        !rangeEndDate &&
+                        !appliedRangeStartDate &&
+                        !appliedRangeEndDate
+                      }
+                      className="h-12 self-end"
+                    >
+                      {isAm ? "Reset" : "Reset"}
+                    </Button>
+                  </div>
+                  {isDateRangeInvalid && (
+                    <p className="text-sm font-medium text-danger">
+                      {isAm
+                        ? "Start date must be on or before end date."
+                        : "Start date must be on or before end date."}
+                    </p>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardBody className="bg-default-50 dark:bg-default-950 p-4">
+                {!hasAppliedDateRange ? (
+                  <div className="flex h-full min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-default-300 bg-white/70 p-8 text-center dark:bg-default-900/40">
+                    <div className="max-w-md space-y-3">
+                      <Calendar className="mx-auto size-14 text-default-300" />
+                      <h3 className="text-lg font-semibold text-default-700">
+                        {isAm ? "Choose a Date Range" : "Choose a Date Range"}
+                      </h3>
+                      <p className="text-sm text-default-500">
+                        {isAm
+                          ? "Select a start and end date, then apply the filter to summarize the selected daily reports."
+                          : "Select a start and end date, then apply the filter to summarize the selected daily reports."}
+                      </p>
+                    </div>
+                  </div>
+                ) : isLoadingDateRangeReport ? (
+                  <Skeleton className="h-[420px] w-full rounded-2xl" />
+                ) : dateRangeReportData?.success && dateRangeSummary ? (
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-2 rounded-2xl border border-default-200 bg-white p-4 text-sm text-default-500 dark:bg-default-900/50 sm:flex-row sm:items-center sm:justify-between">
+                      <span>
+                        Selected Range:{" "}
+                        <span className="font-semibold text-default-800 dark:text-default-100">
+                          {appliedRangeStartDate} - {appliedRangeEndDate}
+                        </span>
+                      </span>
+                      <span>
+                        Teacher:{" "}
+                        <span className="font-semibold text-default-800 dark:text-default-100">
+                          {currentTeacher
+                            ? `${currentTeacher.firstName} ${currentTeacher.fatherName} ${currentTeacher.lastName}`
+                            : "-"}
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <Card className="border border-default-200/70 shadow-sm">
+                        <CardBody className="gap-1 p-5">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-default-500">
+                            Total Reports
+                          </span>
+                          <span className="text-3xl font-bold text-default-900 dark:text-default-100">
+                            {dateRangeSummary.totalReports}
+                          </span>
+                          <span className="text-xs text-default-500">
+                            {dateRangeSummary.totalStudents} students in range
+                          </span>
+                        </CardBody>
+                      </Card>
+                      <Card className="border border-success-200/80 bg-success-50/60 shadow-sm dark:border-success-800/60 dark:bg-success-900/10">
+                        <CardBody className="gap-1 p-5">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-success-700 dark:text-success-300">
+                            Present
+                          </span>
+                          <span className="text-3xl font-bold text-success-700 dark:text-success-300">
+                            {dateRangeSummary.presentCount}
+                          </span>
+                          <span className="text-xs text-success-700/80 dark:text-success-300/80">
+                            {dateRangeSummary.presentPercentage}% of selected reports
+                          </span>
+                        </CardBody>
+                      </Card>
+                      <Card className="border border-primary-200/80 bg-primary-50/60 shadow-sm dark:border-primary-800/60 dark:bg-primary-900/10">
+                        <CardBody className="gap-1 p-5">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-300">
+                            Permission
+                          </span>
+                          <span className="text-3xl font-bold text-primary-700 dark:text-primary-300">
+                            {dateRangeSummary.permissionCount}
+                          </span>
+                          <span className="text-xs text-primary-700/80 dark:text-primary-300/80">
+                            {dateRangeSummary.permissionPercentage}% of selected reports
+                          </span>
+                        </CardBody>
+                      </Card>
+                      <Card className="border border-danger-200/80 bg-danger-50/60 shadow-sm dark:border-danger-800/60 dark:bg-danger-900/10">
+                        <CardBody className="gap-1 p-5">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-danger-700 dark:text-danger-300">
+                            Absent
+                          </span>
+                          <span className="text-3xl font-bold text-danger-700 dark:text-danger-300">
+                            {dateRangeSummary.absentCount}
+                          </span>
+                          <span className="text-xs text-danger-700/80 dark:text-danger-300/80">
+                            {dateRangeSummary.absentPercentage}% of selected reports
+                          </span>
+                        </CardBody>
+                      </Card>
+                    </div>
+
+                    <Card className="border border-default-200/70 shadow-sm">
+                      <CardHeader className="border-b border-default-200 bg-default-50 px-4 py-3 dark:bg-default-900/40">
+                        <div className="space-y-1">
+                          <h3 className="text-base font-semibold text-default-900 dark:text-default-100">
+                            Student Summary Table
+                          </h3>
+                          <p className="text-xs text-default-500">
+                            Counts for each student within the selected date range.
+                          </p>
+                        </div>
+                      </CardHeader>
+                      <CardBody className="p-0">
+                        {dateRangeStudentSummaries.length > 0 ? (
+                          <div className="overflow-auto">
+                            <table className="w-full border-collapse text-sm">
+                              <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
+                                <tr>
+                                  <th className="border border-default-200/70 p-3 text-left font-semibold min-w-[220px]">
+                                    Student
+                                  </th>
+                                  <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[110px]">
+                                    Total
+                                  </th>
+                                  <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[120px]">
+                                    Present
+                                  </th>
+                                  <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[130px]">
+                                    Permission
+                                  </th>
+                                  <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[110px]">
+                                    Absent
+                                  </th>
+                                  <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[110px]">
+                                    Present %
+                                  </th>
+                                  <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[130px]">
+                                    Permission %
+                                  </th>
+                                  <th className="border border-default-200/70 p-3 text-center font-semibold min-w-[110px]">
+                                    Absent %
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {dateRangeStudentSummaries.map((item, index) => (
+                                  <tr
+                                    key={item.student.id}
+                                    className={
+                                      index % 2 === 0
+                                        ? "bg-white dark:bg-default-950"
+                                        : "bg-default-50 dark:bg-default-900/40"
+                                    }
+                                  >
+                                    <td className="border border-default-200/70 p-3 font-medium text-default-800 dark:text-default-100">
+                                      {item.student.firstName}{" "}
+                                      {item.student.fatherName}{" "}
+                                      {item.student.lastName}
+                                    </td>
+                                    <td className="border border-default-200/70 p-3 text-center">
+                                      <Chip size="sm" variant="flat">
+                                        {item.totalReports}
+                                      </Chip>
+                                    </td>
+                                    <td className="border border-default-200/70 p-3 text-center">
+                                      <span className="inline-flex min-w-[86px] justify-center rounded-full bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-700 dark:bg-success-900/20 dark:text-success-300">
+                                        {item.presentCount}
+                                      </span>
+                                    </td>
+                                    <td className="border border-default-200/70 p-3 text-center">
+                                      <span className="inline-flex min-w-[86px] justify-center rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 dark:bg-primary-900/20 dark:text-primary-300">
+                                        {item.permissionCount}
+                                      </span>
+                                    </td>
+                                    <td className="border border-default-200/70 p-3 text-center">
+                                      <span className="inline-flex min-w-[86px] justify-center rounded-full bg-danger-50 px-2.5 py-1 text-xs font-semibold text-danger-700 dark:bg-danger-900/20 dark:text-danger-300">
+                                        {item.absentCount}
+                                      </span>
+                                    </td>
+                                    <td className="border border-default-200/70 p-3 text-center font-semibold text-default-700 dark:text-default-200">
+                                      {item.presentPercentage}%
+                                    </td>
+                                    <td className="border border-default-200/70 p-3 text-center font-semibold text-default-700 dark:text-default-200">
+                                      {item.permissionPercentage}%
+                                    </td>
+                                    <td className="border border-default-200/70 p-3 text-center font-semibold text-default-700 dark:text-default-200">
+                                      {item.absentPercentage}%
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="p-8 text-center text-default-500">
+                            No reports found in the selected date range.
+                          </div>
+                        )}
+                      </CardBody>
+                    </Card>
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-default-500">
+                    {dateRangeReportData?.error || "Failed to load filtered report data"}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          )}
+        </>
       )}
 
       {!selectedTeacher && (

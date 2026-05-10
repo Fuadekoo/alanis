@@ -84,6 +84,15 @@ export async function getSalaryDetail(salaryId: string) {
       },
       teacherProgresses: {
         include: {
+          dailyReports: {
+            select: {
+              id: true,
+              date: true,
+              learningSlot: true,
+              learningProgress: true,
+            },
+            orderBy: { date: "desc" },
+          },
           student: {
             select: {
               id: true,
@@ -97,6 +106,15 @@ export async function getSalaryDetail(salaryId: string) {
       },
       shiftTeacherData: {
         include: {
+          dailyReports: {
+            select: {
+              id: true,
+              date: true,
+              learningSlot: true,
+              learningProgress: true,
+            },
+            orderBy: { date: "desc" },
+          },
           student: {
             select: {
               id: true,
