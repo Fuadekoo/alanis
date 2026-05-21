@@ -1,184 +1,385 @@
 "use server";
+
 import prisma from "@/lib/db";
-import { auth } from "@/lib/auth";
-import { z } from "zod";
-import { paymentStatus } from "@prisma/client";
-import { progressStatus } from "@prisma/client";
+import { isAuthorized } from "@/lib/utils";
+import {
+  AttendanceStatus,
+  Prisma,
+  TeacherStudentStatus,
+  paymentStatus,
+} from "@prisma/client";
+import {
+  buildProgressRecord,
+  buildSalaryDetailCollections,
+  comboProgressInclude,
+  createSalaryExpenseName,
+  mapSalaryToRow,
+  teacherSelect,
+  toSalaryStatus,
+} from "@/actions/shared/teacherDomain";
 
-// Validate inputs (simple runtime checks)
-const createSalaryInputSchema = z.object({
-  teacherId: z.string().min(1),
-  month: z.number().int().min(1).max(12),
-  year: z.number().int().min(2000),
-  unitPrice: z.number().nonnegative(),
-  teacherProgressIds: z.array(z.string()).optional(),
-  shiftTeacherDataIds: z.array(z.string()).optional(),
-});
+type ManagerSalaryStatus = paymentStatus | "approved" | "rejected" | "pending";
 
-export async function getSalary() {
-  // return a list of salaries (include relations as needed)
-  return prisma.teacherSalary.findMany({
-    include: {
-      teacher: {
-        select: {
-          id: true,
-          firstName: true,
-          fatherName: true,
-          lastName: true,
-        },
-      },
-      teacherProgresses: {
-        select: {
-          id: true,
-          learningCount: true,
-          missingCount: true,
-          totalCount: true,
-          paymentStatus: true,
-          createdAt: true,
-          student: {
-            select: {
-              firstName: true,
-              fatherName: true,
-              lastName: true,
-            },
-          },
-        },
-      },
-      shiftTeacherData: {
-        select: {
-          id: true,
-          learningCount: true,
-          missingCount: true,
-          totalCount: true,
-          paymentStatus: true,
-          createdAt: true,
-          student: {
-            select: {
-              firstName: true,
-              fatherName: true,
-              lastName: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+type ComboRecord = Prisma.TeacherStudentGetPayload<{
+  include: typeof comboProgressInclude;
+}>;
+
+type SalaryRecord = Prisma.TeacherSalaryGetPayload<{
+  include: {
+    teacher: {
+      select: typeof teacherSelect;
+    };
+    reports: {
+      include: {
+        combination: {
+          include: {
+            student: {
+              select: typeof teacherSelect;
+            };
+            teacher: {
+              select: typeof teacherSelect;
+            };
+          };
+        };
+      };
+      orderBy: {
+        date: "desc";
+      };
+    };
+  };
+}>;
+
+function getSelectedComboIds(
+  teacherProgressIds: string[] = [],
+  shiftTeacherDataIds: string[] = [],
+) {
+  return Array.from(new Set([...teacherProgressIds, ...shiftTeacherDataIds]));
 }
 
-export async function getSalaryDetail(salaryId: string) {
-  if (!salaryId) {
-    return null;
+function getSalaryMonthBounds(month: number, year: number) {
+  const startDate = new Date(Date.UTC(year, month - 1, 1));
+  const endDate = new Date(Date.UTC(year, month, 1));
+
+  return { startDate, endDate };
+}
+
+function isReportInSalaryPeriod(
+  reportDate: Date,
+  month?: number,
+  year?: number,
+) {
+  if (!month || !year) {
+    return true;
   }
 
-  return prisma.teacherSalary.findUnique({
-    where: { id: salaryId },
+  return (
+    reportDate.getUTCFullYear() === year &&
+    reportDate.getUTCMonth() + 1 === month
+  );
+}
+
+function getPendingLearningReports(
+  combo: ComboRecord,
+  month?: number,
+  year?: number,
+) {
+  return combo.dailyReports.filter(
+    (report) =>
+      report.attendance !== AttendanceStatus.ABSENT &&
+      !report.salaryId &&
+      isReportInSalaryPeriod(report.date, month, year),
+  );
+}
+
+function getMonthlyReports(combo: ComboRecord, month?: number, year?: number) {
+  return combo.dailyReports.filter((report) =>
+    isReportInSalaryPeriod(report.date, month, year),
+  );
+}
+
+function mapComboForSalary(combo: ComboRecord, month: number, year: number) {
+  return buildProgressRecord({
+    ...combo,
+    dailyReports: getMonthlyReports(combo, month, year),
+  });
+}
+
+function mapSalaryRowWithTeacher(salary: {
+  id: string;
+  teacher: {
+    id: string;
+    firstName: string;
+    fatherName: string;
+    lastName: string;
+    phoneNumber: string;
+    username: string;
+  };
+  month: number;
+  year: number;
+  baseSalary: Prisma.Decimal;
+  bonus: Prisma.Decimal;
+  deduction: Prisma.Decimal;
+  dailyRate: Prisma.Decimal;
+  totalSalary: Prisma.Decimal;
+  status: import("@prisma/client").SalaryStatus;
+  paymentPhoto: string | null;
+  createdAt: Date;
+  paidAt: Date | null;
+  note: string | null;
+  reports: Array<{
+    attendance: AttendanceStatus;
+  }>;
+}) {
+  return {
+    ...mapSalaryToRow(salary),
+    teacher: salary.teacher,
+  };
+}
+
+async function getTeacherCombosForSalary(
+  teacherId: string,
+  month: number,
+  year: number,
+) {
+  const { startDate, endDate } = getSalaryMonthBounds(month, year);
+
+  return prisma.teacherStudent.findMany({
+    where: {
+      teacherId,
+      dailyReports: {
+        some: {
+          date: {
+            gte: startDate,
+            lt: endDate,
+          },
+        },
+      },
+    },
+    include: comboProgressInclude,
+    orderBy: [{ active: "desc" }, { updatedAt: "desc" }],
+  });
+}
+
+async function createSalaryRecord(
+  tx: Prisma.TransactionClient,
+  {
+    teacherId,
+    month,
+    year,
+    unitPrice,
+    baseSalary = 0,
+    bonus = 0,
+    deduction = 0,
+    comboIds,
+  }: {
+    teacherId: string;
+    month: number;
+    year: number;
+    unitPrice: number;
+    baseSalary?: number;
+    bonus?: number;
+    deduction?: number;
+    comboIds: string[];
+  },
+) {
+  const teacher = await tx.user.findUnique({
+    where: { id: teacherId },
+    select: teacherSelect,
+  });
+
+  if (!teacher) {
+    throw new Error("Teacher not found");
+  }
+
+  const existingSalary = await tx.teacherSalary.findUnique({
+    where: {
+      teacherId_month_year: {
+        teacherId,
+        month,
+        year,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existingSalary) {
+    throw new Error("Salary already exists for this teacher, month, and year");
+  }
+
+  const combos =
+    comboIds.length > 0
+      ? await tx.teacherStudent.findMany({
+          where: {
+            id: {
+              in: comboIds,
+            },
+            teacherId,
+          },
+          include: comboProgressInclude,
+        })
+      : await tx.teacherStudent.findMany({
+          where: {
+            teacherId,
+            dailyReports: {
+              some: {
+                salaryId: null,
+                attendance: {
+                  not: AttendanceStatus.ABSENT,
+                },
+                ...(() => {
+                  const { startDate, endDate } = getSalaryMonthBounds(
+                    month,
+                    year,
+                  );
+                  return {
+                    date: {
+                      gte: startDate,
+                      lt: endDate,
+                    },
+                  };
+                })(),
+              },
+            },
+          },
+          include: comboProgressInclude,
+        });
+
+  if (combos.length === 0 && baseSalary <= 0) {
+    throw new Error("No teacher records were selected and base salary is 0");
+  }
+
+  const pendingReports = combos.flatMap((combo) =>
+    getPendingLearningReports(combo, month, year).map((report) => report.id),
+  );
+
+  const totalDayForLearning = pendingReports.length;
+  const totalSalary = Number(
+    (baseSalary + totalDayForLearning * unitPrice + bonus - deduction).toFixed(
+      2,
+    ),
+  );
+
+  const salary = await tx.teacherSalary.create({
+    data: {
+      teacherId,
+      month,
+      year,
+      baseSalary: new Prisma.Decimal(baseSalary),
+      bonus: new Prisma.Decimal(bonus),
+      deduction: new Prisma.Decimal(deduction),
+      dailyRate: new Prisma.Decimal(unitPrice),
+      totalSalary: new Prisma.Decimal(totalSalary),
+      status: toSalaryStatus("pending"),
+    },
     include: {
       teacher: {
+        select: teacherSelect,
+      },
+      reports: {
         select: {
-          id: true,
-          firstName: true,
-          fatherName: true,
-          lastName: true,
+          attendance: true,
         },
-      },
-      teacherProgresses: {
-        include: {
-          dailyReports: {
-            select: {
-              id: true,
-              date: true,
-              learningSlot: true,
-              learningProgress: true,
-            },
-            orderBy: { date: "desc" },
-          },
-          student: {
-            select: {
-              id: true,
-              firstName: true,
-              fatherName: true,
-              lastName: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      },
-      shiftTeacherData: {
-        include: {
-          dailyReports: {
-            select: {
-              id: true,
-              date: true,
-              learningSlot: true,
-              learningProgress: true,
-            },
-            orderBy: { date: "desc" },
-          },
-          student: {
-            select: {
-              id: true,
-              firstName: true,
-              fatherName: true,
-              lastName: true,
-            },
-          },
-          teacher: {
-            select: {
-              id: true,
-              firstName: true,
-              fatherName: true,
-              lastName: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
       },
     },
   });
+
+  if (pendingReports.length > 0) {
+    await tx.teacherDailyReport.updateMany({
+      where: {
+        id: {
+          in: pendingReports,
+        },
+      },
+      data: {
+        salaryId: salary.id,
+      },
+    });
+  }
+
+  await tx.expense.create({
+    data: {
+      name: createSalaryExpenseName(teacher, month, year),
+      amount: Math.round(totalSalary),
+      date: salary.createdAt,
+      teacherSalaryId: salary.id,
+      status: paymentStatus.pending,
+    },
+  });
+
+  return {
+    ...mapSalaryRowWithTeacher({
+      ...salary,
+      reports: pendingReports.map(() => ({
+        attendance: AttendanceStatus.PRESENT,
+      })),
+    }),
+    teacher,
+  };
 }
 
-export async function getTeacherProgressForSalary(teacherId: string) {
-  // Get TeacherProgress records that are open and pending payment
-  return prisma.teacherProgress.findMany({
-    where: {
-      teacherId,
-      progressStatus: "open",
-      paymentStatus: "pending",
-    },
+export async function getSalary() {
+  await isAuthorized("manager");
+
+  const salaries = await prisma.teacherSalary.findMany({
     include: {
-      student: {
+      teacher: {
+        select: teacherSelect,
+      },
+      reports: {
         select: {
-          id: true,
-          firstName: true,
-          fatherName: true,
-          lastName: true,
+          attendance: true,
         },
       },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ year: "desc" }, { month: "desc" }, { createdAt: "desc" }],
   });
+
+  return salaries.map(mapSalaryRowWithTeacher);
 }
 
-export async function getShiftTeacherDataForSalary(teacherId: string) {
-  // Get ShiftTeacherData records that are pending payment
-  return prisma.shiftTeacherData.findMany({
-    where: {
-      teacherId,
-      paymentStatus: "pending",
-    },
-    include: {
-      student: {
-        select: {
-          id: true,
-          firstName: true,
-          fatherName: true,
-          lastName: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+export async function getTeacherProgressForSalary(
+  teacherId: string,
+  month: number,
+  year: number,
+) {
+  await isAuthorized("manager");
+
+  if (!teacherId || !month || month < 1 || month > 12 || !year || year < 2000) {
+    return [];
+  }
+
+  const combos = await getTeacherCombosForSalary(teacherId, month, year);
+
+  return combos
+    .filter(
+      (combo) =>
+        combo.active &&
+        combo.status === TeacherStudentStatus.ACTIVE &&
+        getPendingLearningReports(combo, month, year).length > 0,
+    )
+    .map((combo) => mapComboForSalary(combo, month, year));
+}
+
+export async function getShiftTeacherDataForSalary(
+  teacherId: string,
+  month: number,
+  year: number,
+) {
+  await isAuthorized("manager");
+
+  if (!teacherId || !month || month < 1 || month > 12 || !year || year < 2000) {
+    return [];
+  }
+
+  const combos = await getTeacherCombosForSalary(teacherId, month, year);
+
+  return combos
+    .filter(
+      (combo) =>
+        (!combo.active || combo.status !== TeacherStudentStatus.ACTIVE) &&
+        getPendingLearningReports(combo, month, year).length > 0,
+    )
+    .map((combo) => mapComboForSalary(combo, month, year));
 }
 
 export async function createSalary(
@@ -186,617 +387,438 @@ export async function createSalary(
   month: number,
   year: number,
   unitPrice: number,
-  teacherProgressIds: string[] = [],
-  shiftTeacherDataIds: string[] = []
+  baseSalary: number = 0,
+  bonus: number = 0,
+  deduction: number = 0,
 ) {
-  // validate input
-  createSalaryInputSchema.parse({
-    teacherId,
-    month,
-    year,
-    unitPrice,
-    teacherProgressIds,
-    shiftTeacherDataIds,
-  });
+  try {
+    await isAuthorized("manager");
 
-  // require auth
-  const user = await auth();
-  if (!user) throw new Error("Unauthorized");
-
-  // must select at least one source (teacherProgress or shiftTeacherData)
-  if (
-    (!teacherProgressIds || teacherProgressIds.length === 0) &&
-    (!shiftTeacherDataIds || shiftTeacherDataIds.length === 0)
-  ) {
-    throw new Error(
-      "At least one of teacherProgressIds or shiftTeacherDataIds must be provided."
-    );
-  }
-
-  // Use a transaction to ensure all changes happen together
-  const result = await prisma.$transaction(async (tx) => {
-    let totalDayForLearning = 0;
-
-    // Sum learningCount from teacherProgress entries if provided
-    if (teacherProgressIds && teacherProgressIds.length > 0) {
-      const tProgress = await tx.teacherProgress.findMany({
-        where: { id: { in: teacherProgressIds } },
-        select: { learningCount: true },
-      });
-      const sumProgress = tProgress.reduce(
-        (s, p) => s + (p.learningCount ?? 0),
-        0
-      );
-      totalDayForLearning += sumProgress;
+    if (!teacherId) {
+      throw new Error("Teacher is required");
     }
 
-    // Sum learningCount from shiftTeacherData entries if provided
-    if (shiftTeacherDataIds && shiftTeacherDataIds.length > 0) {
-      const sData = await tx.shiftTeacherData.findMany({
-        where: { id: { in: shiftTeacherDataIds } },
-        select: { learningCount: true, totalCount: true },
-      });
-      const sumShift = sData.reduce((sum, record) => {
-        if (typeof record.learningCount === "number") {
-          return sum + record.learningCount;
-        }
-        if (typeof record.totalCount === "number") {
-          return sum + record.totalCount;
-        }
-        return sum;
-      }, 0);
-      totalDayForLearning += sumShift;
+    if (!month || month < 1 || month > 12) {
+      throw new Error("Month must be between 1 and 12");
     }
 
-    // compute amount
-    const amount = totalDayForLearning * unitPrice;
+    if (!year || year < 2000) {
+      throw new Error("Year is invalid");
+    }
 
-    // create teacherSalary record
-    const teacherSalary = await tx.teacherSalary.create({
-      data: {
+    if (unitPrice < 0) {
+      throw new Error("Unit price cannot be negative");
+    }
+
+    const salary = await prisma.$transaction((tx) =>
+      createSalaryRecord(tx, {
         teacherId,
         month,
         year,
-        totalDayForLearning,
         unitPrice,
-        amount,
-        // default status - adjust field name if your schema differs
-        status: paymentStatus.pending,
-      },
-    });
+        baseSalary,
+        bonus,
+        deduction,
+        comboIds: [],
+      }),
+    );
 
-    // also create an expense linked to this teacherSalary
-    try {
-      const teacher = await tx.user.findUnique({
-        where: { id: teacherId },
-        select: { firstName: true, fatherName: true, lastName: true },
-      });
-      const teacherName = teacher
-        ? `${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`.trim()
-        : teacherId;
-      const expenseName = `${teacherName} ${month}/${year}`;
-      await tx.expense.create({
-        data: {
-          name: expenseName,
-          amount,
-          // ensure expense.date matches the salary creation timestamp
-          date: teacherSalary.createdAt,
-          teacherSalaryId: teacherSalary.id,
-          status: paymentStatus.pending,
-          description: "",
-        },
-      });
-    } catch (e) {
-      // if expense creation fails, let the transaction fail to keep data consistent
-      throw e;
-    }
-
-    // update ShiftTeacherData: link to salary and keep pending until approval
-    if (shiftTeacherDataIds && shiftTeacherDataIds.length > 0) {
-      await tx.shiftTeacherData.updateMany({
-        where: { id: { in: shiftTeacherDataIds } },
-        data: {
-          paymentStatus: paymentStatus.approved,
-          progressStatus: progressStatus.closed,
-          teacherSalaryId: teacherSalary.id,
-        },
-      });
-    }
-
-    // update TeacherProgress: link to salary and mark closed, leave payment pending
-    if (teacherProgressIds && teacherProgressIds.length > 0) {
-      await tx.teacherProgress.updateMany({
-        where: { id: { in: teacherProgressIds } },
-        data: {
-          paymentStatus: paymentStatus.approved,
-          progressStatus: progressStatus.closed,
-          teacherSalaryId: teacherSalary.id,
-        },
-      });
-    }
-
-    return teacherSalary;
-  });
-
-  return result;
+    return {
+      success: true,
+      data: salary,
+      message: "Salary created successfully",
+    };
+  } catch (error) {
+    console.error("Error creating salary:", error);
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Failed to create salary",
+    };
+  }
 }
-
-const autoSalarySchema = z.object({
-  month: z.number().int().min(1).max(12),
-  year: z.number().int().min(2000),
-  unitPrice: z.number().nonnegative(),
-});
 
 export async function createAutomaticSalaries(
   month: number,
   year: number,
-  unitPrice: number
+  unitPrice: number,
 ) {
-  autoSalarySchema.parse({ month, year, unitPrice });
-
-  const session = await auth();
-  if (!session) {
-    throw new Error("Unauthorized");
-  }
-
-  const roundedUnitPrice = Math.round(unitPrice);
-
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      const teacherProgressRecords = await tx.teacherProgress.findMany({
-        where: {
-          paymentStatus: paymentStatus.pending,
-          progressStatus: progressStatus.open,
-          teacherSalaryId: null,
-        },
-        select: {
-          id: true,
-          teacherId: true,
-          studentId: true,
-          learningCount: true,
-          missingCount: true,
-          totalCount: true,
-        },
-      });
+    await isAuthorized("manager");
 
-      const shiftRecords = await tx.shiftTeacherData.findMany({
-        where: {
-          paymentStatus: paymentStatus.pending,
-          teacherSalaryId: null,
-        },
-        select: {
-          id: true,
-          teacherId: true,
-          studentId: true,
-          learningCount: true,
-          missingCount: true,
-          totalCount: true,
-        },
-      });
+    if (!month || month < 1 || month > 12) {
+      throw new Error("Month must be between 1 and 12");
+    }
 
-      const grouped = new Map<
-        string,
-        Map<
-          string,
-          {
-            progressIds: string[];
-            shiftIds: string[];
-            progressLearning: number;
-            shiftLearning: number;
-          }
-        >
-      >();
+    if (!year || year < 2000) {
+      throw new Error("Year is invalid");
+    }
 
-      const ensureGroup = (teacherId: string, studentId: string) => {
-        if (!grouped.has(teacherId)) {
-          grouped.set(teacherId, new Map());
-        }
-        const studentMap = grouped.get(teacherId)!;
-        if (!studentMap.has(studentId)) {
-          studentMap.set(studentId, {
-            progressIds: [],
-            shiftIds: [],
-            progressLearning: 0,
-            shiftLearning: 0,
-          });
-        }
-        return studentMap.get(studentId)!;
-      };
+    if (!unitPrice || unitPrice <= 0) {
+      throw new Error("Unit price must be greater than zero");
+    }
 
-      teacherProgressRecords.forEach((progress) => {
-        const group = ensureGroup(progress.teacherId, progress.studentId);
-        group.progressIds.push(progress.id);
-        const learning =
-          typeof progress.learningCount === "number"
-            ? progress.learningCount
-            : progress.totalCount ?? 0;
-        group.progressLearning += learning;
-      });
-
-      shiftRecords.forEach((shift) => {
-        const group = ensureGroup(shift.teacherId, shift.studentId);
-        group.shiftIds.push(shift.id);
-        const learning =
-          typeof shift.learningCount === "number"
-            ? shift.learningCount
-            : shift.totalCount ?? 0;
-        group.shiftLearning += learning;
-      });
-
-      if (grouped.size === 0) {
-        return {
-          success: false,
-          message:
-            "No pending teacher progress or shift history found for the selected month/year.",
-          created: [],
-          skipped: [],
-        };
-      }
-
-      const teacherIds = Array.from(grouped.keys());
-
-      const existingSalaries = await tx.teacherSalary.findMany({
-        where: {
-          teacherId: { in: teacherIds },
-          month,
-          year,
-        },
-        select: {
-          teacherId: true,
-        },
-      });
-
-      const existingMap = new Set(
-        existingSalaries.map((item) => item.teacherId)
-      );
-
-      const teacherInfo = await tx.user.findMany({
-        where: { id: { in: teacherIds } },
-        select: {
-          id: true,
-          firstName: true,
-          fatherName: true,
-          lastName: true,
-        },
-      });
-
-      const teacherMap = new Map(teacherInfo.map((info) => [info.id, info]));
-
-      const created: Array<{
-        salaryId: string;
-        teacherId: string;
-        teacherName: string;
-        totalDays: number;
-        amount: number;
-        progressCount: number;
-        shiftCount: number;
-        progressLearning?: number;
-        shiftLearning?: number;
-      }> = [];
-
-      const skipped: Array<{ teacherId: string; reason: string }> = [];
-
-      for (const [teacherId, studentMap] of grouped.entries()) {
-        if (existingMap.has(teacherId)) {
-          skipped.push({ teacherId, reason: "existing-salary" });
-          continue;
-        }
-
-        let totalDays = 0;
-        studentMap.forEach((entry) => {
-          totalDays += entry.progressLearning + entry.shiftLearning;
-        });
-
-        if (totalDays <= 0) {
-          skipped.push({ teacherId, reason: "no-learning-days" });
-          continue;
-        }
-
-        const amount = totalDays * roundedUnitPrice;
-
-        const salary = await tx.teacherSalary.create({
-          data: {
-            teacherId,
-            month,
-            year,
-            unitPrice: roundedUnitPrice,
-            totalDayForLearning: totalDays,
-            amount,
-            status: paymentStatus.pending,
+    const combos = await prisma.teacherStudent.findMany({
+      where: {
+        dailyReports: {
+          some: {
+            salaryId: null,
+            attendance: {
+              not: AttendanceStatus.ABSENT,
+            },
+            ...(() => {
+              const { startDate, endDate } = getSalaryMonthBounds(month, year);
+              return {
+                date: {
+                  gte: startDate,
+                  lt: endDate,
+                },
+              };
+            })(),
           },
-        });
-
-        // create linked expense for this salary
-        try {
-          const t = teacherMap.get(teacherId);
-          const tName = t
-            ? `${t.firstName} ${t.fatherName} ${t.lastName}`.trim()
-            : teacherId;
-          const expenseName = `${tName} ${month}/${year}`;
-          await tx.expense.create({
-            data: {
-              name: expenseName,
-              amount,
-              date: salary.createdAt,
-              teacherSalaryId: salary.id,
-              status: paymentStatus.pending,
-              description: "",
-            },
-          });
-        } catch (e) {
-          throw e;
-        }
-
-        const allProgressIds: string[] = [];
-        const allShiftIds: string[] = [];
-        let progressLearning = 0;
-        let shiftLearning = 0;
-
-        studentMap.forEach((entry) => {
-          allProgressIds.push(...entry.progressIds);
-          allShiftIds.push(...entry.shiftIds);
-          progressLearning += entry.progressLearning;
-          shiftLearning += entry.shiftLearning;
-        });
-
-        if (allProgressIds.length > 0) {
-          await tx.teacherProgress.updateMany({
-            where: { id: { in: allProgressIds } },
-            data: {
-              teacherSalaryId: salary.id,
-              progressStatus: progressStatus.closed,
-              paymentStatus: paymentStatus.approved,
-            },
-          });
-        }
-
-        if (allShiftIds.length > 0) {
-          await tx.shiftTeacherData.updateMany({
-            where: { id: { in: allShiftIds } },
-            data: {
-              teacherSalaryId: salary.id,
-              paymentStatus: paymentStatus.approved,
-            },
-          });
-        }
-
-        const teacher = teacherMap.get(teacherId);
-        created.push({
-          salaryId: salary.id,
-          teacherId,
-          teacherName: teacher
-            ? `${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`
-            : teacherId,
-          totalDays,
-          amount,
-          progressCount: allProgressIds.length,
-          shiftCount: allShiftIds.length,
-          progressLearning,
-          shiftLearning,
-        });
-      }
-
-      return {
-        success: created.length > 0,
-        message:
-          created.length > 0
-            ? "Automatic salaries generated successfully."
-            : "No salaries were generated for the selected month/year.",
-        created,
-        skipped,
-      };
+        },
+      },
+      select: {
+        id: true,
+        teacherId: true,
+      },
     });
 
-    return result;
+    const teacherComboMap = new Map<string, string[]>();
+    for (const combo of combos) {
+      const current = teacherComboMap.get(combo.teacherId) ?? [];
+      current.push(combo.id);
+      teacherComboMap.set(combo.teacherId, current);
+    }
+
+    const created: Array<Awaited<ReturnType<typeof createSalaryRecord>>> = [];
+
+    await prisma.$transaction(async (tx) => {
+      for (const [teacherId, comboIds] of teacherComboMap.entries()) {
+        const existingSalary = await tx.teacherSalary.findUnique({
+          where: {
+            teacherId_month_year: {
+              teacherId,
+              month,
+              year,
+            },
+          },
+          select: { id: true },
+        });
+
+        if (existingSalary) {
+          continue;
+        }
+
+        const salary = await createSalaryRecord(tx, {
+          teacherId,
+          month,
+          year,
+          unitPrice,
+          comboIds,
+        });
+
+        created.push(salary);
+      }
+    });
+
+    return {
+      success: true,
+      created,
+      message:
+        created.length > 0
+          ? "Automatic salaries created successfully"
+          : "No salaries were generated for the selected period.",
+    };
   } catch (error) {
-    console.error("Automatic salary generation failed", error);
+    console.error("Error creating automatic salaries:", error);
     return {
       success: false,
-      message: "Failed to generate automatic salaries.",
       created: [],
-      skipped: [],
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to create automatic salaries",
     };
   }
 }
 
 export async function updateSalary(
   salaryId: string,
-  status: paymentStatus,
-  paymentPhoto?: string
+  status: ManagerSalaryStatus,
+  paymentPhoto?: string,
 ) {
-  return prisma.$transaction(async (tx) => {
-    const updateData: { status: paymentStatus; paymentPhoto?: string } = {
-      status,
-    };
+  await isAuthorized("manager");
 
-    if (status === paymentStatus.approved && paymentPhoto) {
-      updateData.paymentPhoto = paymentPhoto;
-    }
+  if (!salaryId) {
+    throw new Error("Salary ID is required");
+  }
 
-    if (status === paymentStatus.rejected) {
-      delete updateData.paymentPhoto;
-    }
+  const nextStatus = toSalaryStatus(status);
 
-    const salary = await tx.teacherSalary.update({
-      where: { id: salaryId },
-      data: updateData,
-    });
-
-    // sync related expense (create if missing) with status and optional photo
-    const existingExpense = await tx.expense.findFirst({
-      where: { teacherSalaryId: salaryId },
-    });
-
-    if (existingExpense) {
-      await tx.expense.update({
-        where: { id: existingExpense.id },
-        data: {
-          status,
-          paymentPhoto: status === paymentStatus.approved ? paymentPhoto : null,
+  const salary = await prisma.teacherSalary.findUnique({
+    where: { id: salaryId },
+    include: {
+      teacher: {
+        select: teacherSelect,
+      },
+      reports: {
+        select: {
+          attendance: true,
         },
-      });
-    } else {
-      // create expense for legacy salaries that didn't have one
-      const teacher = await tx.user.findUnique({
-        where: { id: salary.teacherId },
-        select: { firstName: true, fatherName: true, lastName: true },
-      });
-      const teacherName = teacher
-        ? `${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`.trim()
-        : salary.teacherId;
-      const expenseName = `${teacherName} ${salary.month}/${salary.year}`;
-      await tx.expense.create({
-        data: {
-          name: expenseName,
-          amount: salary.amount,
-          date: new Date(),
-          teacherSalaryId: salary.id,
-          status,
-          paymentPhoto: status === paymentStatus.approved ? paymentPhoto : null,
-        },
-      });
-    }
-
-    if (status === paymentStatus.approved) {
-      await tx.teacherProgress.updateMany({
-        where: { teacherSalaryId: salaryId },
-        data: {
-          paymentStatus: paymentStatus.approved,
-          progressStatus: progressStatus.closed,
-        },
-      });
-
-      await tx.shiftTeacherData.updateMany({
-        where: { teacherSalaryId: salaryId },
-        data: {
-          paymentStatus: paymentStatus.approved,
-        },
-      });
-    }
-
-    if (status === paymentStatus.rejected) {
-      await tx.teacherProgress.updateMany({
-        where: { teacherSalaryId: salaryId },
-        data: {
-          paymentStatus: paymentStatus.pending,
-          progressStatus: progressStatus.open,
-          teacherSalaryId: null,
-        },
-      });
-
-      await tx.shiftTeacherData.updateMany({
-        where: { teacherSalaryId: salaryId },
-        data: {
-          paymentStatus: paymentStatus.pending,
-          teacherSalaryId: null,
-        },
-      });
-    }
-
-    return salary;
+      },
+    },
   });
+
+  if (!salary) {
+    throw new Error("Salary not found");
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const teacherSalary = await tx.teacherSalary.update({
+      where: { id: salaryId },
+      data: {
+        status: nextStatus,
+        paymentPhoto:
+          nextStatus === toSalaryStatus("approved")
+            ? (paymentPhoto ?? salary.paymentPhoto)
+            : salary.paymentPhoto,
+        paidAt:
+          nextStatus === toSalaryStatus("approved")
+            ? new Date()
+            : salary.paidAt,
+      },
+      include: {
+        teacher: {
+          select: teacherSelect,
+        },
+        reports: {
+          select: {
+            attendance: true,
+          },
+        },
+      },
+    });
+
+    let nextExpenseStatus: paymentStatus = paymentStatus.pending;
+    const normalizedStatus = String(status);
+    if (normalizedStatus === paymentStatus.approved) {
+      nextExpenseStatus = paymentStatus.approved;
+    } else if (normalizedStatus === paymentStatus.rejected) {
+      nextExpenseStatus = paymentStatus.rejected;
+    }
+
+    await tx.expense.updateMany({
+      where: {
+        teacherSalaryId: salaryId,
+      },
+      data: {
+        status: nextExpenseStatus,
+        paymentPhoto:
+          nextExpenseStatus === paymentStatus.approved
+            ? paymentPhoto
+            : undefined,
+      },
+    });
+
+    return teacherSalary;
+  });
+
+  return mapSalaryRowWithTeacher(updated);
+}
+
+export async function updateSalaryFinancials(
+  salaryId: string,
+  data: {
+    baseSalary: number;
+    bonus: number;
+    deduction: number;
+    unitPrice: number;
+  },
+) {
+  await isAuthorized("manager");
+
+  const salary = await prisma.teacherSalary.findUnique({
+    where: { id: salaryId },
+    include: {
+      reports: {
+        select: {
+          attendance: true,
+        },
+      },
+    },
+  });
+
+  if (!salary) {
+    throw new Error("Salary not found");
+  }
+
+  const totalDayForLearning = salary.reports.filter(
+    (r) => r.attendance !== AttendanceStatus.ABSENT,
+  ).length;
+
+  const totalSalary = Number(
+    (
+      data.baseSalary +
+      totalDayForLearning * data.unitPrice +
+      data.bonus -
+      data.deduction
+    ).toFixed(2),
+  );
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const teacherSalary = await tx.teacherSalary.update({
+      where: { id: salaryId },
+      data: {
+        baseSalary: new Prisma.Decimal(data.baseSalary),
+        bonus: new Prisma.Decimal(data.bonus),
+        deduction: new Prisma.Decimal(data.deduction),
+        dailyRate: new Prisma.Decimal(data.unitPrice),
+        totalSalary: new Prisma.Decimal(totalSalary),
+      },
+      include: {
+        teacher: {
+          select: teacherSelect,
+        },
+        reports: {
+          select: {
+            attendance: true,
+          },
+        },
+      },
+    });
+
+    await tx.expense.updateMany({
+      where: { teacherSalaryId: salaryId },
+      data: {
+        amount: Math.round(totalSalary),
+      },
+    });
+
+    return teacherSalary;
+  });
+
+  return mapSalaryRowWithTeacher(updated);
 }
 
 export async function deleteSalary(salaryId: string) {
-  // delete salary by id -> teacherSalary
-  return prisma.teacherSalary.delete({
+  await isAuthorized("manager");
+
+  const salary = await prisma.teacherSalary.findUnique({
     where: { id: salaryId },
+    select: { id: true },
   });
+
+  if (!salary) {
+    throw new Error("Salary not found");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Unlink reports
+    await tx.teacherDailyReport.updateMany({
+      where: { salaryId },
+      data: { salaryId: null },
+    });
+
+    // Delete expenses
+    await tx.expense.deleteMany({
+      where: { teacherSalaryId: salaryId },
+    });
+
+    // Delete salary
+    await tx.teacherSalary.delete({
+      where: { id: salaryId },
+    });
+  });
+
+  return { success: true };
+}
+
+export async function getSalaryDetail(salaryId: string) {
+  await isAuthorized("manager");
+
+  if (!salaryId) {
+    return null;
+  }
+
+  const salary = await prisma.teacherSalary.findUnique({
+    where: { id: salaryId },
+    include: {
+      teacher: {
+        select: teacherSelect,
+      },
+      reports: {
+        include: {
+          combination: {
+            include: {
+              student: {
+                select: teacherSelect,
+              },
+              teacher: {
+                select: teacherSelect,
+              },
+            },
+          },
+        },
+        orderBy: { date: "desc" },
+      },
+    },
+  });
+
+  if (!salary) {
+    return null;
+  }
+
+  const detailCollections = buildSalaryDetailCollections(
+    salary as unknown as SalaryRecord,
+  );
+
+  return {
+    ...mapSalaryRowWithTeacher(salary),
+    teacher: salary.teacher,
+    teacherProgresses: detailCollections.teacherProgresses,
+    shiftTeacherData: detailCollections.shiftTeacherData,
+  };
 }
 
 export async function getTeacherSalaryAnalytics() {
-  const session = await auth();
-  if (session?.user?.role !== "manager") {
-    return {
-      error: "Access denied.",
-      thisMonthSalaryAmount: 0,
-      thisMonthSalaryCount: 0,
-      thisYearSalaryAmount: 0,
-      thisYearSalaryCount: 0,
-      thisWeekSalaryAmount: 0,
-      thisWeekSalaryCount: 0,
-      totalSalaryAmount: 0,
-      totalSalaryCount: 0,
-    };
-  }
+  await isAuthorized("manager");
 
-  try {
-    const now = new Date();
+  const salaries = await prisma.teacherSalary.findMany({
+    select: {
+      createdAt: true,
+      totalSalary: true,
+    },
+  });
 
-    // Month
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const sumAmount = (items: typeof salaries) =>
+    Number(
+      items
+        .reduce((sum, salary) => sum + Number(salary.totalSalary), 0)
+        .toFixed(2),
     );
 
-    const thisMonth = await prisma.teacherSalary.aggregate({
-      _sum: { amount: true },
-      _count: { id: true },
-      where: {
-        createdAt: { gte: startOfMonth, lte: endOfMonth },
-      },
-    });
+  const thisMonth = salaries.filter(
+    (salary) => salary.createdAt >= startOfMonth,
+  );
+  const thisYear = salaries.filter((salary) => salary.createdAt >= startOfYear);
+  const thisWeek = salaries.filter((salary) => salary.createdAt >= startOfWeek);
 
-    // Year
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-    const thisYear = await prisma.teacherSalary.aggregate({
-      _sum: { amount: true },
-      _count: { id: true },
-      where: {
-        createdAt: { gte: startOfYear, lte: endOfYear },
-      },
-    });
-
-    // Week (Sun-Sat)
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-    const thisWeek = await prisma.teacherSalary.aggregate({
-      _sum: { amount: true },
-      _count: { id: true },
-      where: {
-        createdAt: { gte: startOfWeek, lte: endOfWeek },
-      },
-    });
-
-    // Total
-    const total = await prisma.teacherSalary.aggregate({
-      _sum: { amount: true },
-      _count: { id: true },
-    });
-
-    return {
-      thisMonthSalaryAmount: thisMonth._sum.amount || 0,
-      thisMonthSalaryCount: thisMonth._count.id || 0,
-      thisYearSalaryAmount: thisYear._sum.amount || 0,
-      thisYearSalaryCount: thisYear._count.id || 0,
-      thisWeekSalaryAmount: thisWeek._sum.amount || 0,
-      thisWeekSalaryCount: thisWeek._count.id || 0,
-      totalSalaryAmount: total._sum.amount || 0,
-      totalSalaryCount: total._count.id || 0,
-    };
-  } catch (error) {
-    console.error("Failed to get teacher salary analytics:", error);
-    return {
-      error: "Failed to retrieve salary analytics.",
-      thisMonthSalaryAmount: 0,
-      thisMonthSalaryCount: 0,
-      thisYearSalaryAmount: 0,
-      thisYearSalaryCount: 0,
-      thisWeekSalaryAmount: 0,
-      thisWeekSalaryCount: 0,
-      totalSalaryAmount: 0,
-      totalSalaryCount: 0,
-    };
-  }
+  return {
+    totalSalaryAmount: sumAmount(salaries),
+    totalSalaryCount: salaries.length,
+    thisMonthSalaryAmount: sumAmount(thisMonth),
+    thisMonthSalaryCount: thisMonth.length,
+    thisYearSalaryAmount: sumAmount(thisYear),
+    thisYearSalaryCount: thisYear.length,
+    thisWeekSalaryAmount: sumAmount(thisWeek),
+    thisWeekSalaryCount: thisWeek.length,
+  };
 }

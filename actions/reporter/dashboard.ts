@@ -1,7 +1,11 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { isAuthorized } from "@/lib/utils";
+import {
+  AttendanceStatus,
+  TeacherStudentStatus,
+} from "@prisma/client";
 
 interface MonthlySummary {
   month: number;
@@ -20,26 +24,14 @@ interface TeacherSummary {
 }
 
 export async function getReporterAnalytics(year?: number) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
-
-  const reporter = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-
-  if (!reporter || reporter.role !== "reporter") {
-    throw new Error("Access denied");
-  }
+  await isAuthorized("reporter");
 
   const targetYear = year ?? new Date().getFullYear();
   const start = new Date(targetYear, 0, 1);
   const end = new Date(targetYear + 1, 0, 1);
 
   const [reports, shiftRecords, teacherCount] = await Promise.all([
-    prisma.dailyReport.findMany({
+    prisma.teacherDailyReport.findMany({
       where: {
         date: {
           gte: start,
@@ -48,20 +40,28 @@ export async function getReporterAnalytics(year?: number) {
       },
       select: {
         date: true,
-        learningProgress: true,
-        activeTeacher: {
+        attendance: true,
+        combination: {
           select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
+            teacher: {
+              select: {
+                id: true,
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
     }),
-    prisma.shiftTeacherData.count({
+    prisma.teacherStudent.count({
       where: {
-        createdAt: {
+        OR: [
+          { active: false },
+          { status: TeacherStudentStatus.INACTIVE },
+        ],
+        updatedAt: {
           gte: start,
           lt: end,
         },
@@ -89,41 +89,39 @@ export async function getReporterAnalytics(year?: number) {
   let totalAbsent = 0;
   let totalPermission = 0;
 
-  reports.forEach((report) => {
+  for (const report of reports) {
     const monthIndex = new Date(report.date).getMonth();
-    const progress = report.learningProgress;
     const monthSummary = monthly[monthIndex];
     monthSummary.total += 1;
 
-    if (progress === "present") {
+    if (report.attendance === AttendanceStatus.PRESENT) {
       monthSummary.present += 1;
       totalPresent += 1;
-    } else if (progress === "permission") {
+    } else if (report.attendance === AttendanceStatus.PERMISSION) {
       monthSummary.permission += 1;
       totalPermission += 1;
-    } else if (progress === "absent") {
+    } else {
       monthSummary.absent += 1;
       totalAbsent += 1;
     }
 
-    const teacher = report.activeTeacher;
-    if (teacher) {
-      const teacherId = teacher.id;
-      if (!teacherMap.has(teacherId)) {
-        teacherMap.set(teacherId, {
-          teacherId,
-          teacherName: `${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`,
-          total: 0,
-          absent: 0,
-        });
-      }
-      const summary = teacherMap.get(teacherId)!;
-      summary.total += 1;
-      if (progress === "absent") {
-        summary.absent += 1;
-      }
+    const teacher = report.combination.teacher;
+    const teacherId = teacher.id;
+    const current = teacherMap.get(teacherId) ?? {
+      teacherId,
+      teacherName:
+        `${teacher.firstName} ${teacher.fatherName} ${teacher.lastName}`.trim(),
+      total: 0,
+      absent: 0,
+    };
+
+    current.total += 1;
+    if (report.attendance === AttendanceStatus.ABSENT) {
+      current.absent += 1;
     }
-  });
+
+    teacherMap.set(teacherId, current);
+  }
 
   const totalReports = reports.length;
   const approvalRate =

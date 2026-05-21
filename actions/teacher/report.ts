@@ -4,23 +4,28 @@ import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { getTeacherMonthlyCalendar } from "@/actions/manager/reporter";
 
+async function requireTeacherId() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const teacher = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, role: true },
+  });
+
+  if (!teacher || teacher.role !== "teacher") {
+    throw new Error("Access denied");
+  }
+
+  return teacher.id;
+}
+
 export async function getTeacherDailyCalendar(year: number, month: number) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const teacher = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
-
-    if (!teacher || teacher.role !== "teacher") {
-      throw new Error("Access denied");
-    }
-
-    return await getTeacherMonthlyCalendar(session.user.id, year, month);
+    const teacherId = await requireTeacherId();
+    return await getTeacherMonthlyCalendar(teacherId, year, month);
   } catch (error) {
     console.error("Error fetching teacher daily calendar:", error);
     return {
@@ -33,17 +38,16 @@ export async function getTeacherDailyCalendar(year: number, month: number) {
 
 export async function approveTeacherDailyReport(reportId: string) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const teacherId = await requireTeacherId();
 
-    const report = await prisma.dailyReport.findUnique({
+    const report = await prisma.teacherDailyReport.findUnique({
       where: { id: reportId },
-      select: {
-        id: true,
-        activeTeacherId: true,
-        teacherApproved: true,
+      include: {
+        combination: {
+          select: {
+            teacherId: true,
+          },
+        },
       },
     });
 
@@ -51,7 +55,7 @@ export async function approveTeacherDailyReport(reportId: string) {
       throw new Error("Report not found");
     }
 
-    if (report.activeTeacherId !== session.user.id) {
+    if (report.combination.teacherId !== teacherId) {
       throw new Error("You can only approve your own reports");
     }
 
@@ -63,7 +67,7 @@ export async function approveTeacherDailyReport(reportId: string) {
       };
     }
 
-    const updated = await prisma.dailyReport.update({
+    const updated = await prisma.teacherDailyReport.update({
       where: { id: reportId },
       data: { teacherApproved: true },
     });

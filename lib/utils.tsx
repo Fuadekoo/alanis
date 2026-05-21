@@ -17,21 +17,33 @@ export function getFormErrors<TFieldValues extends FieldValues>(
 export async function isAuthorized(role: Role | Role[]) {
   const error = new Error("You need have authorized to access this 😉");
   const session = await auth();
-  
-  if (!session?.user) throw error;
-  
-  const hasRole = Array.isArray(role) 
-    ? role.includes(session.user.role) 
-    : session.user.role === role;
-    
+
+  const allowedRoles = Array.isArray(role) ? role : [role];
+  const sessionRole = session?.user?.role as Role | undefined;
+
+  if (!session?.user || !sessionRole) throw error;
+
+  const hasRole = allowedRoles.includes(sessionRole);
+
   if (!hasRole) throw error;
-  
-  const user = await prisma.user.findFirst({
+
+  if (!session.user.id) {
+    return { id: "", role: sessionRole };
+  }
+
+  const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { id: true, role: true },
   });
-  if (!user) throw error;
-  return user;
+
+  if (!user) {
+    return { id: session.user.id, role: sessionRole };
+  }
+
+  return {
+    id: user.id,
+    role: sessionRole,
+  };
 }
 
 export function timeFormat24(time: string) {

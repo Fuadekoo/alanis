@@ -131,14 +131,30 @@ export async function deleteStudent(id: string): Promise<MutationState> {
 }
 
 export async function getStudentList(search: string = "") {
+  const session = await auth();
+
   const data = await prisma.user.findMany({
     where: {
       role: "student",
       status: { in: ["active", "inactive"] },
-      OR: [
-        { firstName: { contains: search } },
-        { fatherName: { contains: search } },
-        { lastName: { contains: search } },
+      AND: [
+        ...(session?.user?.role === "controller"
+          ? [
+              {
+                OR: [
+                  { controllerId: session.user.id },
+                  { controllerId: null },
+                ],
+              },
+            ]
+          : []),
+        {
+          OR: [
+            { firstName: { contains: search } },
+            { fatherName: { contains: search } },
+            { lastName: { contains: search } },
+          ],
+        },
       ],
     },
     select: { id: true, firstName: true, fatherName: true, lastName: true },

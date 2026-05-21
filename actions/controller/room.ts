@@ -3,60 +3,63 @@
 import { MutationState } from "@/lib/definitions";
 import { RoomSchema } from "@/lib/zodSchema";
 import prisma from "@/lib/db";
+import { auth } from "@/lib/auth";
 import {
   closeTeacherAssignmentHistory,
   ensureOpenTeacherAssignmentHistory,
+  ensureOpenControllerAssignmentHistory,
 } from "@/lib/assignmentHistory";
-import { Prisma } from "@prisma/client";
+import { Prisma, TeacherStudentStatus } from "@prisma/client";
 
 type Tx = Prisma.TransactionClient;
 
-async function ensureOpenTeacherProgress(
+async function requireRoomActor() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  if (!["manager", "controller"].includes(session.user.role)) {
+    throw new Error("You do not have permission to assign rooms");
+  }
+
+  return {
+    id: session.user.id,
+    role: session.user.role,
+  };
+}
+
+async function ensureActiveTeacherStudent(
   tx: Tx,
   {
     studentId,
     teacherId,
-    learningSlot,
   }: {
     studentId: string;
     teacherId: string;
-    learningSlot: string;
   }
 ) {
-  const existingProgress = await tx.teacherProgress.findFirst({
+  await tx.teacherStudent.upsert({
     where: {
-      studentId,
-      teacherId,
-      progressStatus: "open",
+      teacherId_studentId: {
+        teacherId,
+        studentId,
+      },
     },
-    select: {
-      id: true,
+    update: {
+      active: true,
+      status: TeacherStudentStatus.ACTIVE,
     },
-  });
-
-  if (existingProgress) {
-    await tx.teacherProgress.update({
-      where: { id: existingProgress.id },
-      data: { learningSlot },
-    });
-    return;
-  }
-
-  await tx.teacherProgress.create({
-    data: {
+    create: {
       teacherId,
       studentId,
-      learningCount: 0,
-      missingCount: 0,
-      totalCount: 0,
-      progressStatus: "open",
-      paymentStatus: "pending",
-      learningSlot,
+      active: true,
+      status: TeacherStudentStatus.ACTIVE,
     },
   });
 }
 
-async function shiftOpenTeacherProgress(
+async function deactivateTeacherStudent(
   tx: Tx,
   {
     teacherId,
@@ -66,46 +69,15 @@ async function shiftOpenTeacherProgress(
     studentId: string;
   }
 ) {
-  const teacherProgress = await tx.teacherProgress.findFirst({
+  await tx.teacherStudent.updateMany({
     where: {
       teacherId,
       studentId,
-      progressStatus: "open",
     },
-    include: {
-      dailyReports: true,
-    },
-  });
-
-  if (!teacherProgress) return;
-
-  const shiftData = await tx.shiftTeacherData.create({
     data: {
-      teacherId: teacherProgress.teacherId,
-      studentId: teacherProgress.studentId,
-      learningCount: teacherProgress.learningCount,
-      missingCount: teacherProgress.missingCount,
-      totalCount: teacherProgress.totalCount,
-      progressStatus: "closed",
-      paymentStatus: teacherProgress.paymentStatus,
-      learningSlot: teacherProgress.learningSlot,
-      teacherSalaryId: teacherProgress.teacherSalaryId,
-      originalProgressId: teacherProgress.id,
+      active: false,
+      status: TeacherStudentStatus.INACTIVE,
     },
-  });
-
-  if (teacherProgress.dailyReports.length > 0) {
-    await tx.dailyReport.updateMany({
-      where: { teacherProgressId: teacherProgress.id },
-      data: {
-        shiftTeacherDataId: shiftData.id,
-        teacherProgressId: null,
-      },
-    });
-  }
-
-  await tx.teacherProgress.delete({
-    where: { id: teacherProgress.id },
   });
 }
 
@@ -117,9 +89,41 @@ export async function registerRoom({
   duration,
 }: RoomSchema): Promise<MutationState> {
   try {
+    const actor = await requireRoomActor();
     const parsedDuration = +duration;
 
     await prisma.$transaction(async (tx) => {
+      const student = await tx.user.findUnique({
+        where: { id: studentId },
+        select: { id: true, controllerId: true },
+      });
+
+      if (!student) {
+        throw new Error("Student not found");
+      }
+
+      if (
+        actor.role === "controller" &&
+        student.controllerId &&
+        student.controllerId !== actor.id
+      ) {
+        throw new Error("You can only assign rooms for your own students");
+      }
+
+      if (actor.role === "controller" && !student.controllerId) {
+        await tx.user.update({
+          where: { id: studentId },
+          data: {
+            controllerId: actor.id,
+          },
+        });
+
+        await ensureOpenControllerAssignmentHistory(tx, {
+          studentId,
+          controllerId: actor.id,
+        });
+      }
+
       const roomById = id
         ? await tx.room.findUnique({
             where: { id },
@@ -149,10 +153,9 @@ export async function registerRoom({
             time,
             duration: parsedDuration,
           });
-          await ensureOpenTeacherProgress(tx, {
+          await ensureActiveTeacherStudent(tx, {
             studentId,
             teacherId,
-            learningSlot: time,
           });
           return;
         }
@@ -161,7 +164,7 @@ export async function registerRoom({
           studentId: roomById.studentId,
           teacherId: roomById.teacherId,
         });
-        await shiftOpenTeacherProgress(tx, {
+        await deactivateTeacherStudent(tx, {
           teacherId: roomById.teacherId,
           studentId: roomById.studentId,
         });
@@ -192,10 +195,9 @@ export async function registerRoom({
           time,
           duration: parsedDuration,
         });
-        await ensureOpenTeacherProgress(tx, {
+        await ensureActiveTeacherStudent(tx, {
           studentId,
           teacherId,
-          learningSlot: time,
         });
 
         await tx.room.delete({
@@ -230,10 +232,9 @@ export async function registerRoom({
         time,
         duration: parsedDuration,
       });
-      await ensureOpenTeacherProgress(tx, {
+      await ensureActiveTeacherStudent(tx, {
         studentId,
         teacherId,
-        learningSlot: time,
       });
     });
 
@@ -249,10 +250,6 @@ export async function deleteRoom(id: string): Promise<MutationState> {
     await prisma.$transaction(async (tx) => {
       const room = await tx.room.findUnique({
         where: { id },
-        include: {
-          teacher: true,
-          student: true,
-        },
       });
 
       if (!room) {
@@ -269,7 +266,7 @@ export async function deleteRoom(id: string): Promise<MutationState> {
         studentId: room.studentId,
         teacherId: room.teacherId,
       });
-      await shiftOpenTeacherProgress(tx, {
+      await deactivateTeacherStudent(tx, {
         teacherId: room.teacherId,
         studentId: room.studentId,
       });
@@ -281,7 +278,7 @@ export async function deleteRoom(id: string): Promise<MutationState> {
 
     return {
       status: true,
-      message: "successfully delete room and shift teacher data",
+      message: "successfully delete room and archive teacher assignment",
     };
   } catch (error) {
     console.error("Error in deleteRoom:", error);

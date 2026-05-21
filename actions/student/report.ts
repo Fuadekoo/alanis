@@ -1,52 +1,44 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { auth } from "@/lib/auth";
-import { studentApproveReport as controllerApproveReport } from "@/actions/controller/report";
+import { isAuthorized } from "@/lib/utils";
+import { getMonthRange, toLegacyLearningProgress } from "@/actions/shared/teacherDomain";
+import { studentApproveReport as approveReport } from "@/actions/controller/report";
 
 export async function getStudentDailyCalendar(year: number, month: number) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const student = await isAuthorized("student");
 
-    const student = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
+    const { startDate, endDate, daysInMonth } = getMonthRange(year, month);
 
-    if (!student || student.role !== "student") {
-      throw new Error("Access denied");
-    }
-
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-    const daysInMonth = endDate.getDate();
-
-    const reports = await prisma.dailyReport.findMany({
+    const reports = await prisma.teacherDailyReport.findMany({
       where: {
-        studentId: session.user.id,
         date: {
           gte: startDate,
           lte: endDate,
+        },
+        combination: {
+          studentId: student.id,
         },
       },
       select: {
         id: true,
         date: true,
-        learningProgress: true,
         learningSlot: true,
+        attendance: true,
         studentApproved: true,
         teacherApproved: true,
-        activeTeacherId: true,
-        activeTeacher: {
+        combination: {
           select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
-            username: true,
+            teacher: {
+              select: {
+                id: true,
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+                username: true,
+              },
+            },
           },
         },
       },
@@ -61,40 +53,45 @@ export async function getStudentDailyCalendar(year: number, month: number) {
           firstName: string;
           fatherName: string;
           lastName: string;
-          username: string | null;
+          username: string;
         };
-        reportsByDate: Record<number, (typeof reports)[number]>;
+        reportsByDate: Record<
+          number,
+          {
+            id: string;
+            date: Date;
+            learningProgress: "present" | "absent" | "permission";
+            learningSlot: string | null;
+            studentApproved: boolean | null;
+            teacherApproved: boolean | null;
+          }
+        >;
       }
     >();
 
-    reports.forEach((report) => {
-      const teacherId = report.activeTeacherId;
-      if (!teacherId || !report.activeTeacher) return;
+    for (const report of reports) {
+      const teacher = report.combination.teacher;
+      const current = teachersMap.get(teacher.id) ?? {
+        teacher,
+        reportsByDate: {},
+      };
 
-      if (!teachersMap.has(teacherId)) {
-        teachersMap.set(teacherId, {
-          teacher: {
-            id: report.activeTeacher.id,
-            firstName: report.activeTeacher.firstName,
-            fatherName: report.activeTeacher.fatherName,
-            lastName: report.activeTeacher.lastName,
-            username: report.activeTeacher.username ?? null,
-          },
-          reportsByDate: {},
-        });
-      }
+      current.reportsByDate[new Date(report.date).getDate()] = {
+        id: report.id,
+        date: report.date,
+        learningProgress: toLegacyLearningProgress(report.attendance),
+        learningSlot: report.learningSlot,
+        studentApproved: report.studentApproved,
+        teacherApproved: report.teacherApproved,
+      };
 
-      const entry = teachersMap.get(teacherId)!;
-      const day = new Date(report.date).getDate();
-      entry.reportsByDate[day] = report;
-    });
-
-    const calendarData = Array.from(teachersMap.values());
+      teachersMap.set(teacher.id, current);
+    }
 
     return {
       success: true,
       data: {
-        calendarData,
+        calendarData: Array.from(teachersMap.values()),
         daysInMonth,
         month,
         year,
@@ -114,5 +111,5 @@ export async function studentApproveReport(
   reportId: string,
   approved: boolean
 ) {
-  return controllerApproveReport(reportId, approved);
+  return approveReport(reportId, approved);
 }

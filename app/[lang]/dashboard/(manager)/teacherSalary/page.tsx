@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import {
   Button,
@@ -33,6 +33,8 @@ import {
   DollarSign,
   BarChart3,
   TrendingUp,
+  Edit3,
+  Trash2,
 } from "lucide-react";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
@@ -46,12 +48,15 @@ import {
   getSalaryDetail,
   createAutomaticSalaries,
   getTeacherSalaryAnalytics,
+  updateSalaryFinancials,
+  deleteSalary,
 } from "@/actions/manager/salary";
 import { useLocalization } from "@/hooks/useLocalization";
-import { getTeacherList } from "@/actions/controller/teacher";
-import { paymentStatus } from "@prisma/client";
+import { getTeacherList } from "@/actions/manager/teacher";
 import useAlert from "@/hooks/useAlert";
 import CustomAlert from "@/components/customAlert";
+
+type SalaryUiStatus = "pending" | "approved" | "rejected";
 
 interface TeacherSalaryData {
   id?: string;
@@ -63,10 +68,13 @@ interface TeacherSalaryData {
   };
   month: number;
   year: number;
+  baseSalary?: number;
+  bonus?: number;
+  deduction?: number;
   totalDayForLearning: number;
   unitPrice?: number;
   amount?: number;
-  status?: string;
+  status?: SalaryUiStatus;
   [key: string]: unknown;
 }
 
@@ -84,29 +92,22 @@ type SalaryLinkedDailyReport = {
   learningProgress: string;
 };
 
+type SalaryRecordGroup = {
+  id: string;
+  learningCount: number;
+  missingCount: number;
+  totalCount: number;
+  paymentStatus: string;
+  createdAt: string;
+  student: StudentInfo;
+  teacher?: StudentInfo;
+  dailyReports: SalaryLinkedDailyReport[];
+};
+
 interface SalaryDetail extends TeacherSalaryData {
   createdAt?: string;
-  teacherProgresses: Array<{
-    id: string;
-    learningCount: number;
-    missingCount: number;
-    totalCount: number;
-    paymentStatus: string;
-    createdAt: string;
-    student: StudentInfo;
-    dailyReports: SalaryLinkedDailyReport[];
-  }>;
-  shiftTeacherData: Array<{
-    id: string;
-    learningCount: number;
-    missingCount: number;
-    totalCount: number;
-    paymentStatus: string;
-    createdAt: string;
-    student: StudentInfo;
-    teacher?: StudentInfo;
-    dailyReports: SalaryLinkedDailyReport[];
-  }>;
+  teacherProgresses: SalaryRecordGroup[];
+  shiftTeacherData: SalaryRecordGroup[];
 }
 
 type DailyReportItem = {
@@ -140,26 +141,60 @@ const getDateKey = (value: string | Date) => {
   return `${year}-${month}-${day}`;
 };
 
-const formatDateKeyLabel = (dateKey: string) => {
-  if (!dateKey) return "-";
-
-  const [year, month, day] = dateKey.split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
-};
-
 const formatStudentName = (student: StudentInfo) =>
   `${student.firstName} ${student.fatherName} ${student.lastName}`;
 
-const filterDailyReportsByDateRange = <T extends { date: string | Date }>(
+const getMonthKey = (value: string | Date) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+
+  return `${year}-${month}`;
+};
+
+const formatMonthKeyLabel = (monthKey: string) => {
+  if (!monthKey) return "-";
+
+  const parsed = parseMonthInputValue(monthKey);
+  if (!parsed) return monthKey;
+
+  return new Date(parsed.year, parsed.month - 1, 1).toLocaleDateString(
+    undefined,
+    {
+      month: "long",
+      year: "numeric",
+    },
+  );
+};
+
+const toMonthInputValue = (year?: number | null, month?: number | null) => {
+  if (!year || !month || month < 1 || month > 12) return "";
+  return `${year}-${String(month).padStart(2, "0")}`;
+};
+
+const parseMonthInputValue = (value: string) => {
+  if (!value) return null;
+
+  const [year, month] = value.split("-").map(Number);
+  if (Number.isNaN(year) || Number.isNaN(month) || month < 1 || month > 12) {
+    return null;
+  }
+
+  return { year, month };
+};
+
+const filterDailyReportsByMonthRange = <T extends { date: string | Date }>(
   items: T[],
-  startDate: string,
-  endDate: string
+  startMonth: string,
+  endMonth: string,
 ) =>
   items.filter((item) => {
-    const dateKey = getDateKey(item.date);
-    if (!dateKey) return false;
-    if (startDate && dateKey < startDate) return false;
-    if (endDate && dateKey > endDate) return false;
+    const monthKey = getMonthKey(item.date);
+    if (!monthKey) return false;
+    if (startMonth && monthKey < startMonth) return false;
+    if (endMonth && monthKey > endMonth) return false;
     return true;
   });
 
@@ -169,7 +204,7 @@ const buildLinkedDailyReports = <
     dailyReports?: SalaryLinkedDailyReport[];
   },
 >(
-  items: T[]
+  items: T[],
 ) =>
   items
     .flatMap((item) =>
@@ -179,7 +214,7 @@ const buildLinkedDailyReports = <
         learningSlot: report.learningSlot,
         learningProgress: report.learningProgress,
         student: item.student,
-      }))
+      })),
     )
     .sort((a, b) => {
       const timeDifference =
@@ -190,7 +225,7 @@ const buildLinkedDailyReports = <
       }
 
       return formatStudentName(a.student).localeCompare(
-        formatStudentName(b.student)
+        formatStudentName(b.student),
       );
     });
 
@@ -233,21 +268,21 @@ const buildDailyReportSummary = (items: DailyReportItem[]) => {
     grouped.set(studentId, current);
   });
 
-  return Array.from(grouped.values()).sort((a, b) =>
-    a.studentName.localeCompare(b.studentName)
-  ).map((item) => {
-    const percentage = (count: number) =>
-      item.totalReports > 0
-        ? Number(((count / item.totalReports) * 100).toFixed(1))
-        : 0;
+  return Array.from(grouped.values())
+    .sort((a, b) => a.studentName.localeCompare(b.studentName))
+    .map((item) => {
+      const percentage = (count: number) =>
+        item.totalReports > 0
+          ? Number(((count / item.totalReports) * 100).toFixed(1))
+          : 0;
 
-    return {
-      ...item,
-      presentPercentage: percentage(item.presentCount),
-      permissionPercentage: percentage(item.permissionCount),
-      absentPercentage: percentage(item.absentCount),
-    };
-  });
+      return {
+        ...item,
+        presentPercentage: percentage(item.presentCount),
+        permissionPercentage: percentage(item.permissionCount),
+        absentPercentage: percentage(item.absentCount),
+      };
+    });
 };
 
 const summarizeDailyReports = (items: DailyReportItem[]) => {
@@ -303,6 +338,9 @@ function Page() {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
   const [unitPrice, setUnitPrice] = useState<number>(0);
+  const [baseSalary, setBaseSalary] = useState<number>(0);
+  const [bonus, setBonus] = useState<number>(0);
+  const [deduction, setDeduction] = useState<number>(0);
   const [selectedTeacherProgress, setSelectedTeacherProgress] = useState<
     Set<string>
   >(new Set());
@@ -317,7 +355,7 @@ function Page() {
   // Analytics data
   const [analyticsData, isLoadingAnalytics] = useData(
     getTeacherSalaryAnalytics,
-    () => {}
+    () => {},
   );
 
   // Photo upload state
@@ -331,37 +369,48 @@ function Page() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailSalaryId, setDetailSalaryId] = useState<string>("");
   const [detailSummary, setDetailSummary] = useState<TeacherSalaryData | null>(
-    null
+    null,
   );
-  const [detailStartDate, setDetailStartDate] = useState("");
-  const [detailEndDate, setDetailEndDate] = useState("");
-  const [appliedDetailStartDate, setAppliedDetailStartDate] = useState("");
-  const [appliedDetailEndDate, setAppliedDetailEndDate] = useState("");
+  const [detailStartMonth, setDetailStartMonth] = useState("");
+  const [detailEndMonth, setDetailEndMonth] = useState("");
+  const [appliedDetailStartMonth, setAppliedDetailStartMonth] = useState("");
+  const [appliedDetailEndMonth, setAppliedDetailEndMonth] = useState("");
   const [isAutoModalOpen, setIsAutoModalOpen] = useState(false);
   const [autoMonth, setAutoMonth] = useState<number>(new Date().getMonth() + 1);
   const [autoYear, setAutoYear] = useState<number>(new Date().getFullYear());
   const [autoUnitPrice, setAutoUnitPrice] = useState<number>(0);
 
+  // Edit/Delete state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingSalaryId, setEditingSalaryId] = useState<string | null>(null);
+  const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] =
+    useState(false);
+  const [deletingSalaryId, setDeletingSalaryId] = useState<string | null>(null);
+
   // Fetch data
   const [salaries, salariesLoading, refreshSalaries] = useData(
     getSalary,
-    () => {}
+    () => {},
   );
   const [teachers, teachersLoading] = useData(getTeacherList, () => {});
   const [teacherProgress, teacherProgressLoading] = useData(
     getTeacherProgressForSalary,
     () => {},
-    selectedTeacher || ""
+    selectedTeacher || "",
+    month,
+    year,
   );
   const [shiftTeacherData, shiftTeacherDataLoading] = useData(
     getShiftTeacherDataForSalary,
     () => {},
-    selectedTeacher || ""
+    selectedTeacher || "",
+    month,
+    year,
   );
   const [salaryDetail, salaryDetailLoading] = useData(
     getSalaryDetail,
     () => {},
-    detailSalaryId || ""
+    detailSalaryId || "",
   );
   const monthNames = useMemo(
     () =>
@@ -394,7 +443,7 @@ function Page() {
             "November",
             "December",
           ],
-    [isAm]
+    [isAm],
   );
 
   const formatMonth = (value?: number) => {
@@ -406,21 +455,39 @@ function Page() {
     if (!salary?.id) return;
     setDetailSummary(salary);
     setDetailSalaryId(salary.id);
-    setDetailStartDate("");
-    setDetailEndDate("");
-    setAppliedDetailStartDate("");
-    setAppliedDetailEndDate("");
+    setDetailStartMonth("");
+    setDetailEndMonth("");
+    setAppliedDetailStartMonth("");
+    setAppliedDetailEndMonth("");
     setIsDetailModalOpen(true);
+  };
+
+  const openEditModal = (salary: TeacherSalaryData) => {
+    if (!salary?.id) return;
+    setEditingSalaryId(salary.id);
+    setSelectedTeacher(salary.teacher.id || "");
+    setYear(salary.year);
+    setMonth(salary.month);
+    setUnitPrice(salary.unitPrice || 0);
+    setBaseSalary(salary.baseSalary || 0);
+    setBonus(salary.bonus || 0);
+    setDeduction(salary.deduction || 0);
+    setIsEditModalOpen(true);
+  };
+
+  const openDeleteConfirm = (salaryId: string) => {
+    setDeletingSalaryId(salaryId);
+    setIsDeleteConfirmModalOpen(true);
   };
 
   const closeDetailModal = () => {
     setIsDetailModalOpen(false);
     setDetailSalaryId("");
     setDetailSummary(null);
-    setDetailStartDate("");
-    setDetailEndDate("");
-    setAppliedDetailStartDate("");
-    setAppliedDetailEndDate("");
+    setDetailStartMonth("");
+    setDetailEndMonth("");
+    setAppliedDetailStartMonth("");
+    setAppliedDetailEndMonth("");
   };
   const detailData = (salaryDetail as SalaryDetail | null) ?? null;
   const summary = detailData ?? (detailSummary as SalaryDetail | null) ?? null;
@@ -435,81 +502,81 @@ function Page() {
   const summaryCreatedAt =
     summary && (summary as SalaryDetail)?.createdAt
       ? new Date(
-          (summary as SalaryDetail).createdAt as string
+          (summary as SalaryDetail).createdAt as string,
         ).toLocaleDateString()
       : "-";
   const teacherProgressList = detailData?.teacherProgresses ?? [];
   const shiftList = detailData?.shiftTeacherData ?? [];
   const teacherProgressReports = useMemo(
     () => buildLinkedDailyReports(teacherProgressList),
-    [teacherProgressList]
+    [teacherProgressList],
   );
   const shiftReports = useMemo(
     () => buildLinkedDailyReports(shiftList),
-    [shiftList]
+    [shiftList],
   );
-  const detailDateKeys = useMemo(() => {
+  const detailMonthKeys = useMemo(() => {
     const keys = [...teacherProgressReports, ...shiftReports]
-      .map((item) => getDateKey(item.date))
+      .map((item) => getMonthKey(item.date))
       .filter(Boolean);
 
     return Array.from(new Set(keys)).sort((a, b) => a.localeCompare(b));
   }, [teacherProgressReports, shiftReports]);
-  const detailMinDate = detailDateKeys[0] ?? "";
-  const detailMaxDate = detailDateKeys[detailDateKeys.length - 1] ?? "";
-  const isDetailDateRangeReady = Boolean(detailStartDate && detailEndDate);
-  const hasAppliedDetailDateRange = Boolean(
-    appliedDetailStartDate && appliedDetailEndDate
+  const detailMinMonth = detailMonthKeys[0] ?? "";
+  const detailMaxMonth = detailMonthKeys[detailMonthKeys.length - 1] ?? "";
+  const isDetailMonthRangeReady = Boolean(detailStartMonth && detailEndMonth);
+  const hasAppliedDetailMonthRange = Boolean(
+    appliedDetailStartMonth && appliedDetailEndMonth,
   );
-  const detailRangeInvalid =
-    isDetailDateRangeReady && detailStartDate > detailEndDate;
+  const detailMonthRangeInvalid =
+    isDetailMonthRangeReady && detailStartMonth > detailEndMonth;
   const filteredTeacherProgressReports = useMemo(
     () =>
-      hasAppliedDetailDateRange
-        ? filterDailyReportsByDateRange(
+      hasAppliedDetailMonthRange
+        ? filterDailyReportsByMonthRange(
             teacherProgressReports,
-            appliedDetailStartDate,
-            appliedDetailEndDate
+            appliedDetailStartMonth,
+            appliedDetailEndMonth,
           )
         : teacherProgressReports,
     [
       teacherProgressReports,
-      hasAppliedDetailDateRange,
-      appliedDetailStartDate,
-      appliedDetailEndDate,
-    ]
+      hasAppliedDetailMonthRange,
+      appliedDetailStartMonth,
+      appliedDetailEndMonth,
+    ],
   );
   const filteredShiftReports = useMemo(
     () =>
-      hasAppliedDetailDateRange
-        ? filterDailyReportsByDateRange(
+      hasAppliedDetailMonthRange
+        ? filterDailyReportsByMonthRange(
             shiftReports,
-            appliedDetailStartDate,
-            appliedDetailEndDate
+            appliedDetailStartMonth,
+            appliedDetailEndMonth,
           )
         : shiftReports,
     [
       shiftReports,
-      hasAppliedDetailDateRange,
-      appliedDetailStartDate,
-      appliedDetailEndDate,
-    ]
+      hasAppliedDetailMonthRange,
+      appliedDetailStartMonth,
+      appliedDetailEndMonth,
+    ],
   );
   const teacherProgressDailySummary = useMemo(
     () => buildDailyReportSummary(filteredTeacherProgressReports),
-    [filteredTeacherProgressReports]
+    [filteredTeacherProgressReports],
   );
   const shiftDailySummary = useMemo(
     () => buildDailyReportSummary(filteredShiftReports),
-    [filteredShiftReports]
+    [filteredShiftReports],
   );
   const teacherProgressReportTotals = useMemo(
     () => summarizeDailyReports(filteredTeacherProgressReports),
-    [filteredTeacherProgressReports]
+    [filteredTeacherProgressReports],
   );
   const shiftReportTotals = useMemo(
     () => summarizeDailyReports(filteredShiftReports),
-    [filteredShiftReports]
+    [filteredShiftReports],
   );
   const countBadgeClass =
     "inline-flex items-center rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:border-primary-400/40 dark:bg-primary-500/10 dark:text-primary-200";
@@ -565,12 +632,40 @@ function Page() {
     resetForm();
   });
 
+  const [updateSalaryFinancialsMutation, isUpdatingFinancials] = useMutation(
+    updateSalaryFinancials,
+    () => {
+      refreshSalaries();
+      setIsEditModalOpen(false);
+      resetForm();
+      showAlert({
+        message: isAm ? "ደሞዝ ተስተካክሏል" : "Salary updated successfully",
+        type: "success",
+        title: isAm ? "ተሳክቷል" : "Success",
+      });
+    },
+  );
+
+  const [deleteSalaryMutation, isDeleting] = useMutation(deleteSalary, () => {
+    refreshSalaries();
+    setIsDeleteConfirmModalOpen(false);
+    setDeletingSalaryId(null);
+    showAlert({
+      message: isAm ? "ደሞዝ ተሰርዟል" : "Salary deleted successfully",
+      type: "success",
+      title: isAm ? "ተሳክቷል" : "Success",
+    });
+  });
+
   // Reset form
   const resetForm = () => {
     setSelectedTeacher("");
     setYear(new Date().getFullYear());
     setMonth(new Date().getMonth() + 1);
     setUnitPrice(0);
+    setBaseSalary(0);
+    setBonus(0);
+    setDeduction(0);
     setSelectedTeacherProgress(new Set());
     setSelectedShiftTeacherData(new Set());
   };
@@ -674,69 +769,64 @@ function Page() {
     setPreviewPhotoUrl("");
   };
 
+  const selectedSalaryPeriodLabel =
+    year >= 2000 && month >= 1 && month <= 12
+      ? `${formatMonth(month)} ${year}`
+      : "";
   const teacherProgressIds = useMemo(
     () => (teacherProgress ? teacherProgress.map((tp) => tp.id) : []),
-    [teacherProgress]
+    [teacherProgress],
   );
   const shiftTeacherDataIds = useMemo(
     () => (shiftTeacherData ? shiftTeacherData.map((std) => std.id) : []),
-    [shiftTeacherData]
+    [shiftTeacherData],
   );
+  const allTeacherProgressSelected = true;
+  const allShiftTeacherDataSelected = true;
+  const totalAutoLinkedRecords =
+    (teacherProgress?.length ?? 0) + (shiftTeacherData?.length ?? 0);
+  const hasAutoLinkedRecords = totalAutoLinkedRecords > 0;
 
-  const allTeacherProgressSelected =
-    teacherProgressIds.length > 0 &&
-    teacherProgressIds.every((id) => selectedTeacherProgress.has(id));
-  const allShiftTeacherDataSelected =
-    shiftTeacherDataIds.length > 0 &&
-    shiftTeacherDataIds.every((id) => selectedShiftTeacherData.has(id));
+  useEffect(() => {
+    setSelectedTeacherProgress(new Set(teacherProgressIds));
+  }, [teacherProgressIds]);
 
-  const toggleSelectAllTeacherProgress = () => {
-    setSelectedTeacherProgress(
-      allTeacherProgressSelected ? new Set() : new Set(teacherProgressIds)
-    );
-  };
+  useEffect(() => {
+    setSelectedShiftTeacherData(new Set(shiftTeacherDataIds));
+  }, [shiftTeacherDataIds]);
 
-  const toggleSelectAllShiftTeacherData = () => {
-    setSelectedShiftTeacherData(
-      allShiftTeacherDataSelected ? new Set() : new Set(shiftTeacherDataIds)
-    );
-  };
+  const toggleSelectAllTeacherProgress = () => {};
+  const toggleSelectAllShiftTeacherData = () => {};
 
   // Calculate totalDayForLearning and amount
   const calculations = useMemo(() => {
     let totalDayForLearning = 0;
 
-    // Sum from selected TeacherProgress
-    if (teacherProgress && selectedTeacherProgress.size > 0) {
-      const selectedProgress = teacherProgress.filter((tp) =>
-        selectedTeacherProgress.has(tp.id)
-      );
-      totalDayForLearning += selectedProgress.reduce(
+    if (teacherProgress && teacherProgress.length > 0) {
+      totalDayForLearning += teacherProgress.reduce(
         (sum, tp) => sum + (tp.learningCount || 0),
-        0
+        0,
       );
     }
 
-    // Sum from selected ShiftTeacherData
-    if (shiftTeacherData && selectedShiftTeacherData.size > 0) {
-      const selectedShift = shiftTeacherData.filter((std) =>
-        selectedShiftTeacherData.has(std.id)
-      );
-      totalDayForLearning += selectedShift.reduce(
+    if (shiftTeacherData && shiftTeacherData.length > 0) {
+      totalDayForLearning += shiftTeacherData.reduce(
         (sum, std) => sum + (std.learningCount || 0),
-        0
+        0,
       );
     }
 
-    const amount = totalDayForLearning * unitPrice;
+    const amount =
+      baseSalary + totalDayForLearning * unitPrice + bonus - deduction;
 
     return { totalDayForLearning, amount };
   }, [
     teacherProgress,
     shiftTeacherData,
-    selectedTeacherProgress,
-    selectedShiftTeacherData,
     unitPrice,
+    baseSalary,
+    bonus,
+    deduction,
   ]);
 
   // Handle form submission
@@ -750,23 +840,22 @@ function Page() {
       return;
     }
 
-    if (
-      selectedTeacherProgress.size === 0 &&
-      selectedShiftTeacherData.size === 0
-    ) {
+    if (!hasAutoLinkedRecords) {
       showAlert({
         message: isAm
-          ? "እባክዎ ቢያንስ አንድ TeacherProgress ወይም ShiftTeacherData ይምረጡ"
-          : "Please select at least one TeacherProgress or ShiftTeacherData",
+          ? "እባክዎ ቢያንስ አንድ ንቁ ወይም ዝግ የአስተማሪ-ተማሪ መዝገብ ይምረጡ"
+          : "No teacher-student records with matching unpaid reports were found for the selected salary period",
         type: "warning",
         title: isAm ? "ማስጠንቀቂያ" : "Warning",
       });
       return;
     }
 
-    if (unitPrice <= 0) {
+    if (unitPrice < 0) {
       showAlert({
-        message: isAm ? "እባክዎ የምክንያት ዋጋ ያስገቡ" : "Please enter unit price",
+        message: isAm
+          ? "እባክዎ ትክክለኛ የምክንያት ዋጋ ያስገቡ"
+          : "Please enter a valid unit price",
         type: "warning",
         title: isAm ? "ማስጠንቀቂያ" : "Warning",
       });
@@ -798,16 +887,44 @@ function Page() {
       month,
       year,
       unitPrice,
-      Array.from(selectedTeacherProgress),
-      Array.from(selectedShiftTeacherData)
+      baseSalary,
+      bonus,
+      deduction,
     );
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingSalaryId) return;
+
+    if (unitPrice < 0) {
+      showAlert({
+        message: isAm
+          ? "እባክዎ ትክክለኛ የምክንያት ዋጋ ያስገቡ"
+          : "Please enter a valid unit price",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Warning",
+      });
+      return;
+    }
+
+    await updateSalaryFinancialsMutation(editingSalaryId, {
+      baseSalary,
+      bonus,
+      deduction,
+      unitPrice,
+    });
+  };
+
+  const handleDeleteSubmit = async () => {
+    if (!deletingSalaryId) return;
+    await deleteSalaryMutation(deletingSalaryId);
   };
 
   // Open confirmation modal
   const openConfirmModal = (
     salaryId: string,
     salary: TeacherSalaryData,
-    action: "approve" | "reject"
+    action: "approve" | "reject",
   ) => {
     setSelectedSalaryId(salaryId);
     setSelectedSalaryData(salary);
@@ -837,10 +954,7 @@ function Page() {
     // For reject, proceed directly
     setIsUpdating(true);
     try {
-      const result = await updateSalary(
-        selectedSalaryId,
-        paymentStatus.rejected
-      );
+      const result = await updateSalary(selectedSalaryId, "rejected");
 
       if (result) {
         setIsConfirmModalOpen(false);
@@ -891,8 +1005,8 @@ function Page() {
     try {
       const result = await updateSalary(
         selectedSalaryId,
-        paymentStatus.approved,
-        uploadedPhotoUrl
+        "approved",
+        uploadedPhotoUrl,
       );
 
       if (result) {
@@ -953,7 +1067,8 @@ function Page() {
             .toLowerCase()
             .includes(searchLower) ||
           salary.year.toString().includes(searchLower) ||
-          salary.month.toString().includes(searchLower)
+          salary.month.toString().includes(searchLower) ||
+          formatMonth(salary.month).toLowerCase().includes(searchLower),
       );
     }
 
@@ -1051,14 +1166,24 @@ function Page() {
       renderCell: (item: Record<string, unknown>) => (
         <span
           className={`px-2 py-1 rounded text-xs font-medium ${
-            item.status === paymentStatus.approved
+            item.status === "approved"
               ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-              : item.status === paymentStatus.rejected
-              ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+              : item.status === "rejected"
+                ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
           }`}
         >
-          {item.status as string}
+          {isAm
+            ? item.status === "approved"
+              ? "ጸድቋል"
+              : item.status === "rejected"
+                ? "ተቀባይነት አላገኘም"
+                : "በመጠባበቅ ላይ"
+            : item.status === "approved"
+              ? "Approved"
+              : item.status === "rejected"
+                ? "Rejected"
+                : "Pending"}
         </span>
       ),
     },
@@ -1124,7 +1249,7 @@ function Page() {
                 <Eye className="size-3" />
               </Button>
             )}
-            {item.status === paymentStatus.pending && (
+            {item.status === "pending" && (
               <>
                 <Button
                   size="sm"
@@ -1135,7 +1260,7 @@ function Page() {
                     openConfirmModal(
                       item.id as string,
                       item as TeacherSalaryData,
-                      "approve"
+                      "approve",
                     )
                   }
                 >
@@ -1150,7 +1275,7 @@ function Page() {
                     openConfirmModal(
                       item.id as string,
                       item as TeacherSalaryData,
-                      "reject"
+                      "reject",
                     )
                   }
                 >
@@ -1180,8 +1305,8 @@ function Page() {
                     createdCount > 1 ? " records" : " record"
                   } generated successfully.`
               : isAm
-              ? "ምንም የመምህር ክፍያ መረጃ አልተገኘም።"
-              : result.message,
+                ? "ምንም የመምህር ክፍያ መረጃ አልተገኘም።"
+                : result.message,
           type: "success",
           title: isAm ? "ተሳክቷል" : "Success",
         });
@@ -1198,7 +1323,7 @@ function Page() {
           title: isAm ? "ማስጠንቀቂያ" : "Notice",
         });
       }
-    }
+    },
   );
 
   return (
@@ -1216,7 +1341,7 @@ function Page() {
                 {isLoadingAnalytics
                   ? "..."
                   : formatCurrency(
-                      Number(analyticsData?.totalSalaryAmount || 0)
+                      Number(analyticsData?.totalSalaryAmount || 0),
                     )}
               </p>
               <p className="text-emerald-100 dark:text-emerald-200 text-xs mt-1">
@@ -1240,7 +1365,7 @@ function Page() {
                 {isLoadingAnalytics
                   ? "..."
                   : formatCurrency(
-                      Number(analyticsData?.thisMonthSalaryAmount || 0)
+                      Number(analyticsData?.thisMonthSalaryAmount || 0),
                     )}
               </p>
               <p className="text-blue-100 dark:text-blue-200 text-xs mt-1">
@@ -1264,7 +1389,7 @@ function Page() {
                 {isLoadingAnalytics
                   ? "..."
                   : formatCurrency(
-                      Number(analyticsData?.thisYearSalaryAmount || 0)
+                      Number(analyticsData?.thisYearSalaryAmount || 0),
                     )}
               </p>
               <p className="text-purple-100 dark:text-purple-200 text-xs mt-1">
@@ -1288,7 +1413,7 @@ function Page() {
                 {isLoadingAnalytics
                   ? "..."
                   : formatCurrency(
-                      Number(analyticsData?.thisWeekSalaryAmount || 0)
+                      Number(analyticsData?.thisWeekSalaryAmount || 0),
                     )}
               </p>
               <p className="text-amber-100 dark:text-amber-200 text-xs mt-1">
@@ -1391,38 +1516,44 @@ function Page() {
                 }}
               />
               <div className="flex flex-col sm:flex-row gap-2">
-                <Select
-                  aria-label="month"
-                  selectedKeys={new Set([filterMonth])}
-                  onSelectionChange={(keys) => {
-                    const value = Array.from(keys)[0] as string;
-                    setFilterMonth(value || "all");
+                <Input
+                  type="month"
+                  aria-label="salary period"
+                  value={
+                    filterMonth !== "all" && filterYear !== "all"
+                      ? toMonthInputValue(
+                          parseInt(filterYear, 10),
+                          parseInt(filterMonth, 10),
+                        )
+                      : ""
+                  }
+                  onChange={(event) => {
+                    const parsed = parseMonthInputValue(event.target.value);
+                    if (!parsed) {
+                      setFilterMonth("all");
+                      setFilterYear("all");
+                    } else {
+                      setFilterMonth(parsed.month.toString());
+                      setFilterYear(parsed.year.toString());
+                    }
                     setPage(1);
                   }}
                   variant="bordered"
                   size="sm"
-                  className="sm:w-[140px]"
-                >
-                  {monthOptions.map((option) => (
-                    <SelectItem key={option.value}>{option.label}</SelectItem>
-                  ))}
-                </Select>
-                <Select
-                  aria-label="year"
-                  selectedKeys={new Set([filterYear])}
-                  onSelectionChange={(keys) => {
-                    const value = Array.from(keys)[0] as string;
-                    setFilterYear(value || "all");
+                  className="sm:w-[180px]"
+                />
+                <Button
+                  variant="flat"
+                  size="sm"
+                  onPress={() => {
+                    setFilterMonth("all");
+                    setFilterYear("all");
                     setPage(1);
                   }}
-                  variant="bordered"
-                  size="sm"
-                  className="sm:w-[140px]"
+                  isDisabled={filterMonth === "all" && filterYear === "all"}
                 >
-                  {yearOptions.map((option) => (
-                    <SelectItem key={option.value}>{option.label}</SelectItem>
-                  ))}
-                </Select>
+                  {isAm ? "አጽዳ" : "Clear"}
+                </Button>
                 <Select
                   aria-label="rows per page"
                   selectedKeys={new Set([pageSize.toString()])}
@@ -1452,12 +1583,12 @@ function Page() {
                   setAutoMonth(
                     filterMonth !== "all"
                       ? parseInt(filterMonth, 10)
-                      : new Date().getMonth() + 1
+                      : new Date().getMonth() + 1,
                   );
                   setAutoYear(
                     filterYear !== "all"
                       ? parseInt(filterYear, 10)
-                      : new Date().getFullYear()
+                      : new Date().getFullYear(),
                   );
                   setAutoUnitPrice(unitPrice || 0);
                   setIsAutoModalOpen(true);
@@ -1527,7 +1658,7 @@ function Page() {
                   <tbody>
                     {paginatedSalaries.map((salary) => {
                       const paymentBadge = getPaymentBadge(
-                        salary.status ?? "pending"
+                        salary.status ?? "pending",
                       );
                       return (
                         <tr
@@ -1593,84 +1724,131 @@ function Page() {
                           </td>
                           <td className="border border-default-200 p-3 align-top text-sm text-default-600">
                             {new Date(
-                              salary.createdAt ?? ""
+                              salary.createdAt ?? "",
                             ).toLocaleDateString()}
                           </td>
                           <td className="border border-default-200 p-3 align-top">
-                            <div className="flex flex-wrap gap-2 justify-center">
+                            <div className="flex flex-wrap gap-1.5 justify-center items-center">
+                              {/* View Details - Always Visible */}
                               <Button
                                 size="sm"
                                 variant="flat"
                                 color="primary"
                                 isIconOnly
+                                className="h-8 w-8 rounded-lg"
                                 aria-label={
                                   isAm ? "ዝርዝር ይመልከቱ" : "View details"
                                 }
                                 onPress={() => openDetailModal(salary)}
                               >
-                                <FileText className="size-3" />
+                                <FileText className="size-4" />
                               </Button>
+
+                              {/* Receipt View - Visible if photo exists (usually after approval) */}
                               {salary.paymentPhoto ? (
                                 <Button
                                   size="sm"
                                   variant="flat"
-                                  color="default"
+                                  color="success"
                                   isIconOnly
+                                  className="h-8 w-8 rounded-lg"
                                   aria-label={
-                                    isAm ? "የክፍያ ፎቶ" : "View payment photo"
+                                    isAm ? "ደረሰኝ ይመልከቱ" : "View receipt"
                                   }
                                   onPress={() =>
                                     openPhotoPreview(
-                                      salary.paymentPhoto as string
+                                      salary.paymentPhoto as string,
                                     )
                                   }
                                 >
-                                  <Eye className="size-3" />
+                                  <Eye className="size-4" />
                                 </Button>
                               ) : null}
-                              {salary.status === paymentStatus.pending && (
-                                <>
+
+                              {/* Pending Actions */}
+                              {salary.status === "pending" && (
+                                <div className="flex gap-1 border-l border-default-200 pl-1.5 ml-0.5">
+                                  {/* Edit */}
+                                  <Button
+                                    size="sm"
+                                    variant="flat"
+                                    color="warning"
+                                    isIconOnly
+                                    className="h-8 w-8 rounded-lg"
+                                    aria-label={isAm ? "አስተካክል" : "Edit"}
+                                    onPress={() => openEditModal(salary)}
+                                  >
+                                    <Edit3 className="size-4" />
+                                  </Button>
+
+                                  {/* Approve with Receipt */}
                                   <Button
                                     size="sm"
                                     color="success"
-                                    variant="flat"
-                                    startContent={<Check className="size-3" />}
+                                    variant="solid"
+                                    isIconOnly
+                                    className="h-8 w-8 rounded-lg shadow-sm"
+                                    aria-label={isAm ? "ጸድቅ" : "Approve"}
                                     onPress={() =>
                                       openConfirmModal(
                                         salary.id as string,
                                         salary,
-                                        "approve"
+                                        "approve",
                                       )
                                     }
                                   >
-                                    {isAm ? "ጸድቅ" : "Approve"}
+                                    <Check className="size-4" />
                                   </Button>
+
+                                  {/* Reject */}
                                   <Button
                                     size="sm"
                                     color="danger"
                                     variant="flat"
-                                    startContent={<X className="size-3" />}
+                                    isIconOnly
+                                    className="h-8 w-8 rounded-lg"
+                                    aria-label={isAm ? "አትቀበል" : "Reject"}
                                     onPress={() =>
                                       openConfirmModal(
                                         salary.id as string,
                                         salary,
-                                        "reject"
+                                        "reject",
                                       )
                                     }
                                   >
-                                    {isAm ? "አትቀበል" : "Reject"}
+                                    <X className="size-4" />
                                   </Button>
-                                </>
+                                </div>
                               )}
-                              {salary.status === paymentStatus.approved && (
-                                <span className="text-xs text-success font-medium">
+
+                              {/* Delete Action - For pending/rejected */}
+                              {(salary.status === "pending" ||
+                                salary.status === "rejected") && (
+                                <Button
+                                  size="sm"
+                                  variant="light"
+                                  color="danger"
+                                  isIconOnly
+                                  className="h-8 w-8 rounded-lg"
+                                  aria-label={isAm ? "ሰርዝ" : "Delete"}
+                                  onPress={() =>
+                                    openDeleteConfirm(salary.id as string)
+                                  }
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              )}
+
+                              {/* Final Status Badges */}
+                              {salary.status === "approved" && (
+                                <div className="flex items-center px-2 py-1 rounded-md bg-success/10 text-success text-[10px] font-bold uppercase tracking-wider border border-success/20">
                                   {isAm ? "ጸድቋል" : "Approved"}
-                                </span>
+                                </div>
                               )}
-                              {salary.status === paymentStatus.rejected && (
-                                <span className="text-xs text-danger font-medium">
-                                  {isAm ? "ተቀባይነት አላገኘም" : "Rejected"}
-                                </span>
+                              {salary.status === "rejected" && (
+                                <div className="flex items-center px-2 py-1 rounded-md bg-danger/10 text-danger text-[10px] font-bold uppercase tracking-wider border border-danger/20">
+                                  {isAm ? "ውድቅ ተደርጓል" : "Rejected"}
+                                </div>
                               )}
                             </div>
                           </td>
@@ -1701,15 +1879,15 @@ function Page() {
               ? isAm
                 ? `ውጤቶች ${(page - 1) * pageSize + 1}-${Math.min(
                     page * pageSize,
-                    filteredSalaries.length
+                    filteredSalaries.length,
                   )} ከ ${filteredSalaries.length}`
                 : `Showing ${(page - 1) * pageSize + 1}-${Math.min(
                     page * pageSize,
-                    filteredSalaries.length
+                    filteredSalaries.length,
                   )} of ${filteredSalaries.length}`
               : isAm
-              ? "ውጤት የለም"
-              : "No results"}
+                ? "ውጤት የለም"
+                : "No results"}
           </span>
           <Pagination
             total={totalPages}
@@ -1769,8 +1947,8 @@ function Page() {
                         ? "✓ መምህር ተመርጧል"
                         : "✓ Teacher selected"
                       : isAm
-                      ? "ለመፈለግ መታየብ ይጀምሩ"
-                      : "Start typing to search"
+                        ? "ለመፈለግ መታየብ ይጀምሩ"
+                        : "Start typing to search"
                   }
                   classNames={{
                     base: selectedTeacher
@@ -1800,8 +1978,39 @@ function Page() {
               )}
             </div>
 
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                {isAm ? "የደመወዝ ወር *" : "Salary Period *"}
+              </label>
+              <Input
+                type="month"
+                value={toMonthInputValue(year, month)}
+                onChange={(event) => {
+                  const parsed = parseMonthInputValue(event.target.value);
+                  setSelectedTeacherProgress(new Set());
+                  setSelectedShiftTeacherData(new Set());
+                  if (!parsed) {
+                    setYear(0);
+                    setMonth(0);
+                    return;
+                  }
+
+                  setYear(parsed.year);
+                  setMonth(parsed.month);
+                }}
+                variant="bordered"
+                description={
+                  year >= 2000 && month >= 1 && month <= 12
+                    ? `${formatMonth(month)} ${year}`
+                    : isAm
+                      ? "ወርና ዓመት ይምረጡ"
+                      : "Choose month and year"
+                }
+              />
+            </div>
+
             {/* Year and Month */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="hidden grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
                   {isAm ? "ዓመት *" : "Year *"}
@@ -1902,7 +2111,85 @@ function Page() {
               />
             </div>
 
-            {/* Teacher Progress Selection */}
+            {/* Base Salary, Bonus, Deduction */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {isAm ? "መሰረታዊ ደሞዝ" : "Base Salary"}
+                </label>
+                <Input
+                  type="number"
+                  value={baseSalary.toString()}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setBaseSalary(0);
+                    } else {
+                      const val = parseFloat(value);
+                      if (!isNaN(val)) {
+                        setBaseSalary(val);
+                      }
+                    }
+                  }}
+                  placeholder="0"
+                  min={0}
+                  variant="bordered"
+                  endContent={<DollarSign className="h-4 w-4 text-gray-400" />}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {isAm ? "ተጨማሪ (Bonus)" : "Bonus"}
+                </label>
+                <Input
+                  type="number"
+                  value={bonus.toString()}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setBonus(0);
+                    } else {
+                      const val = parseFloat(value);
+                      if (!isNaN(val)) {
+                        setBonus(val);
+                      }
+                    }
+                  }}
+                  placeholder="0"
+                  min={0}
+                  variant="bordered"
+                  endContent={<TrendingUp className="h-4 w-4 text-green-400" />}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {isAm ? "ቅነሳ (Deduction)" : "Deduction"}
+                </label>
+                <Input
+                  type="number"
+                  value={deduction.toString()}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setDeduction(0);
+                    } else {
+                      const val = parseFloat(value);
+                      if (!isNaN(val)) {
+                        setDeduction(val);
+                      }
+                    }
+                  }}
+                  placeholder="0"
+                  min={0}
+                  variant="bordered"
+                  endContent={
+                    <AlertTriangle className="h-4 w-4 text-red-400" />
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Active Teacher-Student Record Selection */}
             <div
               className={`transition-all ${
                 selectedTeacher
@@ -1911,14 +2198,16 @@ function Page() {
               }`}
             >
               <label className="block text-sm font-medium mb-2">
-                {isAm ? "Teacher Progress" : "Teacher Progress"}
+                {isAm
+                  ? "ንቁ የአስተማሪ-ተማሪ መዝገቦች"
+                  : "Active Teacher-Student Records"}
                 {!selectedTeacher && (
                   <span className="text-xs text-gray-400 ml-2">
                     ({isAm ? "አስቀድመው መምህር ይምረጡ" : "Select teacher first"})
                   </span>
                 )}
               </label>
-              {selectedTeacher && teacherProgressIds.length > 0 && (
+              {false && selectedTeacher && teacherProgressIds.length > 0 && (
                 <div className="mb-2 flex justify-start sm:justify-end">
                   <Button
                     size="sm"
@@ -1945,13 +2234,13 @@ function Page() {
               ) : teacherProgress && teacherProgress.length > 0 ? (
                 <Select
                   placeholder={
-                    isAm ? "Teacher Progress ይምረጡ" : "Select Teacher Progress"
+                    isAm
+                      ? "ንቁ የአስተማሪ-ተማሪ መዝገቦችን ይምረጡ"
+                      : "Active records linked automatically for this month"
                   }
                   selectionMode="multiple"
-                  selectedKeys={selectedTeacherProgress}
-                  onSelectionChange={(keys) =>
-                    setSelectedTeacherProgress(keys as Set<string>)
-                  }
+                  selectedKeys={new Set(teacherProgressIds)}
+                  isDisabled={true}
                   classNames={{
                     trigger: selectedTeacher
                       ? "border-2 border-blue-300 dark:border-blue-600"
@@ -2004,13 +2293,12 @@ function Page() {
                 <>
                   <Select
                     placeholder={
-                      isAm ? "Teacher Progress ይምረጡ" : "Select Teacher Progress"
+                      isAm
+                        ? "ንቁ የአስተማሪ-ተማሪ መዝገቦችን ይምረጡ"
+                        : "Active records linked automatically for this month"
                     }
                     selectionMode="multiple"
-                    selectedKeys={selectedTeacherProgress}
-                    onSelectionChange={(keys) =>
-                      setSelectedTeacherProgress(keys as Set<string>)
-                    }
+                    selectedKeys={new Set()}
                     isDisabled={true}
                     classNames={{
                       trigger: "border-2 border-gray-300 dark:border-gray-600",
@@ -2020,14 +2308,16 @@ function Page() {
                   </Select>
                   <p className="text-sm text-gray-500 mt-1">
                     {isAm
-                      ? "ምንም Teacher Progress አልተገኘም"
-                      : "No Teacher Progress found"}
+                      ? "ምንም ንቁ የአስተማሪ-ተማሪ መዝገብ አልተገኘም"
+                      : selectedSalaryPeriodLabel
+                        ? `No active teacher-student records found for ${selectedSalaryPeriodLabel}`
+                        : "No active teacher-student records found"}
                   </p>
                 </>
               )}
             </div>
 
-            {/* Shift Teacher Data Selection */}
+            {/* Inactive Teacher-Student Record Selection */}
             <div
               className={`transition-all ${
                 selectedTeacher
@@ -2036,14 +2326,16 @@ function Page() {
               }`}
             >
               <label className="block text-sm font-medium mb-2">
-                {isAm ? "Shift Teacher Data" : "Shift Teacher Data"}
+                {isAm
+                  ? "ዝግ የአስተማሪ-ተማሪ መዝገቦች"
+                  : "Inactive Teacher-Student Records"}
                 {!selectedTeacher && (
                   <span className="text-xs text-gray-400 ml-2">
                     ({isAm ? "አስቀድመው መምህር ይምረጡ" : "Select teacher first"})
                   </span>
                 )}
               </label>
-              {selectedTeacher && shiftTeacherDataIds.length > 0 && (
+              {false && selectedTeacher && shiftTeacherDataIds.length > 0 && (
                 <div className="mb-2 flex justify-start sm:justify-end">
                   <Button
                     size="sm"
@@ -2071,14 +2363,12 @@ function Page() {
                 <Select
                   placeholder={
                     isAm
-                      ? "Shift Teacher Data ይምረጡ"
-                      : "Select Shift Teacher Data"
+                      ? "ዝግ የአስተማሪ-ተማሪ መዝገቦችን ይምረጡ"
+                      : "Inactive records linked automatically for this month"
                   }
                   selectionMode="multiple"
-                  selectedKeys={selectedShiftTeacherData}
-                  onSelectionChange={(keys) =>
-                    setSelectedShiftTeacherData(keys as Set<string>)
-                  }
+                  selectedKeys={new Set(shiftTeacherDataIds)}
+                  isDisabled={true}
                   classNames={{
                     trigger: selectedTeacher
                       ? "border-2 border-blue-300 dark:border-blue-600"
@@ -2133,14 +2423,11 @@ function Page() {
                   <Select
                     placeholder={
                       isAm
-                        ? "Shift Teacher Data ይምረጡ"
-                        : "Select Shift Teacher Data"
+                        ? "ዝግ የአስተማሪ-ተማሪ መዝገቦችን ይምረጡ"
+                        : "Inactive records linked automatically for this month"
                     }
                     selectionMode="multiple"
-                    selectedKeys={selectedShiftTeacherData}
-                    onSelectionChange={(keys) =>
-                      setSelectedShiftTeacherData(keys as Set<string>)
-                    }
+                    selectedKeys={new Set()}
                     isDisabled={true}
                     classNames={{
                       trigger: "border-2 border-gray-300 dark:border-gray-600",
@@ -2150,8 +2437,10 @@ function Page() {
                   </Select>
                   <p className="text-sm text-gray-500 mt-1">
                     {isAm
-                      ? "ምንም Shift Teacher Data አልተገኘም"
-                      : "No Shift Teacher Data found"}
+                      ? "ምንም ዝግ የአስተማሪ-ተማሪ መዝገብ አልተገኘም"
+                      : selectedSalaryPeriodLabel
+                        ? `No inactive teacher-student records found for ${selectedSalaryPeriodLabel}`
+                        : "No inactive teacher-student records found"}
                   </p>
                 </>
               )}
@@ -2159,24 +2448,49 @@ function Page() {
 
             {/* Calculation Summary */}
             {(selectedTeacherProgress.size > 0 ||
-              selectedShiftTeacherData.size > 0) && (
+              selectedShiftTeacherData.size > 0 ||
+              baseSalary > 0 ||
+              bonus > 0 ||
+              deduction > 0) && (
               <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
                 <CardBody className="p-4">
                   <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="font-medium">
-                        {isAm ? "የመማሪያ ቀናት" : "Total Learning Days"}:
+                    {baseSalary > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>{isAm ? "መሰረታዊ ደሞዝ" : "Base Salary"}:</span>
+                        <span className="font-medium">
+                          {baseSalary.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm">
+                      <span>
+                        {isAm ? "የመማሪያ ቀናት" : "Total Learning Days"} (
+                        {calculations.totalDayForLearning} ×{" "}
+                        {unitPrice.toLocaleString()}):
                       </span>
-                      <span className="font-semibold">
-                        {calculations.totalDayForLearning}
+                      <span className="font-medium">
+                        {(
+                          calculations.totalDayForLearning * unitPrice
+                        ).toLocaleString()}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium">
-                        {isAm ? "የአሃድ ዋጋ" : "Unit Price"}:
-                      </span>
-                      <span>{unitPrice.toLocaleString()}</span>
-                    </div>
+                    {bonus > 0 && (
+                      <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                        <span>{isAm ? "ተጨማሪ (Bonus)" : "Bonus"}:</span>
+                        <span className="font-medium">
+                          +{bonus.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {deduction > 0 && (
+                      <div className="flex justify-between text-sm text-red-600 dark:text-red-400">
+                        <span>{isAm ? "ቅነሳ (Deduction)" : "Deduction"}:</span>
+                        <span className="font-medium">
+                          -{deduction.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                     <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between">
                       <span className="font-bold text-lg">
                         {isAm ? "ጠቅላላ" : "Total Amount"}:
@@ -2206,9 +2520,7 @@ function Page() {
               isLoading={isCreating}
               isDisabled={
                 !selectedTeacher ||
-                (selectedTeacherProgress.size === 0 &&
-                  selectedShiftTeacherData.size === 0) ||
-                unitPrice <= 0
+                (calculations.totalDayForLearning === 0 && baseSalary <= 0)
               }
             >
               {isAm ? "ይፍጠሩ" : "Create"}
@@ -2276,6 +2588,30 @@ function Page() {
                         {summaryUnitPrice.toLocaleString()}
                       </span>
                     </span>
+                    {summary.baseSalary ? (
+                      <span className={inlineMetricClass}>
+                        Base Salary
+                        <span className="font-semibold text-default-800 dark:text-default-100">
+                          {summary.baseSalary.toLocaleString()}
+                        </span>
+                      </span>
+                    ) : null}
+                    {summary.bonus ? (
+                      <span className={inlineMetricClass}>
+                        Bonus
+                        <span className="font-semibold text-success">
+                          +{summary.bonus.toLocaleString()}
+                        </span>
+                      </span>
+                    ) : null}
+                    {summary.deduction ? (
+                      <span className={inlineMetricClass}>
+                        Deduction
+                        <span className="font-semibold text-danger">
+                          -{summary.deduction.toLocaleString()}
+                        </span>
+                      </span>
+                    ) : null}
                     <span className={inlineMetricClass}>
                       Amount
                       <span className="font-semibold text-primary">
@@ -2288,41 +2624,48 @@ function Page() {
                 <div className="space-y-4 rounded-2xl border border-default-200/70 bg-white p-4 shadow-sm dark:bg-default-900/40">
                   <div className="space-y-1">
                     <h4 className="text-base font-semibold text-default-900 dark:text-default-100">
-                      Date Range Report Filter
+                      Month Range Report Filter
                     </h4>
                     <p className="text-sm text-default-500">
-                      Filter the salary details by linked daily reports only.
-                      Totals below come from the daily report table, not the
-                      salary totals.
+                      Filter the salary details by linked daily report months
+                      only. Totals below come from the daily report table, not
+                      the salary totals.
                     </p>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto_auto]">
                     <Input
-                      type="date"
-                      label="Start Date"
-                      value={detailStartDate}
-                      onChange={(event) => setDetailStartDate(event.target.value)}
-                      min={detailMinDate || undefined}
-                      max={detailEndDate || detailMaxDate || undefined}
+                      type="month"
+                      label="Start Month"
+                      value={detailStartMonth}
+                      onChange={(event) =>
+                        setDetailStartMonth(event.target.value)
+                      }
+                      min={detailMinMonth || undefined}
+                      max={detailEndMonth || detailMaxMonth || undefined}
                       variant="bordered"
                     />
                     <Input
-                      type="date"
-                      label="End Date"
-                      value={detailEndDate}
-                      onChange={(event) => setDetailEndDate(event.target.value)}
-                      min={detailStartDate || detailMinDate || undefined}
-                      max={detailMaxDate || undefined}
+                      type="month"
+                      label="End Month"
+                      value={detailEndMonth}
+                      onChange={(event) =>
+                        setDetailEndMonth(event.target.value)
+                      }
+                      min={detailStartMonth || detailMinMonth || undefined}
+                      max={detailMaxMonth || undefined}
                       variant="bordered"
                     />
                     <Button
                       color="primary"
                       onPress={() => {
-                        if (!isDetailDateRangeReady || detailRangeInvalid) return;
-                        setAppliedDetailStartDate(detailStartDate);
-                        setAppliedDetailEndDate(detailEndDate);
+                        if (!isDetailMonthRangeReady || detailMonthRangeInvalid)
+                          return;
+                        setAppliedDetailStartMonth(detailStartMonth);
+                        setAppliedDetailEndMonth(detailEndMonth);
                       }}
-                      isDisabled={!isDetailDateRangeReady || detailRangeInvalid}
+                      isDisabled={
+                        !isDetailMonthRangeReady || detailMonthRangeInvalid
+                      }
                       className="h-12 self-end"
                     >
                       Apply Filter
@@ -2330,16 +2673,16 @@ function Page() {
                     <Button
                       variant="flat"
                       onPress={() => {
-                        setDetailStartDate("");
-                        setDetailEndDate("");
-                        setAppliedDetailStartDate("");
-                        setAppliedDetailEndDate("");
+                        setDetailStartMonth("");
+                        setDetailEndMonth("");
+                        setAppliedDetailStartMonth("");
+                        setAppliedDetailEndMonth("");
                       }}
                       isDisabled={
-                        !detailStartDate &&
-                        !detailEndDate &&
-                        !appliedDetailStartDate &&
-                        !appliedDetailEndDate
+                        !detailStartMonth &&
+                        !detailEndMonth &&
+                        !appliedDetailStartMonth &&
+                        !appliedDetailEndMonth
                       }
                       className="h-12 self-end"
                     >
@@ -2348,30 +2691,31 @@ function Page() {
                   </div>
                   <div className="flex flex-col gap-2 text-xs text-default-500 sm:flex-row sm:items-center sm:justify-between">
                     <span>
-                      Available Range:{" "}
-                      {detailMinDate && detailMaxDate
-                        ? `${formatDateKeyLabel(detailMinDate)} - ${formatDateKeyLabel(detailMaxDate)}`
+                      Available Months:{" "}
+                      {detailMinMonth && detailMaxMonth
+                        ? `${formatMonthKeyLabel(detailMinMonth)} - ${formatMonthKeyLabel(detailMaxMonth)}`
                         : "No linked daily reports"}
                     </span>
                     <span>
-                      {hasAppliedDetailDateRange
-                        ? `Selected Range: ${appliedDetailStartDate} - ${appliedDetailEndDate}`
+                      {hasAppliedDetailMonthRange
+                        ? `Selected Months: ${formatMonthKeyLabel(appliedDetailStartMonth)} - ${formatMonthKeyLabel(appliedDetailEndMonth)}`
                         : "Showing all linked daily reports"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-2 text-xs text-default-500 sm:flex-row sm:items-center sm:justify-between">
                     <span>
-                      Teacher Progress Reports: {filteredTeacherProgressReports.length}/
+                      Active Record Reports:{" "}
+                      {filteredTeacherProgressReports.length}/
                       {teacherProgressReports.length}
                     </span>
                     <span>
-                      Shift Reports: {filteredShiftReports.length}/
+                      Inactive Record Reports: {filteredShiftReports.length}/
                       {shiftReports.length}
                     </span>
                   </div>
-                  {detailRangeInvalid && (
+                  {detailMonthRangeInvalid && (
                     <p className="text-sm font-medium text-danger">
-                      Start date must be on or before end date.
+                      Start month must be on or before end month.
                     </p>
                   )}
                 </div>
@@ -2380,7 +2724,7 @@ function Page() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h4 className="text-lg font-semibold">
-                        Teacher Progress Daily Reports
+                        Active Record Daily Reports
                       </h4>
                       <p className="text-sm text-default-500">
                         Counts and rows below are calculated from linked daily
@@ -2388,7 +2732,7 @@ function Page() {
                       </p>
                     </div>
                     <span className={countBadgeClass}>
-                      {hasAppliedDetailDateRange
+                      {hasAppliedDetailMonthRange
                         ? `${filteredTeacherProgressReports.length}/${teacherProgressReports.length}`
                         : teacherProgressReports.length}
                     </span>
@@ -2413,7 +2757,8 @@ function Page() {
                             {teacherProgressReportTotals.presentCount}
                           </span>
                           <span className="text-success-700 dark:text-success-300">
-                            Present {teacherProgressReportTotals.presentPercentage}%
+                            Present{" "}
+                            {teacherProgressReportTotals.presentPercentage}%
                           </span>
                         </span>
                         <span className={inlineMetricClass}>
@@ -2421,7 +2766,8 @@ function Page() {
                             {teacherProgressReportTotals.permissionCount}
                           </span>
                           <span className="text-primary">
-                            Permission {teacherProgressReportTotals.permissionPercentage}%
+                            Permission{" "}
+                            {teacherProgressReportTotals.permissionPercentage}%
                           </span>
                         </span>
                         <span className={inlineMetricClass}>
@@ -2429,7 +2775,8 @@ function Page() {
                             {teacherProgressReportTotals.absentCount}
                           </span>
                           <span className="text-danger">
-                            Absent {teacherProgressReportTotals.absentPercentage}%
+                            Absent{" "}
+                            {teacherProgressReportTotals.absentPercentage}%
                           </span>
                         </span>
                       </div>
@@ -2474,7 +2821,10 @@ function Page() {
                             </thead>
                             <tbody>
                               {teacherProgressDailySummary.map((row) => (
-                                <tr key={row.studentId} className="hover:bg-primary/5">
+                                <tr
+                                  key={row.studentId}
+                                  className="hover:bg-primary/5"
+                                >
                                   <td className="border border-default-200 p-2">
                                     {row.studentName}
                                   </td>
@@ -2537,11 +2887,14 @@ function Page() {
                           <tbody>
                             {filteredTeacherProgressReports.map((report) => {
                               const badge = getReportStatusBadge(
-                                report.learningProgress
+                                report.learningProgress,
                               );
 
                               return (
-                                <tr key={report.id} className="hover:bg-primary/5">
+                                <tr
+                                  key={report.id}
+                                  className="hover:bg-primary/5"
+                                >
                                   <td className="border border-default-200 p-2">
                                     {formatStudentName(report.student)}
                                   </td>
@@ -2565,9 +2918,9 @@ function Page() {
                     </>
                   ) : (
                     <p className="text-sm text-default-500">
-                      {hasAppliedDetailDateRange
-                        ? "No teacher progress daily reports found in the selected date range."
-                        : "No teacher progress daily reports are linked to this salary."}
+                      {hasAppliedDetailMonthRange
+                        ? "No active record daily reports found in the selected month range."
+                        : "No active record daily reports are linked to this salary."}
                     </p>
                   )}
                 </div>
@@ -2576,7 +2929,7 @@ function Page() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h4 className="text-lg font-semibold">
-                        Shift Teacher Daily Reports
+                        Inactive Record Daily Reports
                       </h4>
                       <p className="text-sm text-default-500">
                         Counts and rows below are calculated from linked daily
@@ -2584,7 +2937,7 @@ function Page() {
                       </p>
                     </div>
                     <span className={countBadgeClass}>
-                      {hasAppliedDetailDateRange
+                      {hasAppliedDetailMonthRange
                         ? `${filteredShiftReports.length}/${shiftReports.length}`
                         : shiftReports.length}
                     </span>
@@ -2670,7 +3023,10 @@ function Page() {
                             </thead>
                             <tbody>
                               {shiftDailySummary.map((row) => (
-                                <tr key={row.studentId} className="hover:bg-primary/5">
+                                <tr
+                                  key={row.studentId}
+                                  className="hover:bg-primary/5"
+                                >
                                   <td className="border border-default-200 p-2">
                                     {row.studentName}
                                   </td>
@@ -2733,11 +3089,14 @@ function Page() {
                           <tbody>
                             {filteredShiftReports.map((report) => {
                               const badge = getReportStatusBadge(
-                                report.learningProgress
+                                report.learningProgress,
                               );
 
                               return (
-                                <tr key={report.id} className="hover:bg-primary/5">
+                                <tr
+                                  key={report.id}
+                                  className="hover:bg-primary/5"
+                                >
                                   <td className="border border-default-200 p-2">
                                     {formatStudentName(report.student)}
                                   </td>
@@ -2761,9 +3120,9 @@ function Page() {
                     </>
                   ) : (
                     <p className="text-sm text-default-500">
-                      {hasAppliedDetailDateRange
-                        ? "No shift daily reports found in the selected date range."
-                        : "No shift daily reports are linked to this salary."}
+                      {hasAppliedDetailMonthRange
+                        ? "No inactive record daily reports found in the selected month range."
+                        : "No inactive record daily reports are linked to this salary."}
                     </p>
                   )}
                 </div>
@@ -2819,8 +3178,8 @@ function Page() {
                     ? "ደሞዝ ያጽድቁ"
                     : "Approve Salary"
                   : isAm
-                  ? "ደሞዝ ይቃወሙ"
-                  : "Reject Salary"}
+                    ? "ደሞዝ ይቃወሙ"
+                    : "Reject Salary"}
               </h3>
             </div>
           </ModalHeader>
@@ -2832,8 +3191,8 @@ function Page() {
                     ? "እርግጠኛ ነዎት ይህን ደሞዝ ማጽደቅ ይፈልጋሉ?"
                     : "Are you sure you want to approve this salary?"
                   : isAm
-                  ? "እርግጠኛ ነዎት ይህን ደሞዝ መቃወም ይፈልጋሉ?"
-                  : "Are you sure you want to reject this salary?"}
+                    ? "እርግጠኛ ነዎት ይህን ደሞዝ መቃወም ይፈልጋሉ?"
+                    : "Are you sure you want to reject this salary?"}
               </p>
 
               {/* Salary Details */}
@@ -2854,7 +3213,8 @@ function Page() {
                       {isAm ? "ወር/ዓመት:" : "Month/Year:"}
                     </span>
                     <span className="font-semibold">
-                      {selectedSalaryData.month}/{selectedSalaryData.year}
+                      {formatMonth(selectedSalaryData.month)}{" "}
+                      {selectedSalaryData.year}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -2904,8 +3264,8 @@ function Page() {
                       ? "ይህ ድርጊት የደሞዝ ሁኔታን ወደ 'ጸድቋል' ይቀይራል። ይህ ተግባር መመለስ አይቻልም።"
                       : "This action will change the salary status to 'Approved'. This action cannot be undone."
                     : isAm
-                    ? "ይህ ድርጊት የደሞዝ ሁኔታን ወደ 'ተቀባይነት አላገኘም' ይቀይራል። ይህ ተግባር መመለስ አይቻልም።"
-                    : "This action will change the salary status to 'Rejected'. This action cannot be undone."}
+                      ? "ይህ ድርጊት የደሞዝ ሁኔታን ወደ 'ተቀባይነት አላገኘም' ይቀይራል። ይህ ተግባር መመለስ አይቻልም።"
+                      : "This action will change the salary status to 'Rejected'. This action cannot be undone."}
                 </p>
               </div>
             </div>
@@ -2940,8 +3300,8 @@ function Page() {
                   ? "አዎ, ጸድቅ"
                   : "Yes, Approve"
                 : isAm
-                ? "አዎ, ቃወም"
-                : "Yes, Reject"}
+                  ? "አዎ, ቃወም"
+                  : "Yes, Reject"}
             </Button>
           </ModalFooter>
         </ModalContent>
@@ -2966,105 +3326,139 @@ function Page() {
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-success/10 border-2 border-success/20">
+              <div className="p-2.5 rounded-xl bg-success/10 border border-success/20 shadow-sm">
                 <Upload className="size-6 text-success" />
               </div>
-              <h3 className="text-xl font-bold">
-                {isAm ? "የክፍያ ፎቶ ይስቀሉ" : "Upload Payment Photo"}
-              </h3>
+              <div>
+                <h3 className="text-xl font-bold">
+                  {isAm ? "የክፍያ ማረጋገጫ" : "Payment Confirmation"}
+                </h3>
+                <p className="text-xs text-default-500 font-normal">
+                  {isAm
+                    ? "ደሞዝ ለማጽደቅ ደረሰኝ ይስቀሉ"
+                    : "Upload receipt to approve salary"}
+                </p>
+              </div>
             </div>
           </ModalHeader>
           <ModalBody>
-            <div className="space-y-4">
-              <p className="text-default-700">
-                {isAm
-                  ? "ደሞዝን ለማጽደቅ እባክዎ የክፍያ ማረጋገጫ ፎቶ ይስቀሉ።"
-                  : "Please upload payment proof photo to approve the salary."}
-              </p>
-
-              {/* Salary Details Summary */}
+            <div className="space-y-5">
+              {/* Salary Summary Card */}
               {selectedSalaryData && (
-                <div className="p-3 bg-default-100 rounded-lg space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-default-600">
-                      {isAm ? "መምህር:" : "Teacher:"}
-                    </span>
-                    <span className="font-semibold">
-                      {selectedSalaryData.teacher.firstName}{" "}
-                      {selectedSalaryData.teacher.fatherName}{" "}
-                      {selectedSalaryData.teacher.lastName}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-default-600">
-                      {isAm ? "መጠን:" : "Amount:"}
-                    </span>
-                    <span className="font-bold text-lg text-primary">
-                      {selectedSalaryData.amount?.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
+                <Card className="bg-default-50 border border-default-200 shadow-none">
+                  <CardBody className="p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-default-100 pb-2">
+                      <span className="text-xs text-default-500 uppercase font-bold tracking-wider">
+                        {isAm ? "መምህር" : "Teacher"}
+                      </span>
+                      <span className="text-sm font-semibold text-default-900">
+                        {selectedSalaryData.teacher.firstName}{" "}
+                        {selectedSalaryData.teacher.fatherName}{" "}
+                        {selectedSalaryData.teacher.lastName}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-default-500 uppercase font-bold tracking-wider">
+                        {isAm ? "የክፍያ መጠን" : "Payment Amount"}
+                      </span>
+                      <span className="text-xl font-black text-primary">
+                        {selectedSalaryData.amount?.toLocaleString()}{" "}
+                        <span className="text-xs font-normal text-default-400">
+                          ETB
+                        </span>
+                      </span>
+                    </div>
+                  </CardBody>
+                </Card>
               )}
 
-              {/* File Upload Input */}
-              <div>
-                <label className="block mb-2 text-sm font-medium">
-                  {isAm ? "ፎቶ ይምረጡ" : "Select Photo"} *
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoChange}
-                  className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-success-50 file:text-success-700 hover:file:bg-success-100"
-                  disabled={isUploading}
-                />
+              {/* Upload Section */}
+              <div className="space-y-3">
+                <div
+                  className={`relative group border-2 border-dashed rounded-2xl p-8 transition-all duration-300 flex flex-col items-center justify-center gap-3 cursor-pointer
+                    ${
+                      uploadedPhotoUrl
+                        ? "border-success/30 bg-success/5"
+                        : "border-default-300 hover:border-primary/50 hover:bg-primary/5"
+                    }`}
+                  onClick={() =>
+                    !isUploading &&
+                    document.getElementById("receipt-upload")?.click()
+                  }
+                >
+                  <input
+                    id="receipt-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    className="hidden"
+                    disabled={isUploading}
+                  />
 
-                {/* Upload Progress */}
-                {isUploading && uploadingPhoto && (
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span>{uploadingPhoto.name}</span>
-                      <span>{uploadProgress}%</span>
-                    </div>
-                    <div className="w-full bg-default-200 rounded-full h-2">
-                      <div
-                        className="bg-success h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Photo Preview */}
-                {uploadedPhotoUrl && (
-                  <div className="mt-3">
-                    <p className="text-sm text-default-600 mb-2">
-                      {isAm ? "የተስቀለ ፎቶ" : "Uploaded Photo"}:
-                    </p>
-                    <div className="relative inline-block">
+                  {!uploadedPhotoUrl ? (
+                    <>
+                      <div className="p-4 rounded-full bg-default-100 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                        <Upload className="size-8" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-default-700">
+                          {isAm ? "ፎቶ እዚህ ይስቀሉ" : "Click to upload receipt"}
+                        </p>
+                        <p className="text-xs text-default-400">
+                          PNG, JPG up to 10MB
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="relative group/image">
                       <Image
                         src={formatImageUrl(uploadedPhotoUrl)}
-                        alt="Payment proof"
-                        width={128}
-                        height={128}
-                        className="w-32 h-32 object-cover rounded border"
+                        alt="Receipt preview"
+                        width={200}
+                        height={200}
+                        className="w-48 h-48 object-cover rounded-xl shadow-lg border-2 border-white"
                       />
-                      <Button
-                        size="sm"
-                        color="danger"
-                        className="absolute top-1 right-1"
-                        onPress={removePhoto}
-                        isIconOnly
-                      >
-                        <X size={14} />
-                      </Button>
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
+                        <Button
+                          size="sm"
+                          color="danger"
+                          variant="solid"
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            removePhoto();
+                          }}
+                          className="rounded-full shadow-lg"
+                        >
+                          {isAm ? "ቀይር" : "Change Photo"}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {/* Uploading Overlay */}
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-white/80 dark:bg-black/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center p-6">
+                      <div className="w-full space-y-3">
+                        <div className="flex justify-between items-end">
+                          <p className="text-sm font-bold text-primary animate-pulse">
+                            {isAm ? "በመጫን ላይ..." : "Uploading..."}
+                          </p>
+                          <p className="text-xs font-mono">{uploadProgress}%</p>
+                        </div>
+                        <div className="w-full bg-default-200 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-primary h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </ModalBody>
-          <ModalFooter>
+          <ModalFooter className="border-t border-default-100 mt-2">
             <Button
               variant="light"
               onPress={() => {
@@ -3073,6 +3467,7 @@ function Page() {
                 removePhoto();
               }}
               isDisabled={isUpdating}
+              className="font-medium"
             >
               {isAm ? "ይቅር" : "Cancel"}
             </Button>
@@ -3082,8 +3477,9 @@ function Page() {
               isLoading={isUpdating}
               isDisabled={!uploadedPhotoUrl || isUploading}
               startContent={<Check className="size-4" />}
+              className="px-8 font-bold shadow-lg shadow-success/20"
             >
-              {isAm ? "ጸድቅ" : "Approve"}
+              {isAm ? "አጽድቅ" : "Approve Payment"}
             </Button>
           </ModalFooter>
         </ModalContent>
@@ -3133,6 +3529,238 @@ function Page() {
         </ModalContent>
       </Modal>
 
+      {/* Edit Salary Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          resetForm();
+        }}
+        size="2xl"
+        scrollBehavior="inside"
+      >
+        <ModalContent>
+          <ModalHeader>
+            <h2 className="text-xl font-semibold">
+              {isAm ? "ደሞዝ ያስተካክሉ" : "Edit Salary"}
+            </h2>
+          </ModalHeader>
+          <ModalBody className="space-y-4">
+            {/* Unit Price */}
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                {isAm ? "የአሃድ ዋጋ *" : "Unit Price *"}
+              </label>
+              <Input
+                type="number"
+                value={unitPrice.toString()}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "") {
+                    setUnitPrice(0);
+                  } else {
+                    const price = parseFloat(value);
+                    if (!isNaN(price)) {
+                      setUnitPrice(price);
+                    }
+                  }
+                }}
+                placeholder={isAm ? "የአሃድ ዋጋ" : "Unit Price"}
+                min={0}
+                variant="bordered"
+                endContent={<Calculator className="h-4 w-4 text-gray-400" />}
+              />
+            </div>
+
+            {/* Base Salary, Bonus, Deduction */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {isAm ? "መሰረታዊ ደሞዝ" : "Base Salary"}
+                </label>
+                <Input
+                  type="number"
+                  value={baseSalary.toString()}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setBaseSalary(0);
+                    } else {
+                      const val = parseFloat(value);
+                      if (!isNaN(val)) {
+                        setBaseSalary(val);
+                      }
+                    }
+                  }}
+                  placeholder="0"
+                  min={0}
+                  variant="bordered"
+                  endContent={<DollarSign className="h-4 w-4 text-gray-400" />}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {isAm ? "ተጨማሪ (Bonus)" : "Bonus"}
+                </label>
+                <Input
+                  type="number"
+                  value={bonus.toString()}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setBonus(0);
+                    } else {
+                      const val = parseFloat(value);
+                      if (!isNaN(val)) {
+                        setBonus(val);
+                      }
+                    }
+                  }}
+                  placeholder="0"
+                  min={0}
+                  variant="bordered"
+                  endContent={<TrendingUp className="h-4 w-4 text-green-400" />}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {isAm ? "ቅነሳ (Deduction)" : "Deduction"}
+                </label>
+                <Input
+                  type="number"
+                  value={deduction.toString()}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setDeduction(0);
+                    } else {
+                      const val = parseFloat(value);
+                      if (!isNaN(val)) {
+                        setDeduction(val);
+                      }
+                    }
+                  }}
+                  placeholder="0"
+                  min={0}
+                  variant="bordered"
+                  endContent={
+                    <AlertTriangle className="h-4 w-4 text-red-400" />
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Calculation Summary */}
+            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+              <CardBody className="p-4">
+                <div className="space-y-2">
+                  {baseSalary > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span>{isAm ? "መሰረታዊ ደሞዝ" : "Base Salary"}:</span>
+                      <span className="font-medium">
+                        {baseSalary.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span>
+                      {isAm ? "የመማሪያ ቀናት" : "Total Learning Days"} (
+                      {calculations.totalDayForLearning} ×{" "}
+                      {unitPrice.toLocaleString()}):
+                    </span>
+                    <span className="font-medium">
+                      {(
+                        calculations.totalDayForLearning * unitPrice
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                  {bonus > 0 && (
+                    <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                      <span>{isAm ? "ተጨማሪ (Bonus)" : "Bonus"}:</span>
+                      <span className="font-medium">
+                        +{bonus.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {deduction > 0 && (
+                    <div className="flex justify-between text-sm text-red-600 dark:text-red-400">
+                      <span>{isAm ? "ቅነሳ (Deduction)" : "Deduction"}:</span>
+                      <span className="font-medium">
+                        -{deduction.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between">
+                    <span className="font-bold text-lg">
+                      {isAm ? "ጠቅላላ" : "Total Amount"}:
+                    </span>
+                    <span className="font-bold text-lg text-blue-600 dark:text-blue-400">
+                      {calculations.amount.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </CardBody>
+            </Card>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="light"
+              onPress={() => {
+                setIsEditModalOpen(false);
+                resetForm();
+              }}
+            >
+              {isAm ? "ዝጋ" : "Cancel"}
+            </Button>
+            <Button
+              color="primary"
+              onPress={handleEditSubmit}
+              isLoading={isUpdatingFinancials}
+              isDisabled={unitPrice < 0}
+            >
+              {isAm ? "አዘምን" : "Update"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteConfirmModalOpen}
+        onClose={() => setIsDeleteConfirmModalOpen(false)}
+        size="md"
+      >
+        <ModalContent>
+          <ModalHeader>
+            <h2 className="text-xl font-semibold">
+              {isAm ? "ደሞዝ ይሰርዙ" : "Delete Salary"}
+            </h2>
+          </ModalHeader>
+          <ModalBody>
+            <p className="text-default-600">
+              {isAm
+                ? "እርግጠኛ ነዎት ይህን የደሞዝ መዝገብ መሰረዝ ይፈልጋሉ? ይህ ድርጊት መመለስ አይቻልም።"
+                : "Are you sure you want to delete this salary record? This action cannot be undone."}
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="light"
+              onPress={() => setIsDeleteConfirmModalOpen(false)}
+            >
+              {isAm ? "ይቅር" : "Cancel"}
+            </Button>
+            <Button
+              color="danger"
+              onPress={handleDeleteSubmit}
+              isLoading={isDeleting}
+            >
+              {isAm ? "አዎ, ሰርዝ" : "Yes, Delete"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
       {/* Custom Alert */}
       <CustomAlert
         isOpen={isAlertOpen}
@@ -3170,7 +3798,30 @@ function Page() {
           </ModalHeader>
           <ModalBody>
             <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                type="month"
+                label={isAm ? "የደመወዝ ወር *" : "Salary Period *"}
+                value={toMonthInputValue(autoYear, autoMonth)}
+                onChange={(event) => {
+                  const parsed = parseMonthInputValue(event.target.value);
+                  if (!parsed) {
+                    setAutoYear(0);
+                    setAutoMonth(0);
+                    return;
+                  }
+
+                  setAutoYear(parsed.year);
+                  setAutoMonth(parsed.month);
+                }}
+                description={
+                  autoYear >= 2000 && autoMonth >= 1 && autoMonth <= 12
+                    ? `${formatMonth(autoMonth)} ${autoYear}`
+                    : isAm
+                      ? "ወርና ዓመት ይምረጡ"
+                      : "Choose month and year"
+                }
+              />
+              <div className="hidden gap-3 sm:grid-cols-2">
                 <Select
                   label={isAm ? "ወር *" : "Month *"}
                   selectedKeys={new Set([autoMonth.toString()])}

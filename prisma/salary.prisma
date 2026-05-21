@@ -1,0 +1,93 @@
+/// Salary Management Domain
+/// ----------------------------------------
+/// This file is part of the active multi-file Prisma schema.
+/// `prisma/schema.prisma` keeps the generator, datasource, and shared models.
+/// Salary-specific models and enums live here to avoid duplication.
+
+enum TeacherStudentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  PERMISSION
+}
+
+enum SalaryStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model TeacherStudent {
+  id        String               @id @default(uuid())
+  teacherId String
+  studentId String
+  status    TeacherStudentStatus @default(ACTIVE)
+  active    Boolean              @default(true)
+  note      String?              @db.Text
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  teacher      user                 @relation("TeacherStudents", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  student      user                 @relation("StudentTeachers", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  dailyReports TeacherDailyReport[]
+
+  @@unique([teacherId, studentId])
+  @@index([teacherId])
+  @@index([studentId])
+  @@index([active, status])
+}
+
+model TeacherDailyReport {
+  id         String           @id @default(uuid())
+  combId     String
+  salaryId   String?
+  date       DateTime
+  learningSlot String?
+  attendance AttendanceStatus @default(PRESENT)
+  studentApproved Boolean?
+  teacherApproved Boolean?
+  note       String?          @db.Text
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  combination TeacherStudent @relation(fields: [combId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  salary      TeacherSalary? @relation(fields: [salaryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([combId, date])
+  @@index([combId])
+  @@index([salaryId])
+  @@index([date])
+  @@index([attendance, date])
+}
+
+model TeacherSalary {
+  id                String       @id @default(uuid())
+  teacherId         String
+  month             Int
+  year              Int
+  baseSalary        Decimal      @default(0) @db.Decimal(10, 2)
+  bonus             Decimal      @default(0) @db.Decimal(10, 2)
+  deduction         Decimal      @default(0) @db.Decimal(10, 2)
+  dailyRate         Decimal      @db.Decimal(10, 2)
+  totalSalary       Decimal      @db.Decimal(10, 2)
+  status            SalaryStatus @default(PENDING)
+  paymentPhoto      String?
+  note              String?      @db.Text
+  paidAt            DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  teacher  user                 @relation("TeacherSalaries", fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  reports  TeacherDailyReport[]
+  expenses expense[]
+
+  @@unique([teacherId, month, year])
+  @@index([teacherId])
+  @@index([month, year])
+  @@index([status])
+  @@index([year, month, status])
+}

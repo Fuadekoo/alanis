@@ -304,38 +304,25 @@ export async function getRooms() {
 export async function getActiveTeachingStats() {
   const teacher = await isAuthorized("teacher");
 
-  // Get TeacherProgress with pending payment status
-  const teacherProgress = await prisma.teacherProgress.findMany({
+  const reports = await prisma.teacherDailyReport.findMany({
     where: {
-      teacherId: teacher.id,
-      paymentStatus: "pending",
+      salaryId: null,
+      combination: {
+        teacherId: teacher.id,
+      },
     },
     select: {
-      learningCount: true,
-      missingCount: true,
+      attendance: true,
     },
   });
 
-  // Get ShiftTeacherData with pending payment status
-  const shiftTeacherData = await prisma.shiftTeacherData.findMany({
-    where: {
-      teacherId: teacher.id,
-      paymentStatus: "pending",
-    },
-    select: {
-      learningCount: true,
-      missingCount: true,
-    },
-  });
+  const totalLearningCount = reports.filter(
+    (report) => report.attendance !== "ABSENT"
+  ).length;
 
-  // Sum up all counts
-  const totalLearningCount =
-    teacherProgress.reduce((sum, item) => sum + item.learningCount, 0) +
-    shiftTeacherData.reduce((sum, item) => sum + item.learningCount, 0);
-
-  const totalMissingCount =
-    teacherProgress.reduce((sum, item) => sum + item.missingCount, 0) +
-    shiftTeacherData.reduce((sum, item) => sum + item.missingCount, 0);
+  const totalMissingCount = reports.filter(
+    (report) => report.attendance === "ABSENT"
+  ).length;
 
   return {
     totalTeachingDate: totalLearningCount,

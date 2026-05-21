@@ -1,27 +1,63 @@
 "use server";
 
-import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
+import prisma from "@/lib/db";
+import {
+  comboWithRelationsInclude,
+  getMonthRange,
+  mapReportToCalendarReport,
+  parseDateInput,
+  toAttendanceStatus,
+  toTeacherStudentStatus,
+} from "@/actions/shared/teacherDomain";
 
-// Get all teacher's students with calendar data for a month
+interface CreateTeacherReportData {
+  studentId: string;
+  learningProgress: "present" | "absent" | "permission";
+  date?: Date | string;
+}
+
+function todayUtc() {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
+}
+
+async function requireTeacherSession() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const teacher = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, role: true },
+  });
+
+  if (!teacher || teacher.role !== "teacher") {
+    throw new Error("Access denied. Only teachers can access this.");
+  }
+
+  return teacher.id;
+}
+
+async function getTeacherRoomAssignment(teacherId: string, studentId: string) {
+  return prisma.room.findFirst({
+    where: {
+      teacherId,
+      studentId,
+    },
+    select: {
+      time: true,
+      duration: true,
+    },
+  });
+}
+
 export async function getTeacherStudentsCalendar(year: number, month: number) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const teacherId = session.user.id;
-
-    // Verify user is a teacher
-    const teacher = await prisma.user.findUnique({
-      where: { id: teacherId },
-      select: { role: true },
-    });
-
-    if (!teacher || teacher.role !== "teacher") {
-      throw new Error("Access denied. Only teachers can access this.");
-    }
+    const teacherId = await requireTeacherSession();
 
     if (!year || !month) {
       return {
@@ -35,108 +71,65 @@ export async function getTeacherStudentsCalendar(year: number, month: number) {
       };
     }
 
-    // Get the first and last day of the month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0); // Last day of month
-    const daysInMonth = endDate.getDate();
+    const { startDate, endDate, daysInMonth } = getMonthRange(year, month);
 
-    // Get all students assigned to this teacher through room table
-    const students = await prisma.user.findMany({
-      where: {
-        role: "student",
-        roomStudent: {
-          some: {
-            teacherId: teacherId,
-          },
-        },
-      },
+    const rooms = await prisma.room.findMany({
+      where: { teacherId },
       select: {
-        id: true,
-        firstName: true,
-        fatherName: true,
-        lastName: true,
-        username: true,
-        roomStudent: {
-          where: {
-            teacherId: teacherId,
-          },
+        studentId: true,
+        time: true,
+        duration: true,
+        student: {
           select: {
-            time: true,
-            duration: true,
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
           },
-          orderBy: {
-            time: "asc",
-          },
-          take: 1,
         },
       },
-      orderBy: { firstName: "asc" },
+      orderBy: [{ time: "asc" }, { student: { firstName: "asc" } }],
     });
 
-    const studentIds = students.map((student) => student.id);
+    const studentIds = Array.from(new Set(rooms.map((room) => room.studentId)));
 
-    // Get all teacher daily reports for students in this month
     const reports =
       studentIds.length === 0
         ? []
         : await prisma.teacherDailyReport.findMany({
             where: {
-              teacherId: teacherId,
-              studentId: {
-                in: studentIds,
-              },
               date: {
                 gte: startDate,
-                lte: new Date(year, month, 0, 23, 59, 59), // End of last day
+                lte: endDate,
+              },
+              combination: {
+                teacherId,
+                studentId: {
+                  in: studentIds,
+                },
               },
             },
-            select: {
-              id: true,
-              studentId: true,
-              date: true,
-              learningProgress: true,
-              approved: true,
-            },
+            include: reportWithTeacherStudentInclude(),
+            orderBy: { date: "asc" },
           });
 
-    // Organize reports by student and date
-    const calendarData = students
-      .map((student) => {
-        const studentReports = reports.filter(
-          (r: { studentId: string }) => r.studentId === student.id
-        );
-        const firstRoom = student.roomStudent[0];
+    const reportMap = new Map<string, Record<number, ReturnType<typeof mapReportToCalendarReport>>>();
 
-        // Create a map of date -> report
-        const reportsByDate: Record<
-          number,
-          (typeof studentReports)[0] | undefined
-        > = {};
-        studentReports.forEach((report: { date: Date | string }) => {
-          const day = new Date(report.date).getDate();
-          reportsByDate[day] = report as (typeof studentReports)[0];
-        });
+    reports.forEach((report) => {
+      const studentId = report.combination.studentId;
+      const day = new Date(report.date).getUTCDate();
+      const studentReports = reportMap.get(studentId) ?? {};
+      studentReports[day] = mapReportToCalendarReport(report);
+      reportMap.set(studentId, studentReports);
+    });
 
-        return {
-          student: {
-            id: student.id,
-            firstName: student.firstName,
-            fatherName: student.fatherName,
-            lastName: student.lastName,
-            username: student.username,
-          },
-          timeSlot: firstRoom?.time || "",
-          duration: firstRoom?.duration || null,
-          reportsByDate,
-        };
-      })
-      .sort((a, b) => {
-        // Sort by time slot (ascending)
-        if (!a.timeSlot && !b.timeSlot) return 0;
-        if (!a.timeSlot) return 1;
-        if (!b.timeSlot) return -1;
-        return a.timeSlot.localeCompare(b.timeSlot);
-      });
+    const calendarData = rooms.map((room) => ({
+      student: room.student,
+      timeSlot: room.time,
+      duration: room.duration,
+      reportsByDate: reportMap.get(room.studentId) ?? {},
+    }));
 
     return {
       success: true,
@@ -165,139 +158,95 @@ export async function getTeacherStudentsCalendar(year: number, month: number) {
   }
 }
 
-interface CreateTeacherReportData {
-  studentId: string;
-  learningProgress: "present" | "absent" | "permission";
-  date?: Date | string;
+function reportWithTeacherStudentInclude() {
+  return {
+    combination: {
+      select: {
+        studentId: true,
+        teacher: {
+          select: {
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+          },
+        },
+      },
+    },
+  } as const;
 }
 
-// Create a teacher daily report
 export async function createTeacherReport(data: CreateTeacherReportData) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const teacherId = session.user.id;
-
-    // Verify user is a teacher
-    const teacher = await prisma.user.findUnique({
-      where: { id: teacherId },
-      select: { role: true },
-    });
-
-    if (!teacher || teacher.role !== "teacher") {
-      throw new Error("Access denied. Only teachers can create reports.");
-    }
-
+    const teacherId = await requireTeacherSession();
     const { studentId, learningProgress, date } = data;
 
-    // Validate input
     if (!studentId || !learningProgress) {
       throw new Error("Missing required fields");
     }
 
-    if (!["present", "absent", "permission"].includes(learningProgress)) {
-      throw new Error("Invalid learning progress value");
-    }
-
-    // Verify student is assigned to this teacher
-    const student = await prisma.user.findFirst({
-      where: {
-        id: studentId,
-        role: "student",
-        roomStudent: {
-          some: {
-            teacherId: teacherId,
-          },
-        },
-      },
-    });
-
-    if (!student) {
+    const room = await getTeacherRoomAssignment(teacherId, studentId);
+    if (!room) {
       throw new Error(
         "Student not found or not assigned to you. You can only create reports for your assigned students."
       );
     }
 
-    // Normalize dates to UTC midnight to avoid timezone shifts
-    let reportDate: Date;
-    if (typeof date === "string") {
-      const parts = date.split("-");
-      if (parts.length !== 3) {
-        throw new Error("Invalid date format. Expected YYYY-MM-DD");
-      }
-      const [yearStr, monthStr, dayStr] = parts;
-      const year = Number(yearStr);
-      const month = Number(monthStr);
-      const day = Number(dayStr);
-      if (
-        Number.isNaN(year) ||
-        Number.isNaN(month) ||
-        Number.isNaN(day) ||
-        month < 1 ||
-        month > 12 ||
-        day < 1 ||
-        day > 31
-      ) {
-        throw new Error("Invalid date value provided");
-      }
-      reportDate = new Date(Date.UTC(year, month - 1, day));
-    } else {
-      const sourceDate = date ? new Date(date) : new Date();
-      if (Number.isNaN(sourceDate.getTime())) {
-        throw new Error("Invalid date value provided");
-      }
-      reportDate = new Date(
-        Date.UTC(
-          sourceDate.getUTCFullYear(),
-          sourceDate.getUTCMonth(),
-          sourceDate.getUTCDate()
-        )
-      );
-    }
-
-    const currentDate = new Date();
-    const today = new Date(
-      Date.UTC(
-        currentDate.getUTCFullYear(),
-        currentDate.getUTCMonth(),
-        currentDate.getUTCDate()
-      )
-    );
-
-    if (reportDate > today) {
+    const reportDate = parseDateInput(date);
+    if (reportDate > todayUtc()) {
       throw new Error("Cannot create reports for future dates");
     }
 
-    // Check if report already exists for this date
-    const existingReport = await prisma.teacherDailyReport.findFirst({
+    const combination = await prisma.teacherStudent.upsert({
       where: {
-        teacherId: teacherId,
-        studentId: studentId,
-        date: reportDate,
+        teacherId_studentId: {
+          teacherId,
+          studentId,
+        },
       },
+      update: {
+        active: true,
+        status: toTeacherStudentStatus("active"),
+      },
+      create: {
+        teacherId,
+        studentId,
+        active: true,
+        status: toTeacherStudentStatus("active"),
+      },
+      include: comboWithRelationsInclude,
+    });
+
+    const existingReport = await prisma.teacherDailyReport.findUnique({
+      where: {
+        combId_date: {
+          combId: combination.id,
+          date: reportDate,
+        },
+      },
+      select: { id: true },
     });
 
     if (existingReport) {
       throw new Error("A report already exists for this date");
     }
 
-    // Create the teacher daily report
     const teacherDailyReport = await prisma.teacherDailyReport.create({
       data: {
-        teacherId: teacherId,
-        studentId: studentId,
+        combId: combination.id,
         date: reportDate,
-        learningProgress: learningProgress,
-        approved: null, // Initially not approved
+        learningSlot: room.time,
+        attendance: toAttendanceStatus(learningProgress),
+        teacherApproved: true,
+        studentApproved: null,
       },
     });
 
     return {
       success: true,
-      data: teacherDailyReport,
+      data: {
+        ...teacherDailyReport,
+        learningProgress,
+      },
       message: "Report created successfully",
     };
   } catch (error) {
@@ -309,35 +258,18 @@ export async function createTeacherReport(data: CreateTeacherReportData) {
   }
 }
 
-// Delete a teacher daily report
 export async function deleteTeacherReport(reportId: string) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const teacherId = await requireTeacherSession();
 
-    const teacherId = session.user.id;
-
-    // Verify user is a teacher
-    const teacher = await prisma.user.findUnique({
-      where: { id: teacherId },
-      select: { role: true },
-    });
-
-    if (!teacher || teacher.role !== "teacher") {
-      throw new Error("Access denied. Only teachers can delete reports.");
-    }
-
-    // Get the report to verify it belongs to this teacher
     const report = await prisma.teacherDailyReport.findUnique({
       where: { id: reportId },
-      select: {
-        id: true,
-        teacherId: true,
-        studentId: true,
-        date: true,
-        learningProgress: true,
+      include: {
+        combination: {
+          select: {
+            teacherId: true,
+          },
+        },
       },
     });
 
@@ -345,12 +277,14 @@ export async function deleteTeacherReport(reportId: string) {
       throw new Error("Report not found");
     }
 
-    // Verify the report belongs to this teacher
-    if (report.teacherId !== teacherId) {
+    if (report.combination.teacherId !== teacherId) {
       throw new Error("You can only delete your own reports");
     }
 
-    // Delete the report
+    if (report.salaryId) {
+      throw new Error("This report is already linked to a salary and cannot be deleted");
+    }
+
     await prisma.teacherDailyReport.delete({
       where: { id: reportId },
     });
@@ -368,39 +302,21 @@ export async function deleteTeacherReport(reportId: string) {
   }
 }
 
-// Update a teacher daily report
 export async function updateTeacherReport(
   reportId: string,
   learningProgress: "present" | "absent" | "permission"
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const teacherId = await requireTeacherSession();
 
-    const teacherId = session.user.id;
-
-    // Verify user is a teacher
-    const teacher = await prisma.user.findUnique({
-      where: { id: teacherId },
-      select: { role: true },
-    });
-
-    if (!teacher || teacher.role !== "teacher") {
-      throw new Error("Access denied. Only teachers can update reports.");
-    }
-
-    if (!["present", "absent", "permission"].includes(learningProgress)) {
-      throw new Error("Invalid learning progress value");
-    }
-
-    // Get the report to verify it belongs to this teacher
     const report = await prisma.teacherDailyReport.findUnique({
       where: { id: reportId },
-      select: {
-        id: true,
-        teacherId: true,
+      include: {
+        combination: {
+          select: {
+            teacherId: true,
+          },
+        },
       },
     });
 
@@ -408,22 +324,28 @@ export async function updateTeacherReport(
       throw new Error("Report not found");
     }
 
-    // Verify the report belongs to this teacher
-    if (report.teacherId !== teacherId) {
+    if (report.combination.teacherId !== teacherId) {
       throw new Error("You can only update your own reports");
     }
 
-    // Update the report
+    if (report.salaryId) {
+      throw new Error("This report is already linked to a salary and cannot be updated");
+    }
+
     const updatedReport = await prisma.teacherDailyReport.update({
       where: { id: reportId },
       data: {
-        learningProgress: learningProgress,
+        attendance: toAttendanceStatus(learningProgress),
+        teacherApproved: true,
       },
     });
 
     return {
       success: true,
-      data: updatedReport,
+      data: {
+        ...updatedReport,
+        learningProgress,
+      },
       message: "Report updated successfully",
     };
   } catch (error) {

@@ -1,12 +1,116 @@
 "use server";
-import prisma from "@/lib/db";
-import { auth } from "@/lib/auth";
-import { Prisma } from "@prisma/client";
 
-/**
- * Get calendar-style report for a teacher for a specific month
- * Returns students with their daily reports organized by date
- */
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/db";
+import { Prisma, TeacherStudentStatus, userStatus } from "@prisma/client";
+import {
+  basicUserSelect,
+  buildProgressRecord,
+  comboProgressInclude,
+  formatUserName,
+  getMonthRange,
+  mapReportToCalendarReport,
+  parseDateInput,
+  teacherDailyReportSelect,
+  teacherSelect,
+  toLegacyLearningProgress,
+} from "@/actions/shared/teacherDomain";
+
+type SessionUser = {
+  id: string;
+  role: string;
+};
+
+const studentWithControllerSelect = {
+  id: true,
+  firstName: true,
+  fatherName: true,
+  lastName: true,
+  username: true,
+  phoneNumber: true,
+  controller: {
+    select: {
+      id: true,
+      firstName: true,
+      fatherName: true,
+      lastName: true,
+    },
+  },
+} satisfies Prisma.userSelect;
+
+const comboWithControllerInclude = {
+  student: {
+    select: studentWithControllerSelect,
+  },
+  teacher: {
+    select: teacherSelect,
+  },
+  dailyReports: {
+    select: teacherDailyReportSelect,
+    orderBy: {
+      date: "desc",
+    },
+  },
+} satisfies Prisma.TeacherStudentInclude;
+
+function endOfDay(date: Date) {
+  const value = new Date(date);
+  value.setUTCHours(23, 59, 59, 999);
+  return value;
+}
+
+async function requireSessionUser() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  return {
+    id: session.user.id,
+    role: session.user.role,
+  } satisfies SessionUser;
+}
+
+function getStudentStatusFilter(statusFilter?: string): userStatus | undefined {
+  switch (statusFilter) {
+    case "new":
+    case "active":
+    case "inactive":
+    case "onProgress":
+    case "remedanLeft":
+      return statusFilter;
+    default:
+      return undefined;
+  }
+}
+
+async function getTeacherComboRecords(
+  teacherId: string,
+  user: SessionUser,
+  includeInactive = true
+) {
+  return prisma.teacherStudent.findMany({
+    where: {
+      teacherId,
+      ...(includeInactive
+        ? {}
+        : {
+            active: true,
+            status: TeacherStudentStatus.ACTIVE,
+          }),
+      ...(user.role === "controller"
+        ? {
+            student: {
+              controllerId: user.id,
+            },
+          }
+        : {}),
+    },
+    include: comboWithControllerInclude,
+    orderBy: [{ active: "desc" }, { updatedAt: "desc" }],
+  });
+}
+
 export async function getTeacherMonthlyCalendar(
   teacherId: string,
   year: number,
@@ -14,98 +118,103 @@ export async function getTeacherMonthlyCalendar(
   statusFilter?: string
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const user = await requireSessionUser();
 
     if (!teacherId || !year || !month) {
-      throw new Error("Teacher ID, year, and month are required");
+      return {
+        success: true,
+        data: {
+          calendarData: [],
+          daysInMonth: 0,
+          year,
+          month,
+        },
+      };
     }
 
-    // Get the first and last day of the month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0); // Last day of month
-    const daysInMonth = endDate.getDate();
+    const { startDate, endDate, daysInMonth } = getMonthRange(year, month);
+    const studentStatus = getStudentStatusFilter(statusFilter);
 
-    const isController = session.user.role === "controller";
-
-    const studentWhere: Prisma.userWhereInput = {
-      role: "student",
-      ...(statusFilter && statusFilter !== "all" ? { status: statusFilter as any } : {}),
-      roomStudent: {
-        some: {
-          teacherId: teacherId,
+    const rooms = await prisma.room.findMany({
+      where: {
+        teacherId,
+        student: {
+          role: "student",
+          ...(studentStatus ? { status: studentStatus } : {}),
+          ...(user.role === "controller" ? { controllerId: user.id } : {}),
         },
       },
-    };
-
-    if (isController) {
-      studentWhere.controllerId = session.user.id;
-    }
-
-    // Get all students who have room assignments with this teacher
-    const students = await prisma.user.findMany({
-      where: studentWhere,
       select: {
-        id: true,
-        firstName: true,
-        fatherName: true,
-        lastName: true,
-        username: true,
+        studentId: true,
+        time: true,
+        duration: true,
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+            username: true,
+          },
+        },
       },
-      orderBy: { firstName: "asc" },
+      orderBy: [{ time: "asc" }, { student: { firstName: "asc" } }],
     });
 
-    const studentIds = students.map((student) => student.id);
+    const studentIds = Array.from(new Set(rooms.map((room) => room.studentId)));
 
-    // Get all daily reports for this teacher in this month
     const reports =
       studentIds.length === 0
         ? []
-        : await prisma.dailyReport.findMany({
+        : await prisma.teacherDailyReport.findMany({
             where: {
-              activeTeacherId: teacherId,
-              studentId: {
-                in: studentIds,
-              },
               date: {
                 gte: startDate,
-                lte: new Date(year, month, 0, 23, 59, 59), // End of last day
+                lte: endDate,
+              },
+              combination: {
+                teacherId,
+                studentId: {
+                  in: studentIds,
+                },
               },
             },
-            select: {
-              id: true,
-              studentId: true,
-              date: true,
-              learningProgress: true,
-              learningSlot: true,
-              studentApproved: true,
-              teacherApproved: true,
+            include: {
+              combination: {
+                select: {
+                  studentId: true,
+                  teacher: {
+                    select: {
+                      firstName: true,
+                      fatherName: true,
+                      lastName: true,
+                    },
+                  },
+                },
+              },
             },
+            orderBy: { date: "asc" },
           });
 
-    // Organize reports by student and date
-    const calendarData = students.map((student) => {
-      const studentReports = reports.filter((r) => r.studentId === student.id);
+    const reportMap = new Map<string, Record<number, ReturnType<typeof mapReportToCalendarReport>>>();
 
-      // Create a map of date -> report
-      const reportsByDate: Record<number, (typeof studentReports)[0]> = {};
-      studentReports.forEach((report) => {
-        const day = new Date(report.date).getDate();
-        reportsByDate[day] = report;
-      });
-
-      return {
-        student,
-        reportsByDate,
-      };
-    });
+    for (const report of reports) {
+      const studentId = report.combination.studentId;
+      const studentReports = reportMap.get(studentId) ?? {};
+      studentReports[new Date(report.date).getDate()] =
+        mapReportToCalendarReport(report);
+      reportMap.set(studentId, studentReports);
+    }
 
     return {
       success: true,
       data: {
-        calendarData,
+        calendarData: rooms.map((room) => ({
+          student: room.student,
+          timeSlot: room.time,
+          duration: room.duration,
+          reportsByDate: reportMap.get(room.studentId) ?? {},
+        })),
         daysInMonth,
         year,
         month,
@@ -123,20 +232,13 @@ export async function getTeacherMonthlyCalendar(
   }
 }
 
-/**
- * Get teacher daily report summary for a custom date range
- * Used by the manager daily report view filter tab
- */
 export async function getTeacherDateRangeReportSummary(
   teacherId: string,
   startDate: string,
   endDate: string
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const user = await requireSessionUser();
 
     if (!teacherId || !startDate || !endDate) {
       return {
@@ -158,55 +260,52 @@ export async function getTeacherDateRangeReportSummary(
       };
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      throw new Error("Invalid date range");
-    }
+    const start = parseDateInput(startDate);
+    const end = endOfDay(parseDateInput(endDate));
 
     if (start > end) {
       throw new Error("Start date must be on or before end date");
     }
 
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-
-    const isController = session.user.role === "controller";
-
-    const reports = await prisma.dailyReport.findMany({
+    const reports = await prisma.teacherDailyReport.findMany({
       where: {
-        activeTeacherId: teacherId,
         date: {
           gte: start,
           lte: end,
         },
-        ...(isController
-          ? {
-              student: {
-                controllerId: session.user.id,
-              },
-            }
-          : {}),
+        combination: {
+          teacherId,
+          ...(user.role === "controller"
+            ? {
+                student: {
+                  controllerId: user.id,
+                },
+              }
+            : {}),
+        },
       },
       select: {
         id: true,
-        studentId: true,
         date: true,
         learningSlot: true,
-        learningProgress: true,
+        attendance: true,
         studentApproved: true,
         teacherApproved: true,
-        student: {
+        combination: {
           select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
+            studentId: true,
+            student: {
+              select: {
+                id: true,
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
-      orderBy: [{ date: "desc" }, { student: { firstName: "asc" } }],
+      orderBy: [{ date: "desc" }, { combination: { student: { firstName: "asc" } } }],
     });
 
     const studentSummaryMap = new Map<
@@ -229,56 +328,63 @@ export async function getTeacherDateRangeReportSummary(
     let permissionCount = 0;
     let absentCount = 0;
 
-    reports.forEach((report) => {
-      const existing = studentSummaryMap.get(report.studentId) ?? {
-        student: report.student,
+    for (const report of reports) {
+      const studentId = report.combination.studentId;
+      const current = studentSummaryMap.get(studentId) ?? {
+        student: report.combination.student,
         totalReports: 0,
         presentCount: 0,
         permissionCount: 0,
         absentCount: 0,
       };
 
-      existing.totalReports += 1;
+      current.totalReports += 1;
 
-      if (report.learningProgress === "present") {
-        existing.presentCount += 1;
+      const learningProgress = toLegacyLearningProgress(report.attendance);
+      if (learningProgress === "present") {
+        current.presentCount += 1;
         presentCount += 1;
-      } else if (report.learningProgress === "permission") {
-        existing.permissionCount += 1;
+      } else if (learningProgress === "permission") {
+        current.permissionCount += 1;
         permissionCount += 1;
-      } else if (report.learningProgress === "absent") {
-        existing.absentCount += 1;
+      } else {
+        current.absentCount += 1;
         absentCount += 1;
       }
 
-      studentSummaryMap.set(report.studentId, existing);
-    });
+      studentSummaryMap.set(studentId, current);
+    }
 
     const totalReports = reports.length;
     const percentage = (count: number) =>
       totalReports > 0 ? Number(((count / totalReports) * 100).toFixed(1)) : 0;
 
-    const studentSummaries = Array.from(studentSummaryMap.values())
-      .map((item) => ({
-        ...item,
-        presentPercentage: percentage(item.presentCount),
-        permissionPercentage: percentage(item.permissionCount),
-        absentPercentage: percentage(item.absentCount),
-      }))
-      .sort((a, b) =>
-        `${a.student.firstName} ${a.student.fatherName} ${a.student.lastName}`.localeCompare(
-          `${b.student.firstName} ${b.student.fatherName} ${b.student.lastName}`
-        )
-      );
-
     return {
       success: true,
       data: {
-        reports,
-        studentSummaries,
+        reports: reports.map((report) => ({
+          id: report.id,
+          studentId: report.combination.studentId,
+          date: report.date,
+          learningSlot: report.learningSlot,
+          learningProgress: toLegacyLearningProgress(report.attendance),
+          studentApproved: report.studentApproved,
+          teacherApproved: report.teacherApproved,
+          student: report.combination.student,
+        })),
+        studentSummaries: Array.from(studentSummaryMap.values())
+          .map((item) => ({
+            ...item,
+            presentPercentage: percentage(item.presentCount),
+            permissionPercentage: percentage(item.permissionCount),
+            absentPercentage: percentage(item.absentCount),
+          }))
+          .sort((a, b) =>
+            formatUserName(a.student).localeCompare(formatUserName(b.student))
+          ),
         summary: {
           totalReports,
-          totalStudents: studentSummaries.length,
+          totalStudents: studentSummaryMap.size,
           presentCount,
           permissionCount,
           absentCount,
@@ -300,35 +406,25 @@ export async function getTeacherDateRangeReportSummary(
   }
 }
 
-/**
- * Get list of teachers with their controller assignments
- * For reporter to select which teacher to view
- */
 export async function getTeachersWithControllers() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const isController = session.user.role === "controller";
-
-    const teacherWhere: Prisma.userWhereInput = {
-      role: "teacher",
-    };
-
-    if (isController) {
-      teacherWhere.roomTeacher = {
-        some: {
-          student: {
-            controllerId: session.user.id,
-          },
-        },
-      };
-    }
+    const user = await requireSessionUser();
 
     const teachers = await prisma.user.findMany({
-      where: teacherWhere,
+      where: {
+        role: "teacher",
+        ...(user.role === "controller"
+          ? {
+              roomTeacher: {
+                some: {
+                  student: {
+                    controllerId: user.id,
+                  },
+                },
+              },
+            }
+          : {}),
+      },
       select: {
         id: true,
         firstName: true,
@@ -336,11 +432,11 @@ export async function getTeachersWithControllers() {
         lastName: true,
         username: true,
         roomTeacher: {
-          ...(isController
+          ...(user.role === "controller"
             ? {
                 where: {
                   student: {
-                    controllerId: session.user.id,
+                    controllerId: user.id,
                   },
                 },
               }
@@ -365,10 +461,9 @@ export async function getTeachersWithControllers() {
       orderBy: { firstName: "asc" },
     });
 
-    // Get unique teacher-controller pairs
-    const teacherControllerPairs = teachers.map((teacher) => {
-      const controller = teacher.roomTeacher[0]?.student?.controller || null;
-      return {
+    return {
+      success: true,
+      data: teachers.map((teacher) => ({
         teacher: {
           id: teacher.id,
           firstName: teacher.firstName,
@@ -376,13 +471,8 @@ export async function getTeachersWithControllers() {
           lastName: teacher.lastName,
           username: teacher.username,
         },
-        controller,
-      };
-    });
-
-    return {
-      success: true,
-      data: teacherControllerPairs,
+        controller: teacher.roomTeacher[0]?.student.controller ?? null,
+      })),
     };
   } catch (error) {
     console.error("Error getting teachers with controllers:", error);
@@ -396,10 +486,6 @@ export async function getTeachersWithControllers() {
   }
 }
 
-/**
- * Get all shift teacher data (historical records)
- * For reporter to view teacher-student shifts
- */
 export async function getAllShiftData(
   page: number = 1,
   pageSize: number = 10,
@@ -409,14 +495,9 @@ export async function getAllShiftData(
   year?: number
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    await requireSessionUser();
 
-    const skip = (page - 1) * pageSize;
-
-    const baseWhere: Prisma.ShiftTeacherDataWhereInput = {
+    const where: Prisma.TeacherStudentWhereInput = {
       OR: [
         { student: { firstName: { contains: search, mode: "insensitive" } } },
         { student: { fatherName: { contains: search, mode: "insensitive" } } },
@@ -425,84 +506,49 @@ export async function getAllShiftData(
         { teacher: { fatherName: { contains: search, mode: "insensitive" } } },
         { teacher: { lastName: { contains: search, mode: "insensitive" } } },
       ],
-    };
-
-    const extraFilters: Prisma.ShiftTeacherDataWhereInput[] = [];
-    if (teacherId) {
-      extraFilters.push({ teacherId });
-    }
-
-    if (month || year) {
-      const filterYear = year ?? new Date().getFullYear();
-      let startDate = new Date(filterYear, 0, 1);
-      let endDate = new Date(filterYear + 1, 0, 1);
-
-      if (month) {
-        startDate = new Date(filterYear, month - 1, 1);
-        endDate = new Date(filterYear, month, 1);
-      }
-
-      extraFilters.push({
-        createdAt: {
-          gte: startDate,
-          lt: endDate,
-        },
-      });
-    }
-
-    const where: Prisma.ShiftTeacherDataWhereInput = {
-      AND: [baseWhere, ...extraFilters],
-    };
-
-    const shiftData = await prisma.shiftTeacherData.findMany({
-      where,
-      include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
-            username: true,
-            controller: {
-              select: {
-                id: true,
-                firstName: true,
-                fatherName: true,
-                lastName: true,
-              },
+      ...(teacherId ? { teacherId } : {}),
+      ...(month || year
+        ? {
+            updatedAt: {
+              gte: new Date(
+                year ?? new Date().getFullYear(),
+                month ? month - 1 : 0,
+                1
+              ),
+              lt: month
+                ? new Date(year ?? new Date().getFullYear(), month, 1)
+                : new Date((year ?? new Date().getFullYear()) + 1, 0, 1),
             },
-          },
-        },
-        teacher: {
-          select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
-            username: true,
-          },
-        },
-        dailyReports: {
-          orderBy: { date: "desc" },
-          take: 5,
-        },
+          }
+        : {}),
+      NOT: {
+        active: true,
+        status: TeacherStudentStatus.ACTIVE,
       },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: pageSize,
-    });
+    };
 
-    const totalCount = await prisma.shiftTeacherData.count({
-      where,
-    });
+    const skip = (page - 1) * pageSize;
+
+    const [combos, totalCount] = await Promise.all([
+      prisma.teacherStudent.findMany({
+        where,
+        include: comboWithControllerInclude,
+        orderBy: { updatedAt: "desc" },
+        skip,
+        take: pageSize,
+      }),
+      prisma.teacherStudent.count({ where }),
+    ]);
 
     return {
       success: true,
       data: {
-        shiftData,
+        shiftData: combos.map((combo) => ({
+          ...buildProgressRecord(combo),
+          createdAt: combo.updatedAt,
+        })),
         totalCount,
-        totalPages: Math.ceil(totalCount / pageSize),
+        totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
         currentPage: page,
       },
     };
@@ -511,101 +557,45 @@ export async function getAllShiftData(
     return {
       success: false,
       error:
-        error instanceof Error
-          ? error.message
-          : "Failed to get shift teacher data",
+        error instanceof Error ? error.message : "Failed to get shift data",
     };
   }
 }
 
-/**
- * Get all active teacher progress for a specific teacher
- * For reporter to view current teaching assignments
- */
 export async function getTeacherProgressByTeacher(teacherId: string) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const user = await requireSessionUser();
 
-    // Return empty data if no teacherId is provided (instead of throwing error)
-    if (!teacherId || teacherId.trim() === "") {
+    if (!teacherId?.trim()) {
       return {
         success: true,
         data: [],
       };
     }
 
-    const teacherProgress = await prisma.teacherProgress.findMany({
-      where: {
-        teacherId: teacherId,
-        progressStatus: "open",
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
-            username: true,
-            controller: {
-              select: {
-                id: true,
-                firstName: true,
-                fatherName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
-        teacher: {
-          select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
-          },
-        },
-        dailyReports: {
-          orderBy: { date: "desc" },
-          take: 10,
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const combos = await getTeacherComboRecords(teacherId, user, false);
 
     return {
       success: true,
-      data: teacherProgress,
+      data: combos.map(buildProgressRecord),
     };
   } catch (error) {
     console.error("Error getting teacher progress:", error);
     return {
       success: false,
       error:
-        error instanceof Error
-          ? error.message
-          : "Failed to get teacher progress",
+        error instanceof Error ? error.message : "Failed to get teacher progress",
     };
   }
 }
 
-/**
- * Get teacherDailyReport calendar data for a specific teacher and month
- * Returns students with their teacherDailyReports organized by date
- */
 export async function getTeacherDailyReportCalendar(
   teacherId: string,
   year: number,
   month: number
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const user = await requireSessionUser();
 
     if (!teacherId || !year || !month) {
       return {
@@ -619,80 +609,92 @@ export async function getTeacherDailyReportCalendar(
       };
     }
 
-    // Get the first and last day of the month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0); // Last day of month
-    const daysInMonth = endDate.getDate();
+    const { startDate, endDate, daysInMonth } = getMonthRange(year, month);
 
-    // Get all students who have teacherDailyReports with this teacher
-    const teacherDailyReports = await prisma.teacherDailyReport.findMany({
+    const reports = await prisma.teacherDailyReport.findMany({
       where: {
-        teacherId: teacherId,
         date: {
           gte: startDate,
-          lte: new Date(year, month, 0, 23, 59, 59, 999),
+          lte: endDate,
+        },
+        combination: {
+          teacherId,
+          ...(user.role === "controller"
+            ? {
+                student: {
+                  controllerId: user.id,
+                },
+              }
+            : {}),
         },
       },
-      include: {
-        student: {
+      select: {
+        id: true,
+        date: true,
+        attendance: true,
+        studentApproved: true,
+        teacherApproved: true,
+        combination: {
           select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
-            username: true,
+            studentId: true,
+            student: {
+              select: {
+                id: true,
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+                username: true,
+              },
+            },
           },
         },
       },
       orderBy: { date: "asc" },
     });
 
-    // Get unique students
-    const studentMap = new Map();
-    teacherDailyReports.forEach((report) => {
-      if (!studentMap.has(report.student.id)) {
-        studentMap.set(report.student.id, report.student);
-      }
-    });
-
-    const students = Array.from(studentMap.values());
-
-    // Organize reports by student and date
-    const calendarData = students.map((student) => {
-      const studentReports = teacherDailyReports.filter(
-        (r) => r.studentId === student.id
-      );
-
-      // Create a map of date -> report
-      const reportsByDate: Record<
-        number,
-        {
+    const studentMap = new Map<
+      string,
+      {
+        student: {
           id: string;
-          date: Date;
-          learningProgress: string;
-          approved: boolean | null;
-        }
-      > = {};
-      studentReports.forEach((report) => {
-        const day = new Date(report.date).getDate();
-        reportsByDate[day] = {
-          id: report.id,
-          date: report.date,
-          learningProgress: report.learningProgress,
-          approved: report.approved,
+          firstName: string;
+          fatherName: string;
+          lastName: string;
+          username: string;
         };
-      });
+        reportsByDate: Record<
+          number,
+          {
+            id: string;
+            date: Date;
+            learningProgress: string;
+            approved: boolean | null;
+          }
+        >;
+      }
+    >();
 
-      return {
-        student,
-        reportsByDate,
+    for (const report of reports) {
+      const key = report.combination.studentId;
+      const current = studentMap.get(key) ?? {
+        student: report.combination.student,
+        reportsByDate: {},
       };
-    });
+
+      current.reportsByDate[new Date(report.date).getDate()] = {
+        id: report.id,
+        date: report.date,
+        learningProgress: toLegacyLearningProgress(report.attendance),
+        approved: report.teacherApproved ?? report.studentApproved ?? null,
+      };
+
+      studentMap.set(key, current);
+    }
 
     return {
       success: true,
       data: {
-        calendarData,
+        calendarData: Array.from(studentMap.values()),
         daysInMonth,
         year,
         month,
@@ -710,245 +712,31 @@ export async function getTeacherDailyReportCalendar(
   }
 }
 
-/**
- * Get comprehensive report data for a specific teacher (for reporters)
- */
-export async function getTeacherReportForReporter(teacherId: string) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    // Only reporters can access this function
-    if (session.user.role !== "reporter") {
-      throw new Error("Access denied. Only reporters can view teacher reports.");
-    }
-
-    // Validate input
-    if (!teacherId || teacherId.trim() === "") {
-      return {
-        success: true,
-        data: {
-          teacher: null,
-          currentProgress: [],
-          historicalProgress: [],
-          teacherDailyReports: [],
-          statistics: {
-            current: {
-              totalStudents: 0,
-              totalLearningCount: 0,
-              totalMissingCount: 0,
-              totalReports: 0,
-            },
-            historical: {
-              totalStudents: 0,
-              totalLearningCount: 0,
-              totalMissingCount: 0,
-              totalReports: 0,
-            },
-            overall: {
-              totalStudents: 0,
-              totalLearningCount: 0,
-              totalMissingCount: 0,
-              totalReports: 0,
-            },
-          },
-        },
-      };
-    }
-
-    // Get teacher info
-    const teacher = await prisma.user.findUnique({
-      where: { id: teacherId, role: "teacher" },
-      select: {
-        id: true,
-        firstName: true,
-        fatherName: true,
-        lastName: true,
-        username: true,
-      },
-    });
-
-    if (!teacher) {
-      return {
-        success: false,
-        error: "Teacher not found",
-      };
-    }
-
-    // Get current open progress for the teacher
-    const currentProgress = await prisma.teacherProgress.findMany({
-      where: {
-        teacherId: teacherId,
-        progressStatus: "open",
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
-            username: true,
-            phoneNumber: true,
-          },
-        },
-        dailyReports: {
-          orderBy: { date: "desc" },
-          take: 10, // Get last 10 reports
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    // Get historical progress from ShiftTeacherData
-    const historicalProgress = await prisma.shiftTeacherData.findMany({
-      where: {
-        teacherId: teacherId,
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
-            username: true,
-            phoneNumber: true,
-          },
-        },
-        dailyReports: {
-          orderBy: { date: "desc" },
-          take: 5, // Get last 5 reports for each historical progress
-        },
-        originalProgress: {
-          select: {
-            id: true,
-            createdAt: true,
-            learningSlot: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    // Get teacherDailyReport data
-    const teacherDailyReports = await prisma.teacherDailyReport.findMany({
-      where: {
-        teacherId: teacherId,
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            fatherName: true,
-            lastName: true,
-            username: true,
-            phoneNumber: true,
-          },
-        },
-      },
-      orderBy: { date: "desc" },
-    });
-
-    // Calculate summary statistics
-    const currentStats = {
-      totalStudents: currentProgress.length,
-      totalLearningCount: currentProgress.reduce(
-        (sum, progress) => sum + progress.learningCount,
-        0
-      ),
-      totalMissingCount: currentProgress.reduce(
-        (sum, progress) => sum + progress.missingCount,
-        0
-      ),
-      totalReports: currentProgress.reduce(
-        (sum, progress) => sum + progress.dailyReports.length,
-        0
-      ),
-    };
-
-    const historicalStats = {
-      totalStudents: historicalProgress.length,
-      totalLearningCount: historicalProgress.reduce(
-        (sum, progress) => sum + progress.learningCount,
-        0
-      ),
-      totalMissingCount: historicalProgress.reduce(
-        (sum, progress) => sum + progress.missingCount,
-        0
-      ),
-      totalReports: historicalProgress.reduce(
-        (sum, progress) => sum + progress.dailyReports.length,
-        0
-      ),
-    };
-
-    return {
-      success: true,
-      data: {
-        teacher,
-        currentProgress,
-        historicalProgress,
-        teacherDailyReports,
-        statistics: {
-          current: currentStats,
-          historical: historicalStats,
-          overall: {
-            totalStudents:
-              currentStats.totalStudents + historicalStats.totalStudents,
-            totalLearningCount:
-              currentStats.totalLearningCount +
-              historicalStats.totalLearningCount,
-            totalMissingCount:
-              currentStats.totalMissingCount +
-              historicalStats.totalMissingCount,
-            totalReports:
-              currentStats.totalReports + historicalStats.totalReports,
-          },
-        },
-      },
-      message: "Teacher report data retrieved successfully",
-    };
-  } catch (error) {
-    console.error("Error getting teacher report:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to get teacher report",
-    };
-  }
-}
-
-/**
- * Get all teachers for reporter
- */
 export async function getAllTeachersForReporter() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const user = await requireSessionUser();
 
     const teachers = await prisma.user.findMany({
-      where: { role: "teacher" },
+      where: {
+        role: "teacher",
+        ...(user.role === "controller"
+          ? {
+              roomTeacher: {
+                some: {
+                  student: {
+                    controllerId: user.id,
+                  },
+                },
+              },
+            }
+          : {}),
+      },
       select: {
         id: true,
         firstName: true,
         fatherName: true,
         lastName: true,
         username: true,
-        _count: {
-          select: {
-            teacherProgressAsTeacher: {
-              where: { progressStatus: "open" },
-            },
-          },
-        },
       },
       orderBy: { firstName: "asc" },
     });
@@ -966,21 +754,14 @@ export async function getAllTeachersForReporter() {
   }
 }
 
-/**
- * Get list of controllers with their teachers
- * For reporter to select which controller to view
- */
 export async function getControllersWithTeachers() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const user = await requireSessionUser();
 
-    // Get all controllers who have students assigned
     const controllers = await prisma.user.findMany({
       where: {
         role: "controller",
+        ...(user.role === "controller" ? { id: user.id } : {}),
         students: {
           some: {},
         },
@@ -1005,7 +786,6 @@ export async function getControllersWithTeachers() {
                   },
                 },
               },
-              take: 1,
             },
           },
         },
@@ -1013,33 +793,37 @@ export async function getControllersWithTeachers() {
       orderBy: { firstName: "asc" },
     });
 
-    // Get unique controller-teacher pairs
-    const controllerTeacherPairs = controllers.map((controller) => {
-      // Get unique teachers from all students
-      const teachersMap = new Map();
-      controller.students.forEach((student) => {
-        student.roomStudent.forEach((room) => {
-          if (room.teacher) {
-            teachersMap.set(room.teacher.id, room.teacher);
-          }
-        });
-      });
-
-      return {
-        controller: {
-          id: controller.id,
-          firstName: controller.firstName,
-          fatherName: controller.fatherName,
-          lastName: controller.lastName,
-          username: controller.username,
-        },
-        teachers: Array.from(teachersMap.values()),
-      };
-    });
-
     return {
       success: true,
-      data: controllerTeacherPairs,
+      data: controllers.map((controller) => {
+        const teachersMap = new Map<
+          string,
+          {
+            id: string;
+            firstName: string;
+            fatherName: string;
+            lastName: string;
+            username: string;
+          }
+        >();
+
+        for (const student of controller.students) {
+          for (const room of student.roomStudent) {
+            teachersMap.set(room.teacher.id, room.teacher);
+          }
+        }
+
+        return {
+          controller: {
+            id: controller.id,
+            firstName: controller.firstName,
+            fatherName: controller.fatherName,
+            lastName: controller.lastName,
+            username: controller.username,
+          },
+          teachers: Array.from(teachersMap.values()),
+        };
+      }),
     };
   } catch (error) {
     console.error("Error getting controllers with teachers:", error);
@@ -1053,35 +837,28 @@ export async function getControllersWithTeachers() {
   }
 }
 
-/**
- * Get calendar-style report for a controller for a specific month
- * Returns all students under this controller with their daily reports organized by date and teacher
- */
 export async function getControllerMonthlyCalendar(
   controllerId: string,
   year: number,
   month: number
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+    const user = await requireSessionUser();
 
     if (!controllerId || !year || !month) {
       throw new Error("Controller ID, year, and month are required");
     }
 
-    // Get the first and last day of the month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0); // Last day of month
-    const daysInMonth = endDate.getDate();
+    if (user.role === "controller" && controllerId !== user.id) {
+      throw new Error("Access denied");
+    }
 
-    // Get all students assigned to this controller
+    const { startDate, endDate, daysInMonth } = getMonthRange(year, month);
+
     const students = await prisma.user.findMany({
       where: {
         role: "student",
-        controllerId: controllerId,
+        controllerId,
       },
       select: {
         id: true,
@@ -1089,86 +866,69 @@ export async function getControllerMonthlyCalendar(
         fatherName: true,
         lastName: true,
         username: true,
-        roomStudent: {
-          select: {
-            teacher: {
-              select: {
-                id: true,
-                firstName: true,
-                fatherName: true,
-                lastName: true,
-              },
-            },
-          },
-          take: 1,
-        },
       },
       orderBy: { firstName: "asc" },
     });
 
     const studentIds = students.map((student) => student.id);
 
-    // Get all daily reports for students under this controller in this month
     const reports =
       studentIds.length === 0
         ? []
-        : await prisma.dailyReport.findMany({
+        : await prisma.teacherDailyReport.findMany({
             where: {
-              studentId: {
-                in: studentIds,
-              },
               date: {
                 gte: startDate,
-                lte: new Date(year, month, 0, 23, 59, 59), // End of last day
+                lte: endDate,
               },
-            },
-            select: {
-              id: true,
-              studentId: true,
-              activeTeacherId: true,
-              date: true,
-              learningProgress: true,
-              learningSlot: true,
-              studentApproved: true,
-              teacherApproved: true,
-              activeTeacher: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  fatherName: true,
-                  lastName: true,
+              combination: {
+                studentId: {
+                  in: studentIds,
                 },
               },
             },
+            include: {
+              combination: {
+                select: {
+                  studentId: true,
+                  teacher: {
+                    select: {
+                      firstName: true,
+                      fatherName: true,
+                      lastName: true,
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: { date: "asc" },
           });
 
-    // Organize reports by student and date
-    const calendarData = students.map((student) => {
-      const studentReports = reports.filter((r) => r.studentId === student.id);
-
-      // Create a map of date -> report
-      const reportsByDate: Record<
+    const reportMap = new Map<
+      string,
+      Record<
         number,
-        (typeof studentReports)[0] & { teacherName?: string }
-      > = {};
-      studentReports.forEach((report) => {
-        const day = new Date(report.date).getDate();
-        const teacherName = report.activeTeacher
-          ? `${report.activeTeacher.firstName} ${report.activeTeacher.fatherName} ${report.activeTeacher.lastName}`
-          : "";
-        reportsByDate[day] = { ...report, teacherName };
-      });
+        ReturnType<typeof mapReportToCalendarReport> & { teacherName: string }
+      >
+    >();
 
-      return {
-        student,
-        reportsByDate,
-      };
-    });
+    for (const report of reports) {
+      const studentId = report.combination.studentId;
+      const studentReports = reportMap.get(studentId) ?? {};
+      studentReports[new Date(report.date).getDate()] =
+        mapReportToCalendarReport(report, true) as ReturnType<
+          typeof mapReportToCalendarReport
+        > & { teacherName: string };
+      reportMap.set(studentId, studentReports);
+    }
 
     return {
       success: true,
       data: {
-        calendarData,
+        calendarData: students.map((student) => ({
+          student,
+          reportsByDate: reportMap.get(student.id) ?? {},
+        })),
         daysInMonth,
         year,
         month,
