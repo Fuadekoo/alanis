@@ -68,9 +68,6 @@ interface TeacherSalaryData {
   };
   month: number;
   year: number;
-  baseSalary?: number;
-  bonus?: number;
-  deduction?: number;
   totalDayForLearning: number;
   unitPrice?: number;
   amount?: number;
@@ -95,6 +92,7 @@ type SalaryLinkedDailyReport = {
 type SalaryRecordGroup = {
   id: string;
   learningCount: number;
+  pendingSalaryCount: number;
   missingCount: number;
   totalCount: number;
   paymentStatus: string;
@@ -184,19 +182,6 @@ const parseMonthInputValue = (value: string) => {
 
   return { year, month };
 };
-
-const filterDailyReportsByMonthRange = <T extends { date: string | Date }>(
-  items: T[],
-  startMonth: string,
-  endMonth: string,
-) =>
-  items.filter((item) => {
-    const monthKey = getMonthKey(item.date);
-    if (!monthKey) return false;
-    if (startMonth && monthKey < startMonth) return false;
-    if (endMonth && monthKey > endMonth) return false;
-    return true;
-  });
 
 const buildLinkedDailyReports = <
   T extends {
@@ -338,9 +323,6 @@ function Page() {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
   const [unitPrice, setUnitPrice] = useState<number>(0);
-  const [baseSalary, setBaseSalary] = useState<number>(0);
-  const [bonus, setBonus] = useState<number>(0);
-  const [deduction, setDeduction] = useState<number>(0);
   const [selectedTeacherProgress, setSelectedTeacherProgress] = useState<
     Set<string>
   >(new Set());
@@ -371,10 +353,6 @@ function Page() {
   const [detailSummary, setDetailSummary] = useState<TeacherSalaryData | null>(
     null,
   );
-  const [detailStartMonth, setDetailStartMonth] = useState("");
-  const [detailEndMonth, setDetailEndMonth] = useState("");
-  const [appliedDetailStartMonth, setAppliedDetailStartMonth] = useState("");
-  const [appliedDetailEndMonth, setAppliedDetailEndMonth] = useState("");
   const [isAutoModalOpen, setIsAutoModalOpen] = useState(false);
   const [autoMonth, setAutoMonth] = useState<number>(new Date().getMonth() + 1);
   const [autoYear, setAutoYear] = useState<number>(new Date().getFullYear());
@@ -455,10 +433,6 @@ function Page() {
     if (!salary?.id) return;
     setDetailSummary(salary);
     setDetailSalaryId(salary.id);
-    setDetailStartMonth("");
-    setDetailEndMonth("");
-    setAppliedDetailStartMonth("");
-    setAppliedDetailEndMonth("");
     setIsDetailModalOpen(true);
   };
 
@@ -469,9 +443,6 @@ function Page() {
     setYear(salary.year);
     setMonth(salary.month);
     setUnitPrice(salary.unitPrice || 0);
-    setBaseSalary(salary.baseSalary || 0);
-    setBonus(salary.bonus || 0);
-    setDeduction(salary.deduction || 0);
     setIsEditModalOpen(true);
   };
 
@@ -484,10 +455,6 @@ function Page() {
     setIsDetailModalOpen(false);
     setDetailSalaryId("");
     setDetailSummary(null);
-    setDetailStartMonth("");
-    setDetailEndMonth("");
-    setAppliedDetailStartMonth("");
-    setAppliedDetailEndMonth("");
   };
   const detailData = (salaryDetail as SalaryDetail | null) ?? null;
   const summary = detailData ?? (detailSummary as SalaryDetail | null) ?? null;
@@ -515,68 +482,21 @@ function Page() {
     () => buildLinkedDailyReports(shiftList),
     [shiftList],
   );
-  const detailMonthKeys = useMemo(() => {
-    const keys = [...teacherProgressReports, ...shiftReports]
-      .map((item) => getMonthKey(item.date))
-      .filter(Boolean);
-
-    return Array.from(new Set(keys)).sort((a, b) => a.localeCompare(b));
-  }, [teacherProgressReports, shiftReports]);
-  const detailMinMonth = detailMonthKeys[0] ?? "";
-  const detailMaxMonth = detailMonthKeys[detailMonthKeys.length - 1] ?? "";
-  const isDetailMonthRangeReady = Boolean(detailStartMonth && detailEndMonth);
-  const hasAppliedDetailMonthRange = Boolean(
-    appliedDetailStartMonth && appliedDetailEndMonth,
-  );
-  const detailMonthRangeInvalid =
-    isDetailMonthRangeReady && detailStartMonth > detailEndMonth;
-  const filteredTeacherProgressReports = useMemo(
-    () =>
-      hasAppliedDetailMonthRange
-        ? filterDailyReportsByMonthRange(
-            teacherProgressReports,
-            appliedDetailStartMonth,
-            appliedDetailEndMonth,
-          )
-        : teacherProgressReports,
-    [
-      teacherProgressReports,
-      hasAppliedDetailMonthRange,
-      appliedDetailStartMonth,
-      appliedDetailEndMonth,
-    ],
-  );
-  const filteredShiftReports = useMemo(
-    () =>
-      hasAppliedDetailMonthRange
-        ? filterDailyReportsByMonthRange(
-            shiftReports,
-            appliedDetailStartMonth,
-            appliedDetailEndMonth,
-          )
-        : shiftReports,
-    [
-      shiftReports,
-      hasAppliedDetailMonthRange,
-      appliedDetailStartMonth,
-      appliedDetailEndMonth,
-    ],
-  );
   const teacherProgressDailySummary = useMemo(
-    () => buildDailyReportSummary(filteredTeacherProgressReports),
-    [filteredTeacherProgressReports],
+    () => buildDailyReportSummary(teacherProgressReports),
+    [teacherProgressReports],
   );
   const shiftDailySummary = useMemo(
-    () => buildDailyReportSummary(filteredShiftReports),
-    [filteredShiftReports],
+    () => buildDailyReportSummary(shiftReports),
+    [shiftReports],
   );
   const teacherProgressReportTotals = useMemo(
-    () => summarizeDailyReports(filteredTeacherProgressReports),
-    [filteredTeacherProgressReports],
+    () => summarizeDailyReports(teacherProgressReports),
+    [teacherProgressReports],
   );
   const shiftReportTotals = useMemo(
-    () => summarizeDailyReports(filteredShiftReports),
-    [filteredShiftReports],
+    () => summarizeDailyReports(shiftReports),
+    [shiftReports],
   );
   const countBadgeClass =
     "inline-flex items-center rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-600 dark:border-primary-400/40 dark:bg-primary-500/10 dark:text-primary-200";
@@ -663,9 +583,6 @@ function Page() {
     setYear(new Date().getFullYear());
     setMonth(new Date().getMonth() + 1);
     setUnitPrice(0);
-    setBaseSalary(0);
-    setBonus(0);
-    setDeduction(0);
     setSelectedTeacherProgress(new Set());
     setSelectedShiftTeacherData(new Set());
   };
@@ -804,30 +721,22 @@ function Page() {
 
     if (teacherProgress && teacherProgress.length > 0) {
       totalDayForLearning += teacherProgress.reduce(
-        (sum, tp) => sum + (tp.learningCount || 0),
+        (sum, tp) => sum + (tp.pendingSalaryCount || 0),
         0,
       );
     }
 
     if (shiftTeacherData && shiftTeacherData.length > 0) {
       totalDayForLearning += shiftTeacherData.reduce(
-        (sum, std) => sum + (std.learningCount || 0),
+        (sum, std) => sum + (std.pendingSalaryCount || 0),
         0,
       );
     }
 
-    const amount =
-      baseSalary + totalDayForLearning * unitPrice + bonus - deduction;
+    const amount = totalDayForLearning * unitPrice;
 
     return { totalDayForLearning, amount };
-  }, [
-    teacherProgress,
-    shiftTeacherData,
-    unitPrice,
-    baseSalary,
-    bonus,
-    deduction,
-  ]);
+  }, [teacherProgress, shiftTeacherData, unitPrice]);
 
   // Handle form submission
   const handleSubmit = async () => {
@@ -882,15 +791,7 @@ function Page() {
       return;
     }
 
-    await createSalaryMutation(
-      selectedTeacher,
-      month,
-      year,
-      unitPrice,
-      baseSalary,
-      bonus,
-      deduction,
-    );
+    await createSalaryMutation(selectedTeacher, month, year, unitPrice);
   };
 
   const handleEditSubmit = async () => {
@@ -907,12 +808,7 @@ function Page() {
       return;
     }
 
-    await updateSalaryFinancialsMutation(editingSalaryId, {
-      baseSalary,
-      bonus,
-      deduction,
-      unitPrice,
-    });
+    await updateSalaryFinancialsMutation(editingSalaryId, { unitPrice });
   };
 
   const handleDeleteSubmit = async () => {
@@ -2111,84 +2007,6 @@ function Page() {
               />
             </div>
 
-            {/* Base Salary, Bonus, Deduction */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  {isAm ? "መሰረታዊ ደሞዝ" : "Base Salary"}
-                </label>
-                <Input
-                  type="number"
-                  value={baseSalary.toString()}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setBaseSalary(0);
-                    } else {
-                      const val = parseFloat(value);
-                      if (!isNaN(val)) {
-                        setBaseSalary(val);
-                      }
-                    }
-                  }}
-                  placeholder="0"
-                  min={0}
-                  variant="bordered"
-                  endContent={<DollarSign className="h-4 w-4 text-gray-400" />}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  {isAm ? "ተጨማሪ (Bonus)" : "Bonus"}
-                </label>
-                <Input
-                  type="number"
-                  value={bonus.toString()}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setBonus(0);
-                    } else {
-                      const val = parseFloat(value);
-                      if (!isNaN(val)) {
-                        setBonus(val);
-                      }
-                    }
-                  }}
-                  placeholder="0"
-                  min={0}
-                  variant="bordered"
-                  endContent={<TrendingUp className="h-4 w-4 text-green-400" />}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  {isAm ? "ቅነሳ (Deduction)" : "Deduction"}
-                </label>
-                <Input
-                  type="number"
-                  value={deduction.toString()}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setDeduction(0);
-                    } else {
-                      const val = parseFloat(value);
-                      if (!isNaN(val)) {
-                        setDeduction(val);
-                      }
-                    }
-                  }}
-                  placeholder="0"
-                  min={0}
-                  variant="bordered"
-                  endContent={
-                    <AlertTriangle className="h-4 w-4 text-red-400" />
-                  }
-                />
-              </div>
-            </div>
-
             {/* Active Teacher-Student Record Selection */}
             <div
               className={`transition-all ${
@@ -2255,7 +2073,7 @@ function Page() {
                     return (
                       <SelectItem
                         key={tp.id}
-                        textValue={`${tp.student.firstName} ${tp.student.fatherName} ${tp.student.lastName} - ${tp.learningCount} days`}
+                        textValue={`${tp.student.firstName} ${tp.student.fatherName} ${tp.student.lastName} - ${tp.pendingSalaryCount} days`}
                       >
                         <div className="flex flex-col gap-1 py-1">
                           <div className="flex items-center justify-between">
@@ -2275,7 +2093,7 @@ function Page() {
                           )}
                           <div className="flex items-center gap-4 text-xs">
                             <span className="text-green-600 dark:text-green-400">
-                              {isAm ? "የመማሪያ" : "Learning"}: {tp.learningCount}
+                              {isAm ? "የመማሪያ" : "Learning"}: {tp.pendingSalaryCount}
                             </span>
                             <span className="text-red-600 dark:text-red-400">
                               {isAm ? "የጠፋ" : "Missing"}: {tp.missingCount || 0}
@@ -2383,7 +2201,7 @@ function Page() {
                     return (
                       <SelectItem
                         key={std.id}
-                        textValue={`${std.student.firstName} ${std.student.fatherName} ${std.student.lastName} - ${std.learningCount} days`}
+                        textValue={`${std.student.firstName} ${std.student.fatherName} ${std.student.lastName} - ${std.pendingSalaryCount} days`}
                       >
                         <div className="flex flex-col gap-1 py-1">
                           <div className="flex items-center justify-between">
@@ -2403,7 +2221,7 @@ function Page() {
                           )}
                           <div className="flex items-center gap-4 text-xs">
                             <span className="text-green-600 dark:text-green-400">
-                              {isAm ? "የመማሪያ" : "Learning"}: {std.learningCount}
+                              {isAm ? "የመማሪያ" : "Learning"}: {std.pendingSalaryCount}
                             </span>
                             <span className="text-red-600 dark:text-red-400">
                               {isAm ? "የጠፋ" : "Missing"}:{" "}
@@ -2448,21 +2266,10 @@ function Page() {
 
             {/* Calculation Summary */}
             {(selectedTeacherProgress.size > 0 ||
-              selectedShiftTeacherData.size > 0 ||
-              baseSalary > 0 ||
-              bonus > 0 ||
-              deduction > 0) && (
+              selectedShiftTeacherData.size > 0) && (
               <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
                 <CardBody className="p-4">
                   <div className="space-y-2">
-                    {baseSalary > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span>{isAm ? "መሰረታዊ ደሞዝ" : "Base Salary"}:</span>
-                        <span className="font-medium">
-                          {baseSalary.toLocaleString()}
-                        </span>
-                      </div>
-                    )}
                     <div className="flex justify-between text-sm">
                       <span>
                         {isAm ? "የመማሪያ ቀናት" : "Total Learning Days"} (
@@ -2475,28 +2282,14 @@ function Page() {
                         ).toLocaleString()}
                       </span>
                     </div>
-                    {bonus > 0 && (
-                      <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
-                        <span>{isAm ? "ተጨማሪ (Bonus)" : "Bonus"}:</span>
-                        <span className="font-medium">
-                          +{bonus.toLocaleString()}
-                        </span>
-                      </div>
-                    )}
-                    {deduction > 0 && (
-                      <div className="flex justify-between text-sm text-red-600 dark:text-red-400">
-                        <span>{isAm ? "ቅነሳ (Deduction)" : "Deduction"}:</span>
-                        <span className="font-medium">
-                          -{deduction.toLocaleString()}
-                        </span>
-                      </div>
-                    )}
                     <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between">
                       <span className="font-bold text-lg">
                         {isAm ? "ጠቅላላ" : "Total Amount"}:
                       </span>
                       <span className="font-bold text-lg text-blue-600 dark:text-blue-400">
-                        {calculations.amount.toLocaleString()}
+                        {(
+                          calculations.totalDayForLearning * unitPrice
+                        ).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -2519,8 +2312,7 @@ function Page() {
               onPress={handleSubmit}
               isLoading={isCreating}
               isDisabled={
-                !selectedTeacher ||
-                (calculations.totalDayForLearning === 0 && baseSalary <= 0)
+                !selectedTeacher || calculations.totalDayForLearning === 0
               }
             >
               {isAm ? "ይፍጠሩ" : "Create"}
@@ -2583,141 +2375,12 @@ function Page() {
                       </span>
                     </span>
                     <span className={inlineMetricClass}>
-                      Unit Price
-                      <span className="font-semibold text-default-800 dark:text-default-100">
-                        {summaryUnitPrice.toLocaleString()}
-                      </span>
-                    </span>
-                    {summary.baseSalary ? (
-                      <span className={inlineMetricClass}>
-                        Base Salary
-                        <span className="font-semibold text-default-800 dark:text-default-100">
-                          {summary.baseSalary.toLocaleString()}
-                        </span>
-                      </span>
-                    ) : null}
-                    {summary.bonus ? (
-                      <span className={inlineMetricClass}>
-                        Bonus
-                        <span className="font-semibold text-success">
-                          +{summary.bonus.toLocaleString()}
-                        </span>
-                      </span>
-                    ) : null}
-                    {summary.deduction ? (
-                      <span className={inlineMetricClass}>
-                        Deduction
-                        <span className="font-semibold text-danger">
-                          -{summary.deduction.toLocaleString()}
-                        </span>
-                      </span>
-                    ) : null}
-                    <span className={inlineMetricClass}>
                       Amount
                       <span className="font-semibold text-primary">
                         {summaryAmount.toLocaleString()}
                       </span>
                     </span>
                   </div>
-                </div>
-
-                <div className="space-y-4 rounded-2xl border border-default-200/70 bg-white p-4 shadow-sm dark:bg-default-900/40">
-                  <div className="space-y-1">
-                    <h4 className="text-base font-semibold text-default-900 dark:text-default-100">
-                      Month Range Report Filter
-                    </h4>
-                    <p className="text-sm text-default-500">
-                      Filter the salary details by linked daily report months
-                      only. Totals below come from the daily report table, not
-                      the salary totals.
-                    </p>
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto_auto]">
-                    <Input
-                      type="month"
-                      label="Start Month"
-                      value={detailStartMonth}
-                      onChange={(event) =>
-                        setDetailStartMonth(event.target.value)
-                      }
-                      min={detailMinMonth || undefined}
-                      max={detailEndMonth || detailMaxMonth || undefined}
-                      variant="bordered"
-                    />
-                    <Input
-                      type="month"
-                      label="End Month"
-                      value={detailEndMonth}
-                      onChange={(event) =>
-                        setDetailEndMonth(event.target.value)
-                      }
-                      min={detailStartMonth || detailMinMonth || undefined}
-                      max={detailMaxMonth || undefined}
-                      variant="bordered"
-                    />
-                    <Button
-                      color="primary"
-                      onPress={() => {
-                        if (!isDetailMonthRangeReady || detailMonthRangeInvalid)
-                          return;
-                        setAppliedDetailStartMonth(detailStartMonth);
-                        setAppliedDetailEndMonth(detailEndMonth);
-                      }}
-                      isDisabled={
-                        !isDetailMonthRangeReady || detailMonthRangeInvalid
-                      }
-                      className="h-12 self-end"
-                    >
-                      Apply Filter
-                    </Button>
-                    <Button
-                      variant="flat"
-                      onPress={() => {
-                        setDetailStartMonth("");
-                        setDetailEndMonth("");
-                        setAppliedDetailStartMonth("");
-                        setAppliedDetailEndMonth("");
-                      }}
-                      isDisabled={
-                        !detailStartMonth &&
-                        !detailEndMonth &&
-                        !appliedDetailStartMonth &&
-                        !appliedDetailEndMonth
-                      }
-                      className="h-12 self-end"
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                  <div className="flex flex-col gap-2 text-xs text-default-500 sm:flex-row sm:items-center sm:justify-between">
-                    <span>
-                      Available Months:{" "}
-                      {detailMinMonth && detailMaxMonth
-                        ? `${formatMonthKeyLabel(detailMinMonth)} - ${formatMonthKeyLabel(detailMaxMonth)}`
-                        : "No linked daily reports"}
-                    </span>
-                    <span>
-                      {hasAppliedDetailMonthRange
-                        ? `Selected Months: ${formatMonthKeyLabel(appliedDetailStartMonth)} - ${formatMonthKeyLabel(appliedDetailEndMonth)}`
-                        : "Showing all linked daily reports"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-2 text-xs text-default-500 sm:flex-row sm:items-center sm:justify-between">
-                    <span>
-                      Active Record Reports:{" "}
-                      {filteredTeacherProgressReports.length}/
-                      {teacherProgressReports.length}
-                    </span>
-                    <span>
-                      Inactive Record Reports: {filteredShiftReports.length}/
-                      {shiftReports.length}
-                    </span>
-                  </div>
-                  {detailMonthRangeInvalid && (
-                    <p className="text-sm font-medium text-danger">
-                      Start month must be on or before end month.
-                    </p>
-                  )}
                 </div>
 
                 <div className="space-y-3 rounded-2xl border border-default-200/70 bg-white p-4 shadow-sm dark:bg-default-900/40">
@@ -2732,12 +2395,10 @@ function Page() {
                       </p>
                     </div>
                     <span className={countBadgeClass}>
-                      {hasAppliedDetailMonthRange
-                        ? `${filteredTeacherProgressReports.length}/${teacherProgressReports.length}`
-                        : teacherProgressReports.length}
+                      {teacherProgressReports.length}
                     </span>
                   </div>
-                  {filteredTeacherProgressReports.length > 0 ? (
+                  {teacherProgressReports.length > 0 ? (
                     <>
                       <div className="flex flex-wrap gap-2">
                         <span className={inlineMetricClass}>
@@ -2863,64 +2524,12 @@ function Page() {
                           </table>
                         </div>
                       </div>
-                      <div className="overflow-auto rounded-xl border border-default-200">
-                        <div className="border-b border-default-200 bg-default-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-default-500">
-                          Daily Report Records
-                        </div>
-                        <table className="w-full border-collapse text-sm">
-                          <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
-                            <tr>
-                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[220px]">
-                                Student
-                              </th>
-                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[140px]">
-                                Report Date
-                              </th>
-                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[140px]">
-                                Slot
-                              </th>
-                              <th className="border border-default-200 p-2 text-center font-semibold min-w-[120px]">
-                                Status
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredTeacherProgressReports.map((report) => {
-                              const badge = getReportStatusBadge(
-                                report.learningProgress,
-                              );
-
-                              return (
-                                <tr
-                                  key={report.id}
-                                  className="hover:bg-primary/5"
-                                >
-                                  <td className="border border-default-200 p-2">
-                                    {formatStudentName(report.student)}
-                                  </td>
-                                  <td className="border border-default-200 p-2">
-                                    {new Date(report.date).toLocaleDateString()}
-                                  </td>
-                                  <td className="border border-default-200 p-2">
-                                    {report.learningSlot || "-"}
-                                  </td>
-                                  <td className="border border-default-200 p-2 text-center">
-                                    <span className={badge.className}>
-                                      {badge.label}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
                     </>
                   ) : (
                     <p className="text-sm text-default-500">
-                      {hasAppliedDetailMonthRange
-                        ? "No active record daily reports found in the selected month range."
-                        : "No active record daily reports are linked to this salary."}
+                      {
+                        "No active record daily reports are linked to this salary."
+                      }
                     </p>
                   )}
                 </div>
@@ -2937,12 +2546,10 @@ function Page() {
                       </p>
                     </div>
                     <span className={countBadgeClass}>
-                      {hasAppliedDetailMonthRange
-                        ? `${filteredShiftReports.length}/${shiftReports.length}`
-                        : shiftReports.length}
+                      {shiftReports.length}
                     </span>
                   </div>
-                  {filteredShiftReports.length > 0 ? (
+                  {shiftReports.length > 0 ? (
                     <>
                       <div className="flex flex-wrap gap-2">
                         <span className={inlineMetricClass}>
@@ -3065,64 +2672,12 @@ function Page() {
                           </table>
                         </div>
                       </div>
-                      <div className="overflow-auto rounded-xl border border-default-200">
-                        <div className="border-b border-default-200 bg-default-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-default-500">
-                          Daily Report Records
-                        </div>
-                        <table className="w-full border-collapse text-sm">
-                          <thead className="sticky top-0 bg-default-100 dark:bg-default-900/80 backdrop-blur">
-                            <tr>
-                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[220px]">
-                                Student
-                              </th>
-                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[140px]">
-                                Report Date
-                              </th>
-                              <th className="border border-default-200 p-2 text-left font-semibold min-w-[140px]">
-                                Slot
-                              </th>
-                              <th className="border border-default-200 p-2 text-center font-semibold min-w-[120px]">
-                                Status
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredShiftReports.map((report) => {
-                              const badge = getReportStatusBadge(
-                                report.learningProgress,
-                              );
-
-                              return (
-                                <tr
-                                  key={report.id}
-                                  className="hover:bg-primary/5"
-                                >
-                                  <td className="border border-default-200 p-2">
-                                    {formatStudentName(report.student)}
-                                  </td>
-                                  <td className="border border-default-200 p-2">
-                                    {new Date(report.date).toLocaleDateString()}
-                                  </td>
-                                  <td className="border border-default-200 p-2">
-                                    {report.learningSlot || "-"}
-                                  </td>
-                                  <td className="border border-default-200 p-2 text-center">
-                                    <span className={badge.className}>
-                                      {badge.label}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
                     </>
                   ) : (
                     <p className="text-sm text-default-500">
-                      {hasAppliedDetailMonthRange
-                        ? "No inactive record daily reports found in the selected month range."
-                        : "No inactive record daily reports are linked to this salary."}
+                      {
+                        "No inactive record daily reports are linked to this salary."
+                      }
                     </p>
                   )}
                 </div>
@@ -3572,96 +3127,10 @@ function Page() {
               />
             </div>
 
-            {/* Base Salary, Bonus, Deduction */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  {isAm ? "መሰረታዊ ደሞዝ" : "Base Salary"}
-                </label>
-                <Input
-                  type="number"
-                  value={baseSalary.toString()}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setBaseSalary(0);
-                    } else {
-                      const val = parseFloat(value);
-                      if (!isNaN(val)) {
-                        setBaseSalary(val);
-                      }
-                    }
-                  }}
-                  placeholder="0"
-                  min={0}
-                  variant="bordered"
-                  endContent={<DollarSign className="h-4 w-4 text-gray-400" />}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  {isAm ? "ተጨማሪ (Bonus)" : "Bonus"}
-                </label>
-                <Input
-                  type="number"
-                  value={bonus.toString()}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setBonus(0);
-                    } else {
-                      const val = parseFloat(value);
-                      if (!isNaN(val)) {
-                        setBonus(val);
-                      }
-                    }
-                  }}
-                  placeholder="0"
-                  min={0}
-                  variant="bordered"
-                  endContent={<TrendingUp className="h-4 w-4 text-green-400" />}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  {isAm ? "ቅነሳ (Deduction)" : "Deduction"}
-                </label>
-                <Input
-                  type="number"
-                  value={deduction.toString()}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setDeduction(0);
-                    } else {
-                      const val = parseFloat(value);
-                      if (!isNaN(val)) {
-                        setDeduction(val);
-                      }
-                    }
-                  }}
-                  placeholder="0"
-                  min={0}
-                  variant="bordered"
-                  endContent={
-                    <AlertTriangle className="h-4 w-4 text-red-400" />
-                  }
-                />
-              </div>
-            </div>
-
             {/* Calculation Summary */}
             <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
               <CardBody className="p-4">
                 <div className="space-y-2">
-                  {baseSalary > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span>{isAm ? "መሰረታዊ ደሞዝ" : "Base Salary"}:</span>
-                      <span className="font-medium">
-                        {baseSalary.toLocaleString()}
-                      </span>
-                    </div>
-                  )}
                   <div className="flex justify-between text-sm">
                     <span>
                       {isAm ? "የመማሪያ ቀናት" : "Total Learning Days"} (
@@ -3674,28 +3143,14 @@ function Page() {
                       ).toLocaleString()}
                     </span>
                   </div>
-                  {bonus > 0 && (
-                    <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
-                      <span>{isAm ? "ተጨማሪ (Bonus)" : "Bonus"}:</span>
-                      <span className="font-medium">
-                        +{bonus.toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  {deduction > 0 && (
-                    <div className="flex justify-between text-sm text-red-600 dark:text-red-400">
-                      <span>{isAm ? "ቅነሳ (Deduction)" : "Deduction"}:</span>
-                      <span className="font-medium">
-                        -{deduction.toLocaleString()}
-                      </span>
-                    </div>
-                  )}
                   <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between">
                     <span className="font-bold text-lg">
                       {isAm ? "ጠቅላላ" : "Total Amount"}:
                     </span>
                     <span className="font-bold text-lg text-blue-600 dark:text-blue-400">
-                      {calculations.amount.toLocaleString()}
+                      {(
+                        calculations.totalDayForLearning * unitPrice
+                      ).toLocaleString()}
                     </span>
                   </div>
                 </div>

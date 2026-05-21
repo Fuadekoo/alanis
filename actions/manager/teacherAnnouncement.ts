@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
+import { sendTelegramMessage } from "@/lib/telegram";
 import { TeacherAnnouncementSchema } from "@/lib/zodSchema";
 
 export async function registerTeacherAnnouncement({
@@ -38,11 +39,7 @@ export async function registerTeacherAnnouncement({
         async (res) =>
           await Promise.all(
             res.map(async ({ id, chatId }) => {
-              if (chatId) {
-                try {
-                  await global.bot.api.sendMessage(chatId, text);
-                } catch {}
-              }
+              await sendTelegramMessage(chatId, text);
               return { teacherId: id };
             })
           )

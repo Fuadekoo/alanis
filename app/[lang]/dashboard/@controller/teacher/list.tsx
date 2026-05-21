@@ -15,6 +15,7 @@ import { Plus } from "lucide-react";
 import { cn } from "@heroui/react";
 import { highlight } from "@/lib/utils";
 import PaginationPlace from "@/components/paginationPlace";
+import { Announcement } from "../announcement";
 
 export default function List() {
   const {
@@ -34,6 +35,7 @@ export default function List() {
 
   return (
     <div className="grid gap-5 grid-rows-[auto_1fr_auto] overflow-hidden ">
+      <Announcement />
       <SearchPlace
         handleSearch={filter.handleSearch}
         startContent={

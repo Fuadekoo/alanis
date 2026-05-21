@@ -72,6 +72,7 @@ model user {
   teacherStudentsAsStudent                TeacherStudent[]              @relation("StudentTeachers")
   teacherSalaries                         TeacherSalary[]               @relation("TeacherSalaries")
   announcementTeachers                    announcementTeacher[]
+  announcementControllers                 announcementController[]
   teacherAssignmentHistoryAsStudent       teacherAssignmentHistory[]    @relation("TeacherAssignmentHistoryStudent")
   teacherAssignmentHistoryAsTeacher       teacherAssignmentHistory[]    @relation("TeacherAssignmentHistoryTeacher")
   controllerAssignmentHistoryAsStudent    controllerAssignmentHistory[] @relation("ControllerAssignmentHistoryStudent")
@@ -379,6 +380,24 @@ model announcementTeacher {
   teacherId                 String
   teacherAnnouncementData   teacherAnnouncementData @relation(fields: [teacherAnnouncementDataId], references: [id])
   teacherAnnouncementDataId String
+}
+
+// controller Announcement ___________
+
+model controllerAnnouncementData {
+  id                     String                   @id @default(cuid())
+  text                   String
+  lastDate               DateTime?
+  date                   DateTime                 @default(now())
+  announcementController announcementController[]
+}
+
+model announcementController {
+  id                           String                     @id @default(uuid())
+  controller                   user                       @relation(fields: [controllerId], references: [id], onDelete: Cascade)
+  controllerId                 String
+  controllerAnnouncementData   controllerAnnouncementData @relation(fields: [controllerAnnouncementDataId], references: [id], onDelete: Cascade)
+  controllerAnnouncementDataId String
 }
 
 model studyGroupLink {

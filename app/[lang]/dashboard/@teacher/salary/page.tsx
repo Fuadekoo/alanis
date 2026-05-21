@@ -29,9 +29,6 @@ interface TeacherSalaryRow {
   id: string;
   month: number;
   year: number;
-  baseSalary?: number;
-  bonus?: number;
-  deduction?: number;
   totalDayForLearning: number;
   unitPrice: number;
   amount: number;
@@ -595,36 +592,6 @@ export default function Page() {
                         {formatCurrency(selectedDetail.unitPrice)}
                       </span>
                     </div>
-                    {selectedDetail.baseSalary ? (
-                      <div className="flex justify-between">
-                        <span className="text-default-500">
-                          {isAm ? "መሰረታዊ ደሞዝ" : "Base Salary"}
-                        </span>
-                        <span className="font-semibold text-default-800">
-                          {formatCurrency(selectedDetail.baseSalary)}
-                        </span>
-                      </div>
-                    ) : null}
-                    {selectedDetail.bonus ? (
-                      <div className="flex justify-between">
-                        <span className="text-default-500">
-                          {isAm ? "ተጨማሪ (Bonus)" : "Bonus"}
-                        </span>
-                        <span className="font-semibold text-success">
-                          +{formatCurrency(selectedDetail.bonus)}
-                        </span>
-                      </div>
-                    ) : null}
-                    {selectedDetail.deduction ? (
-                      <div className="flex justify-between">
-                        <span className="text-default-500">
-                          {isAm ? "ቅነሳ (Deduction)" : "Deduction"}
-                        </span>
-                        <span className="font-semibold text-danger">
-                          -{formatCurrency(selectedDetail.deduction)}
-                        </span>
-                      </div>
-                    ) : null}
                     <div className="flex justify-between md:col-span-2 border-t border-default-200 pt-2">
                       <span className="text-default-500">
                         {isAm ? "ጠቅላላ መጠን" : "Total Amount"}

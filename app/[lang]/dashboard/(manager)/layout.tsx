@@ -114,6 +114,13 @@ export default async function Layout({
         Icon: <Megaphone className="size-5" />,
       },
       {
+        english: "controller announcement",
+        amharic: "የተቆጣጣሪ ማስታወቂያ",
+        oromo: "Beeksisa To'ataa",
+        url: "controllerAnnouncement",
+        Icon: <Megaphone className="size-5" />,
+      },
+      {
         english: "study room",
         amharic: "የመማሪያ ክፍል",
         oromo: "Kutaa Qorannoo",

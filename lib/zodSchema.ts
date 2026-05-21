@@ -174,6 +174,17 @@ export type TeacherAnnouncementSchema = z.infer<
   typeof teacherAnnouncementSchema
 >;
 
+export const controllerAnnouncementSchema = z.object({
+  id: z.string().optional(),
+  forUser: z.array(z.string().nonempty("controller is required")).default([]),
+  text: z.string().nonempty("announcement is required").default(""),
+  lastDate: z.coerce.date({ message: "must be date format" }).optional(),
+});
+
+export type ControllerAnnouncementSchema = z.infer<
+  typeof controllerAnnouncementSchema
+>;
+
 export const studyRoomSchema = z.object({
   id: z.string().optional(),
   name: z.string().nonempty("Name is required"),

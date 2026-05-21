@@ -102,7 +102,7 @@ export const comboProgressInclude = {
 } satisfies Prisma.TeacherStudentInclude;
 
 export function toLegacyLearningProgress(
-  attendance: AttendanceStatus
+  attendance: AttendanceStatus,
 ): LearningProgressValue {
   switch (attendance) {
     case AttendanceStatus.PRESENT:
@@ -115,7 +115,7 @@ export function toLegacyLearningProgress(
 }
 
 export function toAttendanceStatus(
-  progress: LearningProgressValue
+  progress: LearningProgressValue,
 ): AttendanceStatus {
   switch (progress) {
     case "present":
@@ -128,7 +128,7 @@ export function toAttendanceStatus(
 }
 
 export function toLegacySalaryStatus(
-  status: SalaryStatus | null | undefined
+  status: SalaryStatus | null | undefined,
 ): LegacyPaymentStatus {
   switch (status) {
     case SalaryStatus.PAID:
@@ -169,8 +169,8 @@ export function normalizeDay(value?: string | Date | null) {
     Date.UTC(
       source.getUTCFullYear(),
       source.getUTCMonth(),
-      source.getUTCDate()
-    )
+      source.getUTCDate(),
+    ),
   );
 }
 
@@ -225,11 +225,11 @@ export function formatUserName(user: {
 export function getRoomTime(
   rooms: Array<{ teacherId: string; studentId: string; time: string }>,
   teacherId: string,
-  studentId: string
+  studentId: string,
 ) {
   return (
     rooms.find(
-      (room) => room.teacherId === teacherId && room.studentId === studentId
+      (room) => room.teacherId === teacherId && room.studentId === studentId,
     )?.time ?? ""
   );
 }
@@ -251,7 +251,7 @@ export function mapReportToCalendarReport(
       };
     };
   },
-  includeTeacherName = false
+  includeTeacherName = false,
 ) {
   const mapped = {
     id: report.id,
@@ -278,7 +278,7 @@ export function summarizeReports(
   reports: Array<{
     attendance: AttendanceStatus;
     salaryId: string | null;
-  }>
+  }>,
 ) {
   let learningCount = 0;
   let missingCount = 0;
@@ -307,34 +307,32 @@ export function summarizeReports(
   };
 }
 
-export function buildProgressRecord(
-  combo: {
+export function buildProgressRecord(combo: {
+  id: string;
+  teacherId: string;
+  studentId: string;
+  status: TeacherStudentStatus;
+  active: boolean;
+  createdAt: Date;
+  student: BasicUser;
+  teacher: BasicUser;
+  dailyReports: Array<{
     id: string;
-    teacherId: string;
-    studentId: string;
-    status: TeacherStudentStatus;
-    active: boolean;
-    createdAt: Date;
-    student: BasicUser;
-    teacher: BasicUser;
-    dailyReports: Array<{
-      id: string;
-      date: Date;
-      learningSlot: string | null;
-      attendance: AttendanceStatus;
-      studentApproved: boolean | null;
-      teacherApproved: boolean | null;
-      salaryId: string | null;
-    }>;
-  }
-) {
+    date: Date;
+    learningSlot: string | null;
+    attendance: AttendanceStatus;
+    studentApproved: boolean | null;
+    teacherApproved: boolean | null;
+    salaryId: string | null;
+  }>;
+}) {
   const stats = summarizeReports(combo.dailyReports);
   const paymentStatus: LegacyPaymentStatus =
     stats.learningCount === 0
       ? "pending"
       : stats.pendingSalaryCount > 0
-      ? "pending"
-      : "approved";
+        ? "pending"
+        : "approved";
 
   return {
     id: combo.id,
@@ -344,6 +342,7 @@ export function buildProgressRecord(
       combo.dailyReports.find((report) => report.learningSlot)?.learningSlot ??
       null,
     learningCount: stats.learningCount,
+    pendingSalaryCount: stats.pendingSalaryCount,
     missingCount: stats.missingCount,
     totalCount: stats.totalCount,
     progressStatus:
@@ -385,7 +384,7 @@ export function splitProgressRecords(
       teacherApproved: boolean | null;
       salaryId: string | null;
     }>;
-  }>
+  }>,
 ) {
   const currentProgress: LegacyProgressRecord[] = [];
   const historicalProgress: LegacyProgressRecord[] = [];
@@ -407,22 +406,22 @@ function summarizeProgressGroup(records: LegacyProgressRecord[]) {
     totalStudents: records.length,
     totalLearningCount: records.reduce(
       (sum, record) => sum + record.learningCount,
-      0
+      0,
     ),
     totalMissingCount: records.reduce(
       (sum, record) => sum + record.missingCount,
-      0
+      0,
     ),
     totalReports: records.reduce(
       (sum, record) => sum + record.dailyReports.length,
-      0
+      0,
     ),
   };
 }
 
 export function buildProgressStatistics(
   currentProgress: LegacyProgressRecord[],
-  historicalProgress: LegacyProgressRecord[]
+  historicalProgress: LegacyProgressRecord[],
 ) {
   const current = summarizeProgressGroup(currentProgress);
   const historical = summarizeProgressGroup(historicalProgress);
@@ -441,37 +440,29 @@ export function buildProgressStatistics(
   };
 }
 
-export function mapSalaryToRow(
-  salary: {
-    id: string;
-    month: number;
-    year: number;
-    baseSalary: Prisma.Decimal;
-    bonus: Prisma.Decimal;
-    deduction: Prisma.Decimal;
-    dailyRate: Prisma.Decimal;
-    totalSalary: Prisma.Decimal;
-    status: SalaryStatus;
-    paymentPhoto: string | null;
-    createdAt: Date;
-    paidAt: Date | null;
-    note: string | null;
-    reports: Array<{
-      attendance: AttendanceStatus;
-    }>;
-  }
-) {
+export function mapSalaryToRow(salary: {
+  id: string;
+  month: number;
+  year: number;
+  dailyRate: Prisma.Decimal;
+  totalSalary: Prisma.Decimal;
+  status: SalaryStatus;
+  paymentPhoto: string | null;
+  createdAt: Date;
+  paidAt: Date | null;
+  note: string | null;
+  reports: Array<{
+    attendance: AttendanceStatus;
+  }>;
+}) {
   const totalDayForLearning = salary.reports.filter(
-    (report) => report.attendance !== AttendanceStatus.ABSENT
+    (report) => report.attendance !== AttendanceStatus.ABSENT,
   ).length;
 
   return {
     id: salary.id,
     month: salary.month,
     year: salary.year,
-    baseSalary: Number(salary.baseSalary),
-    bonus: Number(salary.bonus),
-    deduction: Number(salary.deduction),
     totalDayForLearning,
     unitPrice: Number(salary.dailyRate),
     amount: Number(salary.totalSalary),
@@ -483,29 +474,27 @@ export function mapSalaryToRow(
   };
 }
 
-export function buildSalaryDetailCollections(
-  salary: {
-    status: SalaryStatus;
-    reports: Array<{
+export function buildSalaryDetailCollections(salary: {
+  status: SalaryStatus;
+  reports: Array<{
+    id: string;
+    date: Date;
+    learningSlot: string | null;
+    attendance: AttendanceStatus;
+    studentApproved: boolean | null;
+    teacherApproved: boolean | null;
+    combination: {
       id: string;
-      date: Date;
-      learningSlot: string | null;
-      attendance: AttendanceStatus;
-      studentApproved: boolean | null;
-      teacherApproved: boolean | null;
-      combination: {
-        id: string;
-        teacherId: string;
-        studentId: string;
-        active: boolean;
-        status: TeacherStudentStatus;
-        createdAt: Date;
-        student: BasicUser;
-        teacher: BasicUser;
-      };
-    }>;
-  }
-) {
+      teacherId: string;
+      studentId: string;
+      active: boolean;
+      status: TeacherStudentStatus;
+      createdAt: Date;
+      student: BasicUser;
+      teacher: BasicUser;
+    };
+  }>;
+}) {
   const grouped = new Map<
     string,
     {
@@ -565,9 +554,7 @@ export function buildSalaryDetailCollections(
   });
 
   return {
-    teacherProgresses: mapped.filter(
-      (item) => item.progressStatus === "open"
-    ),
+    teacherProgresses: mapped.filter((item) => item.progressStatus === "open"),
     shiftTeacherData: mapped.filter((item) => item.progressStatus !== "open"),
   };
 }
@@ -575,7 +562,7 @@ export function buildSalaryDetailCollections(
 export function createSalaryExpenseName(
   teacher: { firstName: string; fatherName: string; lastName: string },
   month: number,
-  year: number
+  year: number,
 ) {
   return `${formatUserName(teacher)} ${month}/${year}`.trim();
 }

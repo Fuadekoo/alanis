@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
+import { sendTelegramMessage } from "@/lib/telegram";
 import { AnnouncementSchema } from "@/lib/zodSchema";
 
 export async function registerAnnouncement({
@@ -27,7 +28,7 @@ export async function registerAnnouncement({
       .findMany({
         where: {
           role: "student",
-          ...(forUser.length > 0 ? { id: { in: [] } } : {}),
+          ...(forUser.length > 0 ? { id: { in: forUser } } : {}),
         },
         select: { id: true, chatId: true },
       })
@@ -35,11 +36,7 @@ export async function registerAnnouncement({
         async (res) =>
           await Promise.all(
             res.map(async ({ id, chatId }) => {
-              if (chatId) {
-                try {
-                  await global.bot.api.sendMessage(chatId, text);
-                } catch {}
-              }
+              await sendTelegramMessage(chatId, text);
               return { studentId: id };
             })
           )

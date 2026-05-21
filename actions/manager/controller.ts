@@ -57,10 +57,23 @@ export async function deleteController(id: string) {
   return { status: true, message: "successfully delete controller" };
 }
 
-export async function getControllerList() {
+export async function getControllerList(search: string = "") {
   const data = await prisma.user.findMany({
-    where: { role: "controller" },
+    where: {
+      role: "controller",
+      ...(search
+        ? {
+            OR: [
+              { firstName: { contains: search, mode: "insensitive" } },
+              { fatherName: { contains: search, mode: "insensitive" } },
+              { lastName: { contains: search, mode: "insensitive" } },
+              { username: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
     select: { id: true, firstName: true, fatherName: true, lastName: true },
+    orderBy: { firstName: "asc" },
   });
 
   return data;

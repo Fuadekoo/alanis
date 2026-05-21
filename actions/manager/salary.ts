@@ -116,9 +116,6 @@ function mapSalaryRowWithTeacher(salary: {
   };
   month: number;
   year: number;
-  baseSalary: Prisma.Decimal;
-  bonus: Prisma.Decimal;
-  deduction: Prisma.Decimal;
   dailyRate: Prisma.Decimal;
   totalSalary: Prisma.Decimal;
   status: import("@prisma/client").SalaryStatus;
@@ -167,18 +164,12 @@ async function createSalaryRecord(
     month,
     year,
     unitPrice,
-    baseSalary = 0,
-    bonus = 0,
-    deduction = 0,
     comboIds,
   }: {
     teacherId: string;
     month: number;
     year: number;
     unitPrice: number;
-    baseSalary?: number;
-    bonus?: number;
-    deduction?: number;
     comboIds: string[];
   },
 ) {
@@ -244,8 +235,8 @@ async function createSalaryRecord(
           include: comboProgressInclude,
         });
 
-  if (combos.length === 0 && baseSalary <= 0) {
-    throw new Error("No teacher records were selected and base salary is 0");
+  if (combos.length === 0) {
+    throw new Error("No teacher records were selected");
   }
 
   const pendingReports = combos.flatMap((combo) =>
@@ -253,20 +244,13 @@ async function createSalaryRecord(
   );
 
   const totalDayForLearning = pendingReports.length;
-  const totalSalary = Number(
-    (baseSalary + totalDayForLearning * unitPrice + bonus - deduction).toFixed(
-      2,
-    ),
-  );
+  const totalSalary = Number((totalDayForLearning * unitPrice).toFixed(2));
 
   const salary = await tx.teacherSalary.create({
     data: {
       teacherId,
       month,
       year,
-      baseSalary: new Prisma.Decimal(baseSalary),
-      bonus: new Prisma.Decimal(bonus),
-      deduction: new Prisma.Decimal(deduction),
       dailyRate: new Prisma.Decimal(unitPrice),
       totalSalary: new Prisma.Decimal(totalSalary),
       status: toSalaryStatus("pending"),
@@ -307,12 +291,7 @@ async function createSalaryRecord(
   });
 
   return {
-    ...mapSalaryRowWithTeacher({
-      ...salary,
-      reports: pendingReports.map(() => ({
-        attendance: AttendanceStatus.PRESENT,
-      })),
-    }),
+    ...mapSalaryRowWithTeacher(salary),
     teacher,
   };
 }
@@ -387,9 +366,6 @@ export async function createSalary(
   month: number,
   year: number,
   unitPrice: number,
-  baseSalary: number = 0,
-  bonus: number = 0,
-  deduction: number = 0,
 ) {
   try {
     await isAuthorized("manager");
@@ -416,9 +392,6 @@ export async function createSalary(
         month,
         year,
         unitPrice,
-        baseSalary,
-        bonus,
-        deduction,
         comboIds: [],
       }),
     );
@@ -630,9 +603,6 @@ export async function updateSalary(
 export async function updateSalaryFinancials(
   salaryId: string,
   data: {
-    baseSalary: number;
-    bonus: number;
-    deduction: number;
     unitPrice: number;
   },
 ) {
@@ -657,22 +627,12 @@ export async function updateSalaryFinancials(
     (r) => r.attendance !== AttendanceStatus.ABSENT,
   ).length;
 
-  const totalSalary = Number(
-    (
-      data.baseSalary +
-      totalDayForLearning * data.unitPrice +
-      data.bonus -
-      data.deduction
-    ).toFixed(2),
-  );
+  const totalSalary = Number((totalDayForLearning * data.unitPrice).toFixed(2));
 
   const updated = await prisma.$transaction(async (tx) => {
     const teacherSalary = await tx.teacherSalary.update({
       where: { id: salaryId },
       data: {
-        baseSalary: new Prisma.Decimal(data.baseSalary),
-        bonus: new Prisma.Decimal(data.bonus),
-        deduction: new Prisma.Decimal(data.deduction),
         dailyRate: new Prisma.Decimal(data.unitPrice),
         totalSalary: new Prisma.Decimal(totalSalary),
       },
