@@ -8,6 +8,7 @@ export function useFilter() {
     currentPage: 1,
     row: 250,
     status: "",
+    roomFilter: "",
   });
 
   const handleSearch = useDebouncedCallback(
@@ -22,6 +23,8 @@ export function useFilter() {
     setFilter((prev) => ({ ...prev, sort: !prev.sort }));
   const onStatusChange = (status: string) =>
     setFilter((prev) => ({ ...prev, status, currentPage: 1 }));
+  const onRoomFilterChange = (roomFilter: string) =>
+    setFilter((prev) => ({ ...prev, roomFilter, currentPage: 1 }));
 
   return {
     filter,
@@ -30,6 +33,7 @@ export function useFilter() {
     onRowChange,
     onSortChange,
     onStatusChange,
+    onRoomFilterChange,
   };
 }
 

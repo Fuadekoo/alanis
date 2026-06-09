@@ -1,7 +1,7 @@
 "use server";
 
 import { Filter, MutationState } from "@/lib/definitions";
-import { getLocalDate, sorting } from "@/lib/utils";
+import { getLocalDate, isRoomActiveNow, sorting } from "@/lib/utils";
 import { StudentSchema } from "@/lib/zodSchema";
 import prisma from "@/lib/db";
 import {
@@ -163,7 +163,14 @@ export async function getStudentList(search: string = "") {
   return data;
 }
 
-export async function getStudents({ search, currentPage, row, sort, status }: Filter) {
+export async function getStudents({
+  search,
+  currentPage,
+  row,
+  sort,
+  status,
+  roomFilter,
+}: Filter) {
   const session = await auth();
   const searchClause = [
     { firstName: { contains: search } },
@@ -333,7 +340,13 @@ export async function getStudents({ search, currentPage, row, sort, status }: Fi
     );
     const pendingStudentIdSet = new Set(pendingStudentIds);
     const enrichedStudents = await enrichStudents(mergedStudents, pendingStudentIdSet);
-    const sortedStudents = enrichedStudents.sort((a, b) => {
+    const filteredStudents =
+      roomFilter === "active"
+        ? enrichedStudents.filter((student) =>
+            isRoomActiveNow(student.roomStudent)
+          )
+        : enrichedStudents;
+    const sortedStudents = filteredStudents.sort((a, b) => {
       if (a.assignmentState !== b.assignmentState) {
         if (a.assignmentState === "pending") return -1;
         if (b.assignmentState === "pending") return 1;
@@ -358,11 +371,14 @@ export async function getStudents({ search, currentPage, row, sort, status }: Fi
   const list = await prisma.user
     .findMany({
       where: baseWhereClause,
-      skip: (currentPage - 1) * row,
-      take: row,
       select: studentSelect,
     })
     .then((res) => enrichStudents(res, new Set()))
+    .then((res) =>
+      roomFilter === "active"
+        ? res.filter((student) => isRoomActiveNow(student.roomStudent))
+        : res
+    )
     .then((res) =>
       res.sort((a, b) =>
         sorting(
@@ -373,11 +389,14 @@ export async function getStudents({ search, currentPage, row, sort, status }: Fi
       )
     );
 
-  const totalData = await prisma.user.count({
-    where: baseWhereClause,
-  });
+  const totalData = list.length;
+  const startIndex = (currentPage - 1) * row;
 
-  return { list, totalData, viewerRole: session?.user?.role ?? null };
+  return {
+    list: list.slice(startIndex, startIndex + row),
+    totalData,
+    viewerRole: session?.user?.role ?? null,
+  };
 }
 
 export async function getStudent(id: string) {

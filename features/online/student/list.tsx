@@ -14,7 +14,7 @@ import PaginationPlace from "@/components/paginationPlace";
 import useAmharic from "@/hooks/useAmharic";
 import { useStudent } from "./provider";
 import { Chip, cn, Select, SelectItem } from "@heroui/react";
-import { highlight, timeFormat12 } from "@/lib/utils";
+import { highlight, isRoomActiveNow, timeFormat12 } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
 import PullToRefresh from "react-simple-pull-to-refresh";
@@ -46,7 +46,7 @@ export default function List() {
       <SearchPlace
         handleSearch={filter.handleSearch}
         startContent={
-          <>
+          <div className="flex items-center gap-2 flex-wrap">
             <Select
               size="sm"
               variant="flat"
@@ -70,9 +70,10 @@ export default function List() {
             <Select
               size="sm"
               variant="flat"
+              aria-label="Status"
               placeholder={isAm ? "ሁኔታ" : "Status"}
               classNames={{
-                base: "min-w-24 max-w-xs",
+                base: "min-w-[7.5rem] max-w-xs",
                 trigger: "bg-default-50/50 text-small h-[32px] min-h-[32px]",
               }}
               selectedKeys={new Set([filter.status || "all"])}
@@ -90,9 +91,7 @@ export default function List() {
                 },
                 {
                   key: "remedanLeft",
-                  label: isAm
-                    ? "ረመዳን ያለቀበት"
-                    : "Remedan Left",
+                  label: isAm ? "ረመዳን ያለቀበት" : "Remedan Left",
                 },
                 { key: "active", label: isAm ? "ንቁ" : "Active" },
                 { key: "inactive", label: isAm ? "ያልነቃ" : "Inactive" },
@@ -106,7 +105,37 @@ export default function List() {
                 </SelectItem>
               ))}
             </Select>
-          </>
+          </div>
+        }
+        inputEndContent={
+          <Select
+            size="sm"
+            variant="flat"
+            aria-label={isAm ? "ክፍል ማጣሪያ" : "Class filter"}
+            labelPlacement="outside"
+            classNames={{
+              base: "w-[8.5rem] shrink-0",
+              trigger:
+                "bg-default-50/50 text-small h-[32px] min-h-[32px] border border-default-200/60",
+              value: "text-small font-medium",
+            }}
+            selectedKeys={new Set([filter.roomFilter || "all"])}
+            onSelectionChange={(v) => {
+              const selected = Array.from(v)[0] as string;
+              filter.onRoomFilterChange(
+                selected === "all" ? "" : selected || ""
+              );
+            }}
+          >
+            {[
+              { key: "all", label: isAm ? "ሁሉም" : "All" },
+              { key: "active", label: isAm ? "በክፍል" : "In Class" },
+            ].map((item) => (
+              <SelectItem variant="flat" key={item.key} textValue={item.label}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </Select>
         }
         endContent={
           <>
@@ -154,6 +183,7 @@ export default function List() {
                 const isControllerView = data.viewerRole === "controller";
                 const isPendingAssignment = assignmentState === "pending";
                 const isMyStudent = assignmentState === "mine";
+                const isActiveRoom = isRoomActiveNow(roomStudent);
 
                 return (
                   <div
@@ -164,6 +194,8 @@ export default function List() {
                         ? "border-primary-400 text-primary-600 "
                         : isPendingAssignment
                         ? "border-warning-300 bg-warning-50/60"
+                        : isActiveRoom
+                        ? "border-success-400 bg-success-50/40"
                         : "border-default-400"
                     )}
                   >
@@ -313,14 +345,18 @@ export default function List() {
                           {roomStudent.link ? (
                             <Button
                               variant="flat"
-                              color="primary"
+                              color="success"
                               className=""
                               as={Link}
                               href={roomStudent.link}
-                              target="blank"
+                              target="_blank"
                             >
                               {isAm ? "ክፍል" : "room"}
                             </Button>
+                          ) : isActiveRoom ? (
+                            <Chip color="success" variant="flat">
+                              {isAm ? "በክፍል" : "in class"}
+                            </Chip>
                           ) : (
                             <div className="p-2 border border-primary/50 rounded-xl">
                               {isAm ? "ሊንክ አልተላከም" : "no link"}

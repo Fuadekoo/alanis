@@ -9,12 +9,14 @@ export default function SearchPlace({
   handleSearch,
   startContent,
   endContent,
+  inputEndContent,
 }: {
   placeholder?: string;
   className?: string;
   handleSearch: (value: string) => void;
   startContent?: React.ReactNode;
   endContent?: React.ReactNode;
+  inputEndContent?: React.ReactNode;
 }) {
   const { lang } = useParams<{ lang: string }>();
   return (
@@ -24,26 +26,32 @@ export default function SearchPlace({
         className
       )}
     >
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-        {startContent}
-        {endContent}
+      {(startContent || endContent) && (
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+          {startContent}
+          <div className="flex-1 min-w-2" />
+          {endContent}
+        </div>
+      )}
+      <div className="flex items-center gap-2 min-w-0">
+        <Input
+          size="sm"
+          classNames={{
+            base: "flex-1 min-w-0",
+            inputWrapper: "bg-default-50/50",
+          }}
+          placeholder={
+            placeholder ?? lang == "am"
+              ? "እዚህ ይፈልጉ ... "
+              : lang == "or"
+              ? "asitti barbaadi ... "
+              : "search here ... "
+          }
+          startContent={<Search className="size-4 shrink-0" />}
+          onValueChange={handleSearch}
+        />
+        {inputEndContent}
       </div>
-      <Input
-        size="sm"
-        classNames={{
-          base: "w-full min-w-0",
-          inputWrapper: "bg-default-50/50",
-        }}
-        placeholder={
-          placeholder ?? lang == "am"
-            ? "እዚህ ይፈልጉ ... "
-            : lang == "or"
-            ? "asitti barbaadi ... "
-            : "search here ... "
-        }
-        startContent={<Search className="size-4" />}
-        onValueChange={handleSearch}
-      />
     </div>
   );
 }

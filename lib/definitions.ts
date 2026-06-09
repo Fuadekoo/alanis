@@ -6,6 +6,7 @@ export type Filter = {
   row: number;
   sort: boolean;
   status?: string;
+  roomFilter?: string;
 };
 
 export type TAttendance = [

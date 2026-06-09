@@ -60,6 +60,35 @@ export function timeFormat12(time: string) {
   return `${+hour % 12 || 12}:${minute ?? ""} ${+hour >= 12 ? "PM" : "AM"}`;
 }
 
+export function isWithinScheduledClassSlot(
+  time: string,
+  durationMinutes: number
+) {
+  if (!time) return false;
+
+  const [hourPart, minutePart] = time.split(":");
+  const startHour = parseInt(hourPart, 10);
+  const startMinute = parseInt(minutePart ?? "0", 10);
+  if (Number.isNaN(startHour) || Number.isNaN(startMinute)) return false;
+
+  const ethiopiaOffsetMs = 3 * 60 * 60 * 1000;
+  const ethiopiaNow = new Date(Date.now() + ethiopiaOffsetMs);
+  const nowMinutes =
+    ethiopiaNow.getUTCHours() * 60 + ethiopiaNow.getUTCMinutes();
+  const startMinutes = startHour * 60 + startMinute;
+  const endMinutes = startMinutes + durationMinutes;
+
+  return nowMinutes >= startMinutes && nowMinutes < endMinutes;
+}
+
+export function isRoomActiveNow(
+  roomStudent: { link: string; time: string; duration: number } | null | undefined
+) {
+  if (!roomStudent) return false;
+  if (roomStudent.link?.trim()) return true;
+  return isWithinScheduledClassSlot(roomStudent.time, roomStudent.duration);
+}
+
 export function timeFormat(date: Date) {
   let hour = date.getHours();
   const minute = date.getMinutes();
