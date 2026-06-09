@@ -1,14 +1,116 @@
 "use server";
 
 import prisma from "@/lib/db";
+import { sendRoomLinkNotification } from "@/lib/telegram";
 import { isAuthorized } from "@/lib/utils";
 import { LinkSchema } from "@/lib/zodSchema";
 
+function getGreeting(gender: string) {
+  if (gender === "Female") return "እህት";
+  if (gender === "Male") return "ወንድም";
+  return "";
+}
+
+function formatDisplayTime(time: string) {
+  const timeParts = time.split(":");
+  const hour = parseInt(timeParts[0], 10);
+  const minute = timeParts[1] || "00";
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minute} ${period}`;
+}
+
+async function recordTeacherAttendance(teacherId: string, roomId: string) {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  const existingAttendance = await prisma.roomAttendance.findFirst({
+    where: {
+      userId: teacherId,
+      roomId,
+      date: {
+        gte: start,
+        lt: end,
+      },
+    },
+  });
+
+  if (!existingAttendance) {
+    await prisma.roomAttendance.create({
+      data: { userId: teacherId, roomId },
+    });
+  }
+}
+
+async function notifyStudentAboutRoomLink({
+  room,
+  teacherId,
+  link,
+}: {
+  room: {
+    id: string;
+    time: string;
+    duration: number;
+    student: {
+      chatId: string;
+      firstName: string;
+      fatherName: string;
+      gender: string;
+    };
+  };
+  teacherId: string;
+  link: string;
+}) {
+  await recordTeacherAttendance(teacherId, room.id);
+
+  const studentChatId = room.student.chatId?.trim();
+  if (!studentChatId) {
+    return { ok: false, error: "Student is not connected to Telegram" };
+  }
+
+  const teacherInfo = await prisma.user.findFirst({
+    where: { id: teacherId },
+    select: { firstName: true, fatherName: true },
+  });
+
+  return sendRoomLinkNotification({
+    chatId: studentChatId,
+    link,
+    studentName: `${room.student.firstName} ${room.student.fatherName}`.trim(),
+    teacherName: teacherInfo
+      ? `${teacherInfo.firstName} ${teacherInfo.fatherName}`.trim()
+      : "",
+    greeting: getGreeting(room.student.gender),
+    displayTime: formatDisplayTime(room.time),
+    duration: room.duration,
+  });
+}
+
+function buildTelegramResultMessage(
+  savedMessage: string,
+  telegramResult: { ok: boolean; error?: string }
+) {
+  if (telegramResult.ok) {
+    return { status: true, message: savedMessage };
+  }
+
+  return {
+    status: true,
+    message: `${savedMessage}, but Telegram notification failed: ${
+      telegramResult.error ?? "unknown error"
+    }`,
+  };
+}
+
 export async function uploadLink({ id, link }: LinkSchema) {
   const teacher = await isAuthorized("teacher");
+  const trimmedLink = link.trim();
+
   const room = await prisma.room.update({
-    where: { id },
-    data: { link },
+    where: { id, teacherId: teacher.id },
+    data: { link: trimmedLink },
     select: {
       id: true,
       time: true,
@@ -23,83 +125,31 @@ export async function uploadLink({ id, link }: LinkSchema) {
       },
     },
   });
-  await prisma.roomAttendance.create({
-    data: { userId: teacher.id, roomId: room.id },
+
+  const telegramResult = await notifyStudentAboutRoomLink({
+    room,
+    teacherId: teacher.id,
+    link: trimmedLink,
   });
 
-  // Send Telegram notification with inline button to the student
-  const studentChatId = room.student.chatId;
-  if (studentChatId) {
-    try {
-      const greeting =
-        room.student.gender === "Female"
-          ? "እህት"
-          : room.student.gender === "Male"
-          ? "ወንድም"
-          : "";
-      // Get teacher info for notification
-      const teacherInfo = await prisma.user.findFirst({
-        where: { id: teacher.id },
-        select: { firstName: true, fatherName: true },
-      });
-      const studentName = `${room.student.firstName} ${room.student.fatherName}`;
-      const teacherName = teacherInfo
-        ? `${teacherInfo.firstName} ${teacherInfo.fatherName}`
-        : "";
-
-      // Convert 24h time string to 12h format for display
-      const timeParts = room.time.split(":");
-      const hour = parseInt(timeParts[0]);
-      const minute = timeParts[1] || "00";
-      const period = hour >= 12 ? "PM" : "AM";
-      const displayHour = hour % 12 || 12;
-      const displayTime = `${displayHour}:${minute} ${period}`;
-
-      const message =
-        `📚 *የክፍል ሊንክ ደርሶዎታል!*\n\n` +
-        `${greeting} *${studentName}*\n\n` +
-        `👨‍🏫 መምህር: *${teacherName}*\n` +
-        `🕐 ሰዓት: *${displayTime}*\n` +
-        `⏱ ቆይታ: *${room.duration} ደቂቃ*\n\n` +
-        `ከታች ያለውን ቁልፍ በመጫን ወደ ክፍልዎ ይግቡ 👇`;
-
-      await global.bot.api.sendMessage(studentChatId, message, {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "📖 ወደ ክፍል ይግቡ / Join Class",
-                url: link,
-              },
-            ],
-          ],
-        },
-      });
-    } catch (error) {
-      console.error("Failed to send Telegram notification to student:", error);
-    }
-  }
-
-  return { status: true, message: "link successfully saved" };
-}
-
-function buildZoomLink() {
-  const meetingId = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-  const pwd = Math.random().toString(36).slice(-8);
-  return `https://zoom.us/j/${meetingId}?pwd=${pwd}`;
+  return buildTelegramResultMessage(
+    "link successfully saved and sent to student",
+    telegramResult
+  );
 }
 
 export async function generateZoomLink(id: string) {
   const teacher = await isAuthorized("teacher");
-  
-  // Find teacher's Zoom attachment
+
   const zoomAttach = await prisma.zoomAttach.findUnique({
     where: { userId: teacher.id },
   });
 
   if (!zoomAttach || !zoomAttach.accessToken) {
-    return { status: false, message: "Please connect your Zoom account in your profile first." };
+    return {
+      status: false,
+      message: "Please connect your Zoom account in your profile first.",
+    };
   }
 
   const room = await prisma.room.findUnique({
@@ -113,15 +163,15 @@ export async function generateZoomLink(id: string) {
     return { status: false, message: "Room not found or access denied" };
   }
 
-  // Helper to refresh token if needed
   let accessToken = zoomAttach.accessToken;
-  const isExpired = zoomAttach.tokenExpiresAt && new Date() >= zoomAttach.tokenExpiresAt;
+  const isExpired =
+    zoomAttach.tokenExpiresAt && new Date() >= zoomAttach.tokenExpiresAt;
 
   if (isExpired && zoomAttach.refreshToken) {
     try {
       const clientId = process.env.ZOOM_Client_ID;
       const clientSecret = process.env.ZOOM_Client_Secret;
-      
+
       const tokenResponse = await fetch("https://zoom.us/oauth/token", {
         method: "POST",
         headers: {
@@ -151,11 +201,13 @@ export async function generateZoomLink(id: string) {
       });
     } catch (error) {
       console.error("Zoom token refresh error:", error);
-      return { status: false, message: "Zoom session expired. Please reconnect your account." };
+      return {
+        status: false,
+        message: "Zoom session expired. Please reconnect your account.",
+      };
     }
   }
 
-  // Create Zoom Meeting
   let meetingLink = "";
   try {
     const meetingResponse = await fetch("https://api.zoom.us/v2/users/me/meetings", {
@@ -166,7 +218,7 @@ export async function generateZoomLink(id: string) {
       },
       body: JSON.stringify({
         topic: `Class with ${room.student.firstName} ${room.student.fatherName}`,
-        type: 1, // Instant meeting
+        type: 1,
         duration: room.duration,
         settings: {
           host_video: true,
@@ -190,75 +242,37 @@ export async function generateZoomLink(id: string) {
     return { status: false, message: "Failed to connect to Zoom API." };
   }
 
-  const link = meetingLink;
-
   const updatedRoom = await prisma.room.update({
     where: { id },
-    data: { link },
-    include: {
-      student: true,
+    data: { link: meetingLink },
+    select: {
+      id: true,
+      time: true,
+      duration: true,
+      student: {
+        select: {
+          chatId: true,
+          firstName: true,
+          fatherName: true,
+          gender: true,
+        },
+      },
     },
   });
 
-  await prisma.roomAttendance.create({
-    data: { userId: teacher.id, roomId: updatedRoom.id },
+  const telegramResult = await notifyStudentAboutRoomLink({
+    room: updatedRoom,
+    teacherId: teacher.id,
+    link: meetingLink,
   });
 
-  // Reuse the Telegram notification flow from uploadLink
-  const studentChatId = updatedRoom.student.chatId;
-  if (studentChatId) {
-    try {
-      const greeting =
-        updatedRoom.student.gender === "Female"
-          ? "እህት"
-          : updatedRoom.student.gender === "Male"
-          ? "ወንድም"
-          : "";
-      const teacherInfo = await prisma.user.findFirst({
-        where: { id: teacher.id },
-        select: { firstName: true, fatherName: true },
-      });
-      const studentName = `${updatedRoom.student.firstName} ${updatedRoom.student.fatherName}`;
-      const teacherName = teacherInfo
-        ? `${teacherInfo.firstName} ${teacherInfo.fatherName}`
-        : "";
+  const result = buildTelegramResultMessage(
+    "Zoom link generated and sent to student",
+    telegramResult
+  );
 
-      const timeParts = updatedRoom.time.split(":");
-      const hour = parseInt(timeParts[0]);
-      const minute = timeParts[1] || "00";
-      const period = hour >= 12 ? "PM" : "AM";
-      const displayHour = hour % 12 || 12;
-      const displayTime = `${displayHour}:${minute} ${period}`;
-
-      const message =
-        `📚 *የክፍል ሊንክ ደርሶዎታል!*\n\n` +
-        `${greeting} *${studentName}*\n\n` +
-        `👨‍🏫 መምህር: *${teacherName}*\n` +
-        `🕐 ሰዓት: *${displayTime}*\n` +
-        `⏱ ቆይታ: *${updatedRoom.duration} ደቂቃ*\n\n` +
-        `ከታች ያለውን ቁልፍ በመጫን ወደ ክፍልዎ ይግቡ 👇`;
-
-      await global.bot.api.sendMessage(studentChatId, message, {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "📖 ወደ ክፍል ይግቡ / Join Class",
-                url: link,
-              },
-            ],
-          ],
-        },
-      });
-    } catch (error) {
-      console.error("Failed to send Telegram notification to student:", error);
-    }
-  }
-
-  return { status: true, message: "Zoom link generated and sent", link };
+  return { ...result, link: meetingLink };
 }
-
 
 export async function getRoom() {}
 
