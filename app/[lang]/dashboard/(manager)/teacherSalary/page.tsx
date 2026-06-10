@@ -2978,8 +2978,7 @@ function Page() {
                           size="sm"
                           color="danger"
                           variant="solid"
-                          onPress={(e) => {
-                            e.stopPropagation();
+                          onPress={() => {
                             removePhoto();
                           }}
                           className="rounded-full shadow-lg"
