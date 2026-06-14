@@ -4,6 +4,7 @@ import { Filter, MutationState } from "@/lib/definitions";
 import { getLocalDate, sorting } from "@/lib/utils";
 import { TeacherSchema } from "@/lib/zodSchema";
 import prisma from "@/lib/db";
+import { isMissingAssignmentHistoryTableError } from "@/lib/assignmentHistory";
 import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 
@@ -130,25 +131,116 @@ export async function getTeacher(id: string) {
           },
         },
       },
-    })
-    .then((res) => {
-      return res
-        ? {
-            ...res,
-            room: res.roomTeacher
-              .map((v) => ({
-                ...v,
-                link:
-                  Date.now() - v.updated.getTime() < 40 * 60 * 1000
-                    ? v.link
-                    : "",
-              }))
-              .sort((a, b) => (a.time > b.time ? 1 : a.time < b.time ? -1 : 0)),
-          }
-        : null;
     });
 
-  return data;
+  if (!data) {
+    return null;
+  }
+
+  let lastStudents: Array<{
+    id: string;
+    assignedAt: Date;
+    detachedAt: Date | null;
+    time: string;
+    duration: number;
+    studentId: string;
+    studentFirstName: string;
+    studentFatherName: string;
+    studentLastName: string;
+  }> = [];
+
+  try {
+    lastStudents = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        assignedAt: Date;
+        detachedAt: Date | null;
+        time: string;
+        duration: number;
+        studentId: string;
+        studentFirstName: string;
+        studentFatherName: string;
+        studentLastName: string;
+      }>
+    >`
+      SELECT
+        tah."id",
+        tah."assignedAt",
+        tah."detachedAt",
+        tah."time",
+        tah."duration",
+        u."id" AS "studentId",
+        u."firstName" AS "studentFirstName",
+        u."fatherName" AS "studentFatherName",
+        u."lastName" AS "studentLastName"
+      FROM "teacher_assignment_history" tah
+      INNER JOIN "user" u
+        ON u."id" = tah."studentId"
+      WHERE tah."teacherId" = ${id}
+        AND tah."detachedAt" IS NOT NULL
+      ORDER BY tah."detachedAt" DESC, tah."assignedAt" DESC
+    `;
+  } catch (error) {
+    if (!isMissingAssignmentHistoryTableError(error, "teacher_assignment_history")) {
+      throw error;
+    }
+  }
+
+  const lastStudentIds = [...new Set(lastStudents.map((item) => item.studentId))];
+  const currentRooms =
+    lastStudentIds.length === 0
+      ? []
+      : await prisma.room.findMany({
+          where: { studentId: { in: lastStudentIds } },
+          select: {
+            studentId: true,
+            updated: true,
+            teacher: {
+              select: {
+                id: true,
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+              },
+            },
+          },
+          orderBy: { updated: "desc" },
+        });
+  const currentTeacherByStudentId = new Map<
+    string,
+    (typeof currentRooms)[number]["teacher"]
+  >();
+
+  currentRooms.forEach((room) => {
+    if (!currentTeacherByStudentId.has(room.studentId)) {
+      currentTeacherByStudentId.set(room.studentId, room.teacher);
+    }
+  });
+
+  return {
+    ...data,
+    room: data.roomTeacher
+      .map((v) => ({
+        ...v,
+        link:
+          Date.now() - v.updated.getTime() < 40 * 60 * 1000 ? v.link : "",
+      }))
+      .sort((a, b) => (a.time > b.time ? 1 : a.time < b.time ? -1 : 0)),
+    lastStudents: lastStudents.map((item) => ({
+      id: item.id,
+      assignedAt: item.assignedAt,
+      detachedAt: item.detachedAt,
+      time: item.time,
+      duration: item.duration,
+      student: {
+        id: item.studentId,
+        firstName: item.studentFirstName,
+        fatherName: item.studentFatherName,
+        lastName: item.studentLastName,
+      },
+      currentTeacher: currentTeacherByStudentId.get(item.studentId) ?? null,
+    })),
+  };
 }
 
 export async function getRoomAttendance(

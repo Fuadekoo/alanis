@@ -10,6 +10,7 @@ import UserDetailCard from "@/components/userDetailCard";
 import { Attendance } from "./attendance";
 import { Report } from "./report";
 import DetailTab from "@/components/detailTab";
+import TeacherLastStudentHistory from "@/components/teacherLastStudentHistory";
 
 export default function Detail() {
   const {
@@ -39,6 +40,13 @@ export default function Detail() {
               back={onDetail.bind(undefined, false)}
               tab={tab}
               setTab={setTab}
+              tabs={[
+                "profile",
+                "room",
+                "report",
+                "attendance",
+                { id: "slast", label: "SLast" },
+              ]}
             />
             {tab == "profile" ? (
               <UserDetailCard
@@ -67,6 +75,8 @@ export default function Detail() {
               <Report />
             ) : tab == "attendance" ? (
               <Attendance />
+            ) : tab == "slast" ? (
+              <TeacherLastStudentHistory data={data} />
             ) : (
               ""
             )}
