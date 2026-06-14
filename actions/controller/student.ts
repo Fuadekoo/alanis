@@ -1,7 +1,7 @@
 "use server";
 
 import { Filter, MutationState } from "@/lib/definitions";
-import { getLocalDate, isRoomActiveNow, sorting } from "@/lib/utils";
+import { getLocalDate, sorting } from "@/lib/utils";
 import { StudentSchema } from "@/lib/zodSchema";
 import prisma from "@/lib/db";
 import {
@@ -306,6 +306,16 @@ export async function getStudents({
       );
     };
 
+  const applyRoomFilter = <T extends { roomStudent: { link: string } | null }>(
+    students: T[]
+  ) => {
+    if (roomFilter === "room" || roomFilter === "active") {
+      return students.filter((student) => student.roomStudent?.link?.trim());
+    }
+
+    return students;
+  };
+
   if (session?.user?.role === "controller") {
     const activeStudents = await prisma.user.findMany({
       where: {
@@ -340,12 +350,7 @@ export async function getStudents({
     );
     const pendingStudentIdSet = new Set(pendingStudentIds);
     const enrichedStudents = await enrichStudents(mergedStudents, pendingStudentIdSet);
-    const filteredStudents =
-      roomFilter === "active"
-        ? enrichedStudents.filter((student) =>
-            isRoomActiveNow(student.roomStudent)
-          )
-        : enrichedStudents;
+    const filteredStudents = applyRoomFilter(enrichedStudents);
     const sortedStudents = filteredStudents.sort((a, b) => {
       if (a.assignmentState !== b.assignmentState) {
         if (a.assignmentState === "pending") return -1;
@@ -374,11 +379,7 @@ export async function getStudents({
       select: studentSelect,
     })
     .then((res) => enrichStudents(res, new Set()))
-    .then((res) =>
-      roomFilter === "active"
-        ? res.filter((student) => isRoomActiveNow(student.roomStudent))
-        : res
-    )
+    .then((res) => applyRoomFilter(res))
     .then((res) =>
       res.sort((a, b) =>
         sorting(

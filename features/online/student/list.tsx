@@ -14,7 +14,7 @@ import PaginationPlace from "@/components/paginationPlace";
 import useAmharic from "@/hooks/useAmharic";
 import { useStudent } from "./provider";
 import { Chip, cn, Select, SelectItem } from "@heroui/react";
-import { highlight, isRoomActiveNow, timeFormat12 } from "@/lib/utils";
+import { highlight, timeFormat12 } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
 import PullToRefresh from "react-simple-pull-to-refresh";
@@ -129,7 +129,7 @@ export default function List() {
           >
             {[
               { key: "all", label: isAm ? "ሁሉም" : "All" },
-              { key: "active", label: isAm ? "በክፍል" : "In Class" },
+              { key: "room", label: isAm ? "ክፍል" : "Room" },
             ].map((item) => (
               <SelectItem variant="flat" key={item.key} textValue={item.label}>
                 {item.label}
@@ -183,7 +183,7 @@ export default function List() {
                 const isControllerView = data.viewerRole === "controller";
                 const isPendingAssignment = assignmentState === "pending";
                 const isMyStudent = assignmentState === "mine";
-                const isActiveRoom = isRoomActiveNow(roomStudent);
+                const hasRoomLink = Boolean(roomStudent?.link?.trim());
 
                 return (
                   <div
@@ -194,7 +194,7 @@ export default function List() {
                         ? "border-primary-400 text-primary-600 "
                         : isPendingAssignment
                         ? "border-warning-300 bg-warning-50/60"
-                        : isActiveRoom
+                        : hasRoomLink
                         ? "border-success-400 bg-success-50/40"
                         : "border-default-400"
                     )}
@@ -353,10 +353,6 @@ export default function List() {
                             >
                               {isAm ? "ክፍል" : "room"}
                             </Button>
-                          ) : isActiveRoom ? (
-                            <Chip color="success" variant="flat">
-                              {isAm ? "በክፍል" : "in class"}
-                            </Chip>
                           ) : (
                             <div className="p-2 border border-primary/50 rounded-xl">
                               {isAm ? "ሊንክ አልተላከም" : "no link"}
