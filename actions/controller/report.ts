@@ -154,11 +154,26 @@ export async function createReport(data: CreateReportData) {
             date: reportDate,
           },
         },
-        select: { id: true },
+        select: { id: true, salaryId: true },
       });
 
+      // A report may already exist (e.g. auto-saved as PRESENT when the teacher
+      // sent the class link). The controller is allowed to update it, unless it
+      // has been locked to a paid salary.
       if (existingReport) {
-        throw new Error("A report already exists for this date");
+        if (existingReport.salaryId) {
+          throw new Error(
+            "This report is already linked to a salary and cannot be updated"
+          );
+        }
+
+        return tx.teacherDailyReport.update({
+          where: { id: existingReport.id },
+          data: {
+            learningSlot: room.time,
+            attendance: toAttendanceStatus(learningProgress),
+          },
+        });
       }
 
       return tx.teacherDailyReport.create({
@@ -177,7 +192,7 @@ export async function createReport(data: CreateReportData) {
         ...dailyReport,
         learningProgress,
       },
-      message: "Report created successfully",
+      message: "Report saved successfully",
     };
   } catch (error) {
     console.error("Error creating report:", error);

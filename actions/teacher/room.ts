@@ -4,6 +4,8 @@ import prisma from "@/lib/db";
 import { sendRoomLinkNotification } from "@/lib/telegram";
 import { isAuthorized } from "@/lib/utils";
 import { LinkSchema } from "@/lib/zodSchema";
+import { normalizeDay } from "@/actions/shared/teacherDomain";
+import { AttendanceStatus, TeacherStudentStatus } from "@prisma/client";
 
 function getGreeting(gender: string) {
   if (gender === "Female") return "እህት";
@@ -44,6 +46,74 @@ async function recordTeacherAttendance(teacherId: string, roomId: string) {
   }
 }
 
+/**
+ * When a teacher sends/generates a class link, automatically mark today's
+ * daily report as PRESENT for that teacher–student pair.
+ *
+ * Rules:
+ *  - Saves only once per day. If a report already exists for the day (whether
+ *    auto-saved earlier or edited by a controller), it is left untouched.
+ *  - Skipped on weekends (Saturday and Sunday).
+ *  - Best-effort: never throws, so it cannot break the link-sending flow.
+ */
+async function recordTeacherPresentReport({
+  teacherId,
+  studentId,
+  learningSlot,
+}: {
+  teacherId: string;
+  studentId: string;
+  learningSlot: string;
+}) {
+  try {
+    const today = normalizeDay();
+    const weekday = today.getUTCDay(); // 0 = Sunday, 6 = Saturday
+    if (weekday === 0 || weekday === 6) {
+      return; // no automatic save on weekends
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const combination = await tx.teacherStudent.upsert({
+        where: {
+          teacherId_studentId: { teacherId, studentId },
+        },
+        update: {},
+        create: {
+          teacherId,
+          studentId,
+          active: true,
+          status: TeacherStudentStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+
+      const existing = await tx.teacherDailyReport.findUnique({
+        where: {
+          combId_date: { combId: combination.id, date: today },
+        },
+        select: { id: true },
+      });
+
+      if (existing) {
+        return; // already saved once today — do not overwrite
+      }
+
+      await tx.teacherDailyReport.create({
+        data: {
+          combId: combination.id,
+          date: today,
+          learningSlot,
+          attendance: AttendanceStatus.PRESENT,
+        },
+      });
+    });
+  } catch (error) {
+    // Unique-constraint races (P2002) and any other failure here must not
+    // block the link from being sent to the student.
+    console.error("Failed to auto-save teacher present report:", error);
+  }
+}
+
 async function notifyStudentAboutRoomLink({
   room,
   teacherId,
@@ -51,6 +121,7 @@ async function notifyStudentAboutRoomLink({
 }: {
   room: {
     id: string;
+    studentId: string;
     time: string;
     duration: number;
     student: {
@@ -64,6 +135,11 @@ async function notifyStudentAboutRoomLink({
   link: string;
 }) {
   await recordTeacherAttendance(teacherId, room.id);
+  await recordTeacherPresentReport({
+    teacherId,
+    studentId: room.studentId,
+    learningSlot: room.time,
+  });
 
   const studentChatId = room.student.chatId?.trim();
   if (!studentChatId) {
@@ -113,6 +189,7 @@ export async function uploadLink({ id, link }: LinkSchema) {
     data: { link: trimmedLink },
     select: {
       id: true,
+      studentId: true,
       time: true,
       duration: true,
       student: {
@@ -247,6 +324,7 @@ export async function generateZoomLink(id: string) {
     data: { link: meetingLink },
     select: {
       id: true,
+      studentId: true,
       time: true,
       duration: true,
       student: {

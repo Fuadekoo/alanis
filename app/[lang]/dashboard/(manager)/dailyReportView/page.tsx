@@ -67,8 +67,8 @@ export default function Page() {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [rangeStartDate, setRangeStartDate] = useState("");
-  const [rangeEndDate, setRangeEndDate] = useState("");
+  const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [appliedRangeStartDate, setAppliedRangeStartDate] = useState("");
   const [appliedRangeEndDate, setAppliedRangeEndDate] = useState("");
   const [page, setPage] = useState(1);
@@ -131,8 +131,6 @@ export default function Page() {
   }, [selectedTeacher, month, year, searchTerm, pageSize, statusFilter]);
 
   useEffect(() => {
-    setRangeStartDate("");
-    setRangeEndDate("");
     setAppliedRangeStartDate("");
     setAppliedRangeEndDate("");
     setActiveTab("monthly");
@@ -224,9 +222,15 @@ export default function Page() {
     )?.teacher;
   }, [teachersData, selectedTeacher]);
 
-  const isDateRangeReady = Boolean(rangeStartDate && rangeEndDate);
-  const isDateRangeInvalid =
-    isDateRangeReady && rangeStartDate > rangeEndDate;
+  const monthDateRange = useMemo(() => {
+    const pad = (value: number) => value.toString().padStart(2, "0");
+    const lastDay = new Date(filterYear, filterMonth, 0).getDate();
+    return {
+      start: `${filterYear}-${pad(filterMonth)}-01`,
+      end: `${filterYear}-${pad(filterMonth)}-${pad(lastDay)}`,
+    };
+  }, [filterMonth, filterYear]);
+
   const hasAppliedDateRange = Boolean(
     appliedRangeStartDate && appliedRangeEndDate
   );
@@ -239,9 +243,8 @@ export default function Page() {
     : [];
 
   const handleApplyDateRange = () => {
-    if (!isDateRangeReady || isDateRangeInvalid) return;
-    setAppliedRangeStartDate(rangeStartDate);
-    setAppliedRangeEndDate(rangeEndDate);
+    setAppliedRangeStartDate(monthDateRange.start);
+    setAppliedRangeEndDate(monthDateRange.end);
   };
 
   const handleDeleteClick = (
@@ -658,29 +661,46 @@ export default function Page() {
                       <p className="text-sm text-default-500">
                         {isAm
                           ? "áˆ˜àŒ¨à¨“à¤? à‰€à¤? áŠ¥à¤?à¤¨ áˆ˜àŒ¨à¤? á‰€à¤? áˆ˜àˆ¨àŒ¡ àŠ¨á‰°àˆ˜à¨¨à¨ªà¤? àŒŠà¤? à‹¨á‰°áˆàŒ à¤? daily reports à‹­à‰†à¤? áŠ¥à¤?à¤¨ present, permission, absent àˆ˜àŒ àŠ• à‹­à¨‡."
-                          : "Select a start and end date to count reports in that range and display present, permission, and absent results."}
+                          : "Select a month and year to count all reports from the first to the last day of that month and display present, permission, and absent results."}
                       </p>
                     </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto_auto]">
-                    <Input
-                      type="date"
-                      label={isAm ? "Start Date" : "Start Date"}
-                      value={rangeStartDate}
-                      onChange={(event) => setRangeStartDate(event.target.value)}
+                    <Select
+                      aria-label="filter month"
+                      label={isAm ? "ወር" : "Month"}
+                      selectedKeys={new Set([filterMonth.toString()])}
+                      onSelectionChange={(keys) => {
+                        const value = Array.from(keys)[0] as string;
+                        if (value) setFilterMonth(parseInt(value));
+                      }}
                       variant="bordered"
-                    />
-                    <Input
-                      type="date"
-                      label={isAm ? "End Date" : "End Date"}
-                      value={rangeEndDate}
-                      onChange={(event) => setRangeEndDate(event.target.value)}
+                    >
+                      {monthOptions.map((option) => (
+                        <SelectItem key={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </Select>
+                    <Select
+                      aria-label="filter year"
+                      label={isAm ? "ዓመት" : "Year"}
+                      selectedKeys={new Set([filterYear.toString()])}
+                      onSelectionChange={(keys) => {
+                        const value = Array.from(keys)[0] as string;
+                        if (value) setFilterYear(parseInt(value));
+                      }}
                       variant="bordered"
-                    />
+                    >
+                      {yearOptions.map((option) => (
+                        <SelectItem key={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </Select>
                     <Button
                       color="primary"
                       onPress={handleApplyDateRange}
-                      isDisabled={!isDateRangeReady || isDateRangeInvalid}
                       className="h-12 self-end"
                     >
                       {isAm ? "Apply" : "Apply Filter"}
@@ -688,29 +708,21 @@ export default function Page() {
                     <Button
                       variant="flat"
                       onPress={() => {
-                        setRangeStartDate("");
-                        setRangeEndDate("");
                         setAppliedRangeStartDate("");
                         setAppliedRangeEndDate("");
                       }}
-                      isDisabled={
-                        !rangeStartDate &&
-                        !rangeEndDate &&
-                        !appliedRangeStartDate &&
-                        !appliedRangeEndDate
-                      }
+                      isDisabled={!appliedRangeStartDate && !appliedRangeEndDate}
                       className="h-12 self-end"
                     >
                       {isAm ? "Reset" : "Reset"}
                     </Button>
                   </div>
-                  {isDateRangeInvalid && (
-                    <p className="text-sm font-medium text-danger">
-                      {isAm
-                        ? "Start date must be on or before end date."
-                        : "Start date must be on or before end date."}
-                    </p>
-                  )}
+                  <p className="text-xs text-default-400">
+                    {isAm ? "የተመረጠው ክልል:" : "Selected range:"}{" "}
+                    <span className="font-semibold text-default-600">
+                      {monthDateRange.start} → {monthDateRange.end}
+                    </span>
+                  </p>
                 </div>
               </CardHeader>
 
