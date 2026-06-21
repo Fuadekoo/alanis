@@ -1,11 +1,17 @@
 "use client";
 
 import { addNote, getNotes, deleteNote } from "@/actions/common/notes";
-import { Button, ScrollShadow, Skeleton, Textarea } from "@/components/ui/heroui";
+import {
+  Button,
+  Chip,
+  ScrollShadow,
+  Skeleton,
+  Textarea,
+} from "@/components/ui/heroui";
 import useData from "@/hooks/useData";
 import { useStudent } from "./provider";
 import { useState } from "react";
-import { Trash, MessageSquarePlus } from "lucide-react";
+import { Trash, Save, Megaphone } from "lucide-react";
 import useAmharic from "@/hooks/useAmharic";
 import { useSession } from "next-auth/react";
 
@@ -15,19 +21,19 @@ export default function Notes() {
   } = useStudent();
   const [notes, isLoading, refresh] = useData(getNotes, () => {}, selected);
   const [newNote, setNewNote] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<"" | "save" | "report">("");
   const isAm = useAmharic();
   const { data: session } = useSession();
 
-  const handleAddNote = async () => {
+  const handleAddNote = async (reportToManager: boolean) => {
     if (!newNote.trim()) return;
-    setIsSubmitting(true);
-    const res = await addNote(selected, newNote);
+    setSubmitting(reportToManager ? "report" : "save");
+    const res = await addNote(selected, newNote, reportToManager);
     if (res.status) {
       setNewNote("");
       refresh();
     }
-    setIsSubmitting(false);
+    setSubmitting("");
   };
 
   const handleDeleteNote = async (id: string) => {
@@ -40,27 +46,61 @@ export default function Notes() {
   const canAddNote =
     session?.user?.role === "controller" || session?.user?.role === "manager";
 
+  const renderStatusChip = (status: string) => {
+    if (status === "SOLVED") {
+      return (
+        <Chip size="sm" color="success" variant="flat">
+          {isAm ? "ተፈትቷል" : "Solved"}
+        </Chip>
+      );
+    }
+    if (status === "UNSOLVED") {
+      return (
+        <Chip size="sm" color="danger" variant="flat">
+          {isAm ? "አልተፈታም" : "Not Solved"}
+        </Chip>
+      );
+    }
+    return (
+      <Chip size="sm" color="warning" variant="flat">
+        {isAm ? "ለአስተዳዳሪ ተልኳል" : "Reported"}
+      </Chip>
+    );
+  };
+
   return (
     <div className="grid grid-rows-[auto_1fr] gap-4 overflow-hidden h-full">
       {canAddNote && (
-        <div className="flex gap-2 items-start p-2 bg-default-50/50 rounded-xl border border-default-100/50">
+        <div className="flex flex-col gap-2 p-2 bg-default-50/50 rounded-xl border border-default-100/50">
           <Textarea
             placeholder={isAm ? "ማስታወሻ ይፃፉ..." : "Write a note..."}
             value={newNote}
             onValueChange={setNewNote}
-            minRows={1}
+            minRows={2}
             classNames={{ inputWrapper: "bg-transparent h-fit" }}
           />
-          <Button
-            isIconOnly
-            color="primary"
-            variant="flat"
-            onPress={handleAddNote}
-            isLoading={isSubmitting}
-            isDisabled={!newNote.trim()}
-          >
-            <MessageSquarePlus className="size-5" />
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button
+              color="primary"
+              variant="flat"
+              startContent={<Save className="size-4" />}
+              onPress={() => handleAddNote(false)}
+              isLoading={submitting === "save"}
+              isDisabled={!newNote.trim() || submitting !== ""}
+            >
+              {isAm ? "አስቀምጥ" : "Save"}
+            </Button>
+            <Button
+              color="warning"
+              variant="solid"
+              startContent={<Megaphone className="size-4" />}
+              onPress={() => handleAddNote(true)}
+              isLoading={submitting === "report"}
+              isDisabled={!newNote.trim() || submitting !== ""}
+            >
+              {isAm ? "አስቀምጥ እና ለአስተዳዳሪ ሪፖርት አድርግ" : "Save & Report to Manager"}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -91,6 +131,7 @@ export default function Notes() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
+                  {v.reportedToManager && renderStatusChip(v.status)}
                   <span className="text-[10px] text-default-400">
                     {new Date(v.createdAt).toLocaleDateString()}
                   </span>
@@ -109,6 +150,16 @@ export default function Notes() {
                 </div>
               </div>
               <p className="text-small whitespace-pre-wrap mt-1">{v.note}</p>
+              {v.reportedToManager && v.resolutionNote && (
+                <div className="mt-2 p-2 rounded-lg bg-default-100/60 border border-default-200/60">
+                  <p className="text-[10px] uppercase text-default-400">
+                    {isAm ? "የአስተዳዳሪ ምላሽ" : "Manager response"}
+                  </p>
+                  <p className="text-small whitespace-pre-wrap">
+                    {v.resolutionNote}
+                  </p>
+                </div>
+              )}
             </div>
           ))
         )}

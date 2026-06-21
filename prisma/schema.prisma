@@ -89,8 +89,20 @@ model notes {
   writenBy   user     @relation("NotesFromUser", fields: [writenbyId], references: [id], onDelete: Cascade)
   writenbyId String
   note       String   @db.Text
+
+  reportedToManager Boolean    @default(false)
+  status            NoteStatus @default(OPEN)
+  resolutionNote    String?    @db.Text
+  resolvedAt        DateTime?
+
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+enum NoteStatus {
+  OPEN
+  SOLVED
+  UNSOLVED
 }
 
 model zoomAttach {

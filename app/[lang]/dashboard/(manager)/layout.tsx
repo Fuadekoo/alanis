@@ -10,6 +10,7 @@ import {
   DollarSign,
   Receipt,
   Video,
+  HeartPulse,
 } from "lucide-react";
 import React from "react";
 
@@ -47,6 +48,13 @@ export default async function Layout({
         oromo: "Barattoo Haaraa",
         url: "new-student",
         Icon: <Users className="size-5" />,
+      },
+      {
+        english: "care",
+        amharic: "እንክብካቤ",
+        oromo: "Kunuunsa",
+        url: "care",
+        Icon: <HeartPulse className="size-5" />,
       },
       {
         english: "deposit",
