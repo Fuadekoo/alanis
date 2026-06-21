@@ -4,6 +4,7 @@ import { createServer } from "http";
 import next from "next";
 import { startBot } from "./bot";
 import { startSocket } from "./socket";
+import { startAbsentCron } from "./cron";
 import { config } from "dotenv";
 
 config();
@@ -54,6 +55,7 @@ nextApp.prepare().then(() => {
 
   httpServer.listen(port, async () => {
     await startBot();
+    startAbsentCron();
     console.log(
       `> Server listening at http://localhost:${port} as ${
         nextApp.options.dev ? "development" : "production"
