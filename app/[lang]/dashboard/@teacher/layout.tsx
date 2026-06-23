@@ -1,5 +1,5 @@
 import UserLayout from "@/components/layout/userLayout";
-import { Home } from "lucide-react";
+import { History, Home } from "lucide-react";
 import React from "react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -32,6 +32,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         oromo: "Chaatii",
         url: "chat",
         Icon: <Home className="size-4" />,
+      },
+      {
+        english: "History",
+        amharic: "ታሪክ",
+        oromo: "Seenaa",
+        url: "history",
+        Icon: <History className="size-4" />,
       },
     ],
   ];
