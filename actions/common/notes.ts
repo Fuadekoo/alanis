@@ -85,6 +85,7 @@ export async function getReportedNotes() {
             fatherName: true,
             lastName: true,
             username: true,
+            phoneNumber: true,
           },
         },
         writenBy: {

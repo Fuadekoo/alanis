@@ -21,6 +21,8 @@ import useAmharic from "@/hooks/useAmharic";
 import useData from "@/hooks/useData";
 import { useDisclosure } from "@heroui/react";
 import { CheckCircle2, HeartPulse, XCircle } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import React, { useState } from "react";
 
 type ReportedNote = {
@@ -35,6 +37,7 @@ type ReportedNote = {
     fatherName: string;
     lastName: string;
     username: string | null;
+    phoneNumber: string | null;
   };
   writenBy: {
     firstName: string;
@@ -134,6 +137,7 @@ function NoteCard({
 
   const studentName = `${note.writenTo.firstName} ${note.writenTo.fatherName} ${note.writenTo.lastName}`;
   const controllerName = `${note.writenBy.firstName} ${note.writenBy.fatherName}`;
+  const studentPhone = (note.writenTo.phoneNumber || "").replace(/\D/g, "");
 
   const statusChip = () => {
     if (note.status === "SOLVED")
@@ -179,6 +183,49 @@ function NoteCard({
           </div>
           {statusChip()}
         </div>
+
+        {studentPhone && (
+          <div className="flex gap-2 items-center bg-success-50/60 border border-success-100 rounded-xl px-3 py-1.5">
+            <p className="flex-1 font-medium text-default-600">
+              {note.writenTo.phoneNumber}
+            </p>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              as={Link}
+              href={`https://t.me/+${studentPhone}`}
+              target="_blank"
+              title="Telegram"
+            >
+              <Image
+                alt="Telegram"
+                src="/telegram.svg"
+                width={1000}
+                height={1000}
+                className="size-7"
+              />
+            </Button>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              as={Link}
+              href={`https://wa.me/${studentPhone}`}
+              target="_blank"
+              title="WhatsApp"
+            >
+              <Image
+                alt="WhatsApp"
+                src="/whatsapp.svg"
+                width={1000}
+                height={1000}
+                className="size-7"
+              />
+            </Button>
+          </div>
+        )}
+
         <p className="text-small whitespace-pre-wrap">{note.note}</p>
 
         {note.resolutionNote && (
