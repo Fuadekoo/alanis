@@ -87,6 +87,10 @@ export default function Page() {
   const [modalDate, setModalDate] = useState<Date | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isWeekendTutorConfirmed, setIsWeekendTutorConfirmed] = useState(false);
+  // When set, the status modal edits an existing report instead of creating one.
+  const [editingReport, setEditingReport] = useState<CalendarReport | null>(
+    null
+  );
 
   // Quick status modal (mobile long-press)
   const [isQuickStatusOpen, setIsQuickStatusOpen] = useState(false);
@@ -268,6 +272,7 @@ export default function Page() {
     setModalDate(null);
     setIsWeekendTutorConfirmed(false);
     setQuickWeekendTutorConfirmed(false);
+    setEditingReport(null);
   };
 
   const closeStatusModal = () => {
@@ -380,7 +385,8 @@ export default function Page() {
 
     const duplicateOptimistic = optimisticReports[selectedStudent]?.[day];
 
-    if (duplicate || duplicateOptimistic) {
+    // When editing, an existing report is expected — createReport() updates it.
+    if (!editingReport && (duplicate || duplicateOptimistic)) {
       showAlert({
         message: isAm
           ? "ለዚህ ቀን ሪፖርት አስቀድሞ አለ።"
@@ -418,7 +424,11 @@ export default function Page() {
 
       if (result.success) {
         showAlert({
-          message: isAm
+          message: editingReport
+            ? isAm
+              ? "ሪፖርት በተሳካ ሁኔታ ተሻሽሏል!"
+              : "Report updated successfully!"
+            : isAm
             ? "ሪፖርት በተሳካ ሁኔታ ተፈጥሯል!"
             : "Report created successfully!",
           type: "success",
@@ -736,6 +746,51 @@ export default function Page() {
     setLearningProgress("");
     setModalDate(dateObj);
     setIsWeekendTutorConfirmed(false);
+    setEditingReport(null);
+    setIsStatusModalOpen(true);
+  };
+
+  // Open the status modal to edit an existing report (including a saved ABSENT).
+  // createReport() updates the report in place when one already exists.
+  const handleEditReport = (
+    student: {
+      id: string;
+      firstName: string;
+      fatherName: string;
+      lastName: string;
+    },
+    day: number,
+    report: CalendarReport
+  ) => {
+    const studentRow = getCurrentStudent(student.id);
+
+    if (!studentRow?.teacher) {
+      showAlert({
+        message: isAm
+          ? "ለዚህ ተማሪ መምህር አልተገኘም"
+          : "No teacher assigned to this student",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+      return;
+    }
+
+    const slot = studentRow.timeSlot || report.learningSlot || "";
+    const dateObj = new Date(year, month - 1, day);
+    dateObj.setHours(0, 0, 0, 0);
+
+    setSelectedStudent(student.id);
+    setSelectedStudentName(
+      `${student.firstName} ${student.fatherName} ${student.lastName}`
+    );
+    setSelectedTeacher(studentRow.teacher.id);
+    setLearningSlot(slot);
+    setLearningProgress(report.learningProgress ?? "");
+    setModalDate(dateObj);
+    // The day already has a report, so the weekend tutor disclaimer was handled
+    // when it was first logged — don't block the edit on it.
+    setIsWeekendTutorConfirmed(true);
+    setEditingReport(report);
     setIsStatusModalOpen(true);
   };
 
@@ -1050,33 +1105,51 @@ export default function Page() {
                                     className="border border-default-200/60 p-1 text-center align-middle"
                                   >
                                     <div className="flex items-center justify-center gap-2">
-                                      <Chip
-                                        size="sm"
-                                        radius="sm"
-                                        color={
-                                          report.learningProgress === "present"
-                                            ? "success"
+                                      <button
+                                        type="button"
+                                        title={
+                                          isAm
+                                            ? "ለማስተካከል ይጫኑ"
+                                            : "Click to edit"
+                                        }
+                                        onClick={() =>
+                                          handleEditReport(
+                                            item.student,
+                                            day,
+                                            report
+                                          )
+                                        }
+                                        className="rounded-md hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                                      >
+                                        <Chip
+                                          size="sm"
+                                          radius="sm"
+                                          color={
+                                            report.learningProgress ===
+                                            "present"
+                                              ? "success"
+                                              : report.learningProgress ===
+                                                "permission"
+                                              ? "primary"
+                                              : "danger"
+                                          }
+                                          variant="flat"
+                                          className="text-[10px] h-5 min-w-[46px] font-semibold bg-white/80 dark:bg-default-900/70 cursor-pointer"
+                                        >
+                                          {report.learningProgress === "present"
+                                            ? isAm
+                                              ? "ተገኝ"
+                                              : "P"
                                             : report.learningProgress ===
                                               "permission"
-                                            ? "primary"
-                                            : "danger"
-                                        }
-                                        variant="flat"
-                                        className="text-[10px] h-5 min-w-[46px] font-semibold bg-white/80 dark:bg-default-900/70"
-                                      >
-                                        {report.learningProgress === "present"
-                                          ? isAm
-                                            ? "ተገኝ"
-                                            : "P"
-                                          : report.learningProgress ===
-                                            "permission"
-                                          ? isAm
-                                            ? "ፈቃድ"
-                                            : "PE"
-                                          : isAm
-                                          ? "ጠፋ"
-                                          : "A"}
-                                      </Chip>
+                                            ? isAm
+                                              ? "ፈቃድ"
+                                              : "PE"
+                                            : isAm
+                                            ? "ጠፋ"
+                                            : "A"}
+                                        </Chip>
+                                      </button>
                                       {!isOptimistic && (
                                         <Button
                                           isIconOnly
@@ -1242,7 +1315,13 @@ export default function Page() {
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             <h2 className="text-xl font-bold">
-              {isAm ? "አዲስ ሪፖርት ይመዝግቡ" : "Log Daily Report"}
+              {editingReport
+                ? isAm
+                  ? "ሪፖርት ያስተካክሉ"
+                  : "Edit Daily Report"
+                : isAm
+                ? "አዲስ ሪፖርት ይመዝግቡ"
+                : "Log Daily Report"}
             </h2>
             <p className="text-sm text-default-500">
               {isAm
@@ -1372,7 +1451,13 @@ export default function Page() {
                 (isWeekendDay && !isWeekendTutorConfirmed)
               }
             >
-              {isAm ? "ሪፖርት ይፍጠሩ" : "Create Report"}
+              {editingReport
+                ? isAm
+                  ? "ሪፖርት ያዘምኑ"
+                  : "Update Report"
+                : isAm
+                ? "ሪፖርት ይፍጠሩ"
+                : "Create Report"}
             </Button>
           </ModalFooter>
         </ModalContent>
