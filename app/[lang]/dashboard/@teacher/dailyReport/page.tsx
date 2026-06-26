@@ -609,26 +609,62 @@ export default function Page() {
                                   | undefined;
 
                                 if (!report) {
+                                  const cellDate = new Date(
+                                    year,
+                                    month - 1,
+                                    day
+                                  );
+                                  cellDate.setHours(0, 0, 0, 0);
+                                  const todayStart = new Date();
+                                  todayStart.setHours(0, 0, 0, 0);
+                                  const isPastDay =
+                                    cellDate.getTime() < todayStart.getTime();
+
                                   return (
                                     <td
                                       key={day}
                                       className="border border-default-200/60 p-1 text-center align-middle"
                                     >
-                                      <Button
-                                        isIconOnly
-                                        size="sm"
-                                        color="primary"
-                                        variant="light"
-                                        className="min-w-unit-6 w-6 h-6"
-                                        onPress={() =>
-                                          handleOpenStatusModal(
-                                            item.student,
-                                            day
-                                          )
-                                        }
-                                      >
-                                        <PenSquare className="size-3" />
-                                      </Button>
+                                      {isPastDay ? (
+                                        // No report was filled for a past day:
+                                        // show a default ABSENT marker. Dashed
+                                        // outline distinguishes it from a saved
+                                        // record; still clickable to log the
+                                        // real status.
+                                        <button
+                                          type="button"
+                                          title={
+                                            isAm
+                                              ? "ሪፖርት አልተመዘገበም — በነባሪ ጠፋ"
+                                              : "No report — default Absent"
+                                          }
+                                          onClick={() =>
+                                            handleOpenStatusModal(
+                                              item.student,
+                                              day
+                                            )
+                                          }
+                                          className="mx-auto flex h-5 min-w-[46px] items-center justify-center rounded-md border border-dashed border-danger/40 bg-danger/5 text-[10px] font-semibold text-danger/70 hover:bg-danger/10"
+                                        >
+                                          {isAm ? "ጠፋ" : "A"}
+                                        </button>
+                                      ) : (
+                                        <Button
+                                          isIconOnly
+                                          size="sm"
+                                          color="primary"
+                                          variant="light"
+                                          className="min-w-unit-6 w-6 h-6"
+                                          onPress={() =>
+                                            handleOpenStatusModal(
+                                              item.student,
+                                              day
+                                            )
+                                          }
+                                        >
+                                          <PenSquare className="size-3" />
+                                        </Button>
+                                      )}
                                     </td>
                                   );
                                 }

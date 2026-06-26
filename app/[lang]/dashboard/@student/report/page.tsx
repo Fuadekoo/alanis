@@ -396,14 +396,36 @@ export default function Page() {
                               const report = item.reportsByDate[day];
 
                               if (!report) {
+                                const cellDate = new Date(year, month - 1, day);
+                                cellDate.setHours(0, 0, 0, 0);
+                                const todayStart = new Date();
+                                todayStart.setHours(0, 0, 0, 0);
+                                const isPastDay =
+                                  cellDate.getTime() < todayStart.getTime();
+
                                 return (
                                   <td
                                     key={day}
                                     className="border border-default-200/60 p-1 text-center align-middle"
                                   >
-                                    <span className="text-default-300 text-xs">
-                                      —
-                                    </span>
+                                    {isPastDay ? (
+                                      // No report filled for a past day -> show
+                                      // a default ABSENT marker (read-only).
+                                      <span
+                                        title={
+                                          isAm
+                                            ? "ሪፖርት አልተመዘገበም — በነባሪ ጠፋ"
+                                            : "No report — default Absent"
+                                        }
+                                        className="mx-auto flex h-5 min-w-[46px] items-center justify-center rounded-md border border-dashed border-danger/40 bg-danger/5 text-[10px] font-semibold text-danger/70"
+                                      >
+                                        {isAm ? "ጠፋ" : "A"}
+                                      </span>
+                                    ) : (
+                                      <span className="text-default-300 text-xs">
+                                        —
+                                      </span>
+                                    )}
                                   </td>
                                 );
                               }

@@ -10,6 +10,7 @@ import {
   toAttendanceStatus,
   toTeacherStudentStatus,
 } from "@/actions/shared/teacherDomain";
+import { backfillTeacherAbsentForPreviousDay } from "@/actions/shared/absentBackfill";
 
 interface CreateTeacherReportData {
   studentId: string;
@@ -240,6 +241,21 @@ export async function createTeacherReport(data: CreateTeacherReportData) {
         studentApproved: null,
       },
     });
+
+    // Filling today's attendance auto-closes the previous working day: any of
+    // this teacher's students with no report for that day are marked ABSENT.
+    // Never blocks/fails the report itself.
+    if (reportDate.getTime() === todayUtc().getTime()) {
+      try {
+        await backfillTeacherAbsentForPreviousDay(teacherId, reportDate);
+      } catch (error) {
+        console.error(
+          "[absent-backfill] failed for teacher",
+          teacherId,
+          error,
+        );
+      }
+    }
 
     return {
       success: true,

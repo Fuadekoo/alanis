@@ -397,6 +397,16 @@ export default function Page() {
                                   (_, i) => i + 1
                                 ).map((day) => {
                                   const report = item.reportsByDate[day];
+                                  const cellDate = new Date(
+                                    year,
+                                    month - 1,
+                                    day
+                                  );
+                                  cellDate.setHours(0, 0, 0, 0);
+                                  const todayStart = new Date();
+                                  todayStart.setHours(0, 0, 0, 0);
+                                  const isPastDay =
+                                    cellDate.getTime() < todayStart.getTime();
                                   return (
                                     <td
                                       key={day}
@@ -435,6 +445,19 @@ export default function Page() {
                                             </span>
                                           )}
                                         </div>
+                                      ) : isPastDay ? (
+                                        // No report filled for a past day ->
+                                        // show a default ABSENT marker.
+                                        <span
+                                          title={
+                                            isAm
+                                              ? "ሪፖርት አልተመዘገበም — በነባሪ ጠፋ"
+                                              : "No report — default Absent"
+                                          }
+                                          className="mx-auto flex h-5 min-w-[46px] items-center justify-center rounded-md border border-dashed border-danger/40 bg-danger/5 text-[10px] font-semibold text-danger/70"
+                                        >
+                                          {isAm ? "ጠፋ" : "A"}
+                                        </span>
                                       ) : (
                                         <span className="text-default-300 text-xs">
                                           —
