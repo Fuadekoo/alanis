@@ -12,7 +12,6 @@ import {
   parseDateInput,
   toAttendanceStatus,
 } from "@/actions/shared/teacherDomain";
-import { backfillTeacherAbsentForPreviousDay } from "@/actions/shared/absentBackfill";
 import { Prisma, TeacherStudentStatus, userStatus } from "@prisma/client";
 
 interface CreateReportData {
@@ -186,21 +185,6 @@ export async function createReport(data: CreateReportData) {
         },
       });
     });
-
-    // Saving today's attendance auto-closes the previous working day for this
-    // teacher: students with no report for that day are marked ABSENT. Never
-    // blocks/fails the report itself.
-    if (reportDate.getTime() === todayUtc().getTime()) {
-      try {
-        await backfillTeacherAbsentForPreviousDay(activeTeacherId, reportDate);
-      } catch (error) {
-        console.error(
-          "[absent-backfill] failed for teacher",
-          activeTeacherId,
-          error,
-        );
-      }
-    }
 
     return {
       success: true,
