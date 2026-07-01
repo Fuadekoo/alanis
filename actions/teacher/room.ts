@@ -1,11 +1,14 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { sendRoomLinkNotification } from "@/lib/telegram";
+import {
+  sendRoomLinkNotification,
+  type TelegramSendResult,
+} from "@/lib/telegram";
 import { isAuthorized } from "@/lib/utils";
 import { LinkSchema } from "@/lib/zodSchema";
 import { normalizeDay } from "@/actions/shared/teacherDomain";
-import { AttendanceStatus, TeacherStudentStatus } from "@prisma/client";
+import { AttendanceStatus, Prisma, TeacherStudentStatus } from "@prisma/client";
 
 function getGreeting(gender: string) {
   if (gender === "Female") return "እህት";
@@ -22,13 +25,17 @@ function formatDisplayTime(time: string) {
   return `${displayHour}:${minute} ${period}`;
 }
 
-async function recordTeacherAttendance(teacherId: string, roomId: string) {
+async function recordTeacherAttendance(
+  tx: Prisma.TransactionClient,
+  teacherId: string,
+  roomId: string
+) {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
 
-  const existingAttendance = await prisma.roomAttendance.findFirst({
+  const existingAttendance = await tx.roomAttendance.findFirst({
     where: {
       userId: teacherId,
       roomId,
@@ -40,80 +47,76 @@ async function recordTeacherAttendance(teacherId: string, roomId: string) {
   });
 
   if (!existingAttendance) {
-    await prisma.roomAttendance.create({
+    await tx.roomAttendance.create({
       data: { userId: teacherId, roomId },
     });
   }
 }
 
 /**
- * When a teacher sends/generates a class link, automatically mark today's
- * daily report as PRESENT for that teacher–student pair.
+ * Mark today's daily report as PRESENT for the teacher–student pair.
  *
  * Rules:
- *  - Saves only once per day. If a report already exists for the day (whether
- *    auto-saved earlier or edited by a controller), it is left untouched.
+ *  - Saves only once per day. `skipDuplicates` on the (combId, date) unique
+ *    constraint means an existing report (auto-saved earlier or edited by a
+ *    controller) is left untouched and a concurrent race never aborts the tx.
  *  - Skipped on weekends (Saturday and Sunday).
- *  - Best-effort: never throws, so it cannot break the link-sending flow.
  */
-async function recordTeacherPresentReport({
-  teacherId,
-  studentId,
-  learningSlot,
-}: {
-  teacherId: string;
-  studentId: string;
-  learningSlot: string;
-}) {
-  try {
-    const today = normalizeDay();
-    const weekday = today.getUTCDay(); // 0 = Sunday, 6 = Saturday
-    if (weekday === 0 || weekday === 6) {
-      return; // no automatic save on weekends
-    }
-
-    await prisma.$transaction(async (tx) => {
-      const combination = await tx.teacherStudent.upsert({
-        where: {
-          teacherId_studentId: { teacherId, studentId },
-        },
-        update: {},
-        create: {
-          teacherId,
-          studentId,
-          active: true,
-          status: TeacherStudentStatus.ACTIVE,
-        },
-        select: { id: true },
-      });
-
-      const existing = await tx.teacherDailyReport.findUnique({
-        where: {
-          combId_date: { combId: combination.id, date: today },
-        },
-        select: { id: true },
-      });
-
-      if (existing) {
-        return; // already saved once today — do not overwrite
-      }
-
-      await tx.teacherDailyReport.create({
-        data: {
-          combId: combination.id,
-          date: today,
-          learningSlot,
-          attendance: AttendanceStatus.PRESENT,
-        },
-      });
-    });
-  } catch (error) {
-    // Unique-constraint races (P2002) and any other failure here must not
-    // block the link from being sent to the student.
-    console.error("Failed to auto-save teacher present report:", error);
+async function recordTeacherPresentReport(
+  tx: Prisma.TransactionClient,
+  {
+    teacherId,
+    studentId,
+    learningSlot,
+  }: {
+    teacherId: string;
+    studentId: string;
+    learningSlot: string;
   }
+) {
+  const today = normalizeDay();
+  const weekday = today.getUTCDay(); // 0 = Sunday, 6 = Saturday
+  if (weekday === 0 || weekday === 6) {
+    return; // no automatic save on weekends
+  }
+
+  const combination = await tx.teacherStudent.upsert({
+    where: {
+      teacherId_studentId: { teacherId, studentId },
+    },
+    update: {},
+    create: {
+      teacherId,
+      studentId,
+      active: true,
+      status: TeacherStudentStatus.ACTIVE,
+    },
+    select: { id: true },
+  });
+
+  await tx.teacherDailyReport.createMany({
+    data: [
+      {
+        combId: combination.id,
+        date: today,
+        learningSlot,
+        attendance: AttendanceStatus.PRESENT,
+      },
+    ],
+    skipDuplicates: true,
+  });
 }
 
+/**
+ * Save the teacher's attendance + PRESENT report, then send the class link.
+ *
+ * The DB writes are committed FIRST, in their own transaction, so the report is
+ * always saved once a link is generated. Telegram delivery happens afterwards
+ * and is best-effort: a delivery failure (student blocked the bot, invalid
+ * chat, transient error) never undoes the saved report. A DB write and an
+ * external send cannot be committed atomically, so we prioritise the report and
+ * report any delivery problem back to the caller for messaging.
+ */
 async function notifyStudentAboutRoomLink({
   room,
   teacherId,
@@ -133,14 +136,19 @@ async function notifyStudentAboutRoomLink({
   };
   teacherId: string;
   link: string;
-}) {
-  await recordTeacherAttendance(teacherId, room.id);
-  await recordTeacherPresentReport({
-    teacherId,
-    studentId: room.studentId,
-    learningSlot: room.time,
+}): Promise<TelegramSendResult> {
+  // 1. Commit attendance + present report. This must succeed independently of
+  //    whether the link can be delivered.
+  await prisma.$transaction(async (tx) => {
+    await recordTeacherAttendance(tx, teacherId, room.id);
+    await recordTeacherPresentReport(tx, {
+      teacherId,
+      studentId: room.studentId,
+      learningSlot: room.time,
+    });
   });
 
+  // 2. Then deliver the link (best-effort; the report above stays saved).
   const studentChatId = room.student.chatId?.trim();
   if (!studentChatId) {
     return { ok: false, error: "Student is not connected to Telegram" };
