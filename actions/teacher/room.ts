@@ -5,6 +5,7 @@ import {
   sendRoomLinkNotification,
   type TelegramSendResult,
 } from "@/lib/telegram";
+import { sendPushToUsers } from "@/lib/push";
 import { isAuthorized } from "@/lib/utils";
 import { LinkSchema } from "@/lib/zodSchema";
 import { normalizeDay } from "@/actions/shared/teacherDomain";
@@ -146,6 +147,14 @@ async function notifyStudentAboutRoomLink({
       studentId: room.studentId,
       learningSlot: room.time,
     });
+  });
+
+  // Best-effort browser push to the student. Independent of Telegram, and the
+  // link itself is the click target so tapping the notification joins the class.
+  await sendPushToUsers([room.studentId], {
+    title: "Your class link is ready",
+    body: "Your teacher just sent your class link. Tap to join.",
+    url: link,
   });
 
   // 2. Then deliver the link (best-effort; the report above stays saved).

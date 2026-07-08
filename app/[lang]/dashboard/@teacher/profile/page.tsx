@@ -4,6 +4,7 @@ import { ChangeUsername } from "./changeUsername";
 import prisma from "@/lib/db";
 import { isAuthorized } from "@/lib/utils";
 import ZoomAttachSection from "@/components/zoomAttachSection";
+import PushNotificationCard from "@/components/pushNotificationCard";
 
 export default async function Page() {
   const controller = await isAuthorized("teacher");
@@ -38,6 +39,7 @@ export default async function Page() {
   return (
     <div className="p-2 md:p-10 flex flex-col gap-5 text-xl">
       <ZoomAttachSection data={zoomAttach ?? undefined} />
+      <PushNotificationCard />
       {[
         ["Name", `${data.firstName} ${data.fatherName} ${data.lastName}`],
         ["Gender", data.gender],

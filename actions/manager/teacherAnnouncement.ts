@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/db";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { sendPushToUsers } from "@/lib/push";
 import { TeacherAnnouncementSchema } from "@/lib/zodSchema";
 
 export async function registerTeacherAnnouncement({
@@ -55,6 +56,15 @@ export async function registerTeacherAnnouncement({
         },
       },
     });
+
+    await sendPushToUsers(
+      ids.map(({ teacherId }) => teacherId),
+      {
+        title: "New announcement",
+        body: text,
+        url: "/",
+      }
+    );
   }
   return { status: true, message: "successfully register teacher announcement" };
 }

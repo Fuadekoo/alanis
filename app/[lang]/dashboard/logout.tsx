@@ -9,10 +9,11 @@ import React from "react";
 export default function Logout() {
   const router = useRouter();
   const { lang } = useParams<{ lang: string }>();
-  const [action, isLoading] = useMutation(logout, (state) => {
-    if (state.status) {
-      router.refresh();
-    }
+  const [action, isLoading] = useMutation(logout, () => {
+    // The error card only shows when there is no valid logged-in user, so
+    // clear any stale session and send the user to the login page.
+    router.replace(`/${lang}/login`);
+    router.refresh();
   });
   return (
     <Button color="primary" onPress={action} isLoading={isLoading}>

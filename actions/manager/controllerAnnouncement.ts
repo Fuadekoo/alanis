@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/db";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { sendPushToUsers } from "@/lib/push";
 import { ControllerAnnouncementSchema } from "@/lib/zodSchema";
 
 async function getTargetControllers(forUser: string[]) {
@@ -61,6 +62,15 @@ export async function registerControllerAnnouncement({
           },
         },
       });
+
+      await sendPushToUsers(
+        controllers.map(({ id }) => id),
+        {
+          title: "New announcement",
+          body: text,
+          url: "/",
+        }
+      );
     }
 
     return {
