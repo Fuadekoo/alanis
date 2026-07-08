@@ -65,6 +65,8 @@ export default function Detail() {
                     age: data.age + "",
                     username: data.username,
                     password: "",
+                    BankAccountName: data.BankAccountName ?? "",
+                    BankAccountNumber: data.BankAccountNumber ?? "",
                   })
                 }
                 onDelete={() => deletion.open(data.id)}

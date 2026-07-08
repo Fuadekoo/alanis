@@ -25,6 +25,8 @@ export async function registerTeacher({
         phoneNumber: data.phoneNumber,
         country: data.country,
         username: data.username,
+        BankAccountName: data.BankAccountName,
+        BankAccountNumber: data.BankAccountNumber,
         ...(password ? { password: await bcrypt.hash(password, 12) } : {}),
       },
     });
@@ -40,6 +42,8 @@ export async function registerTeacher({
         phoneNumber: data.phoneNumber,
         country: data.country,
         username: data.username,
+        BankAccountName: data.BankAccountName,
+        BankAccountNumber: data.BankAccountNumber,
         password: await bcrypt.hash(password, 12),
       },
     });

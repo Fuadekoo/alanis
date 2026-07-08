@@ -113,6 +113,8 @@ function mapSalaryRowWithTeacher(salary: {
     lastName: string;
     phoneNumber: string;
     username: string;
+    BankAccountName: string | null;
+    BankAccountNumber: string | null;
   };
   month: number;
   year: number;
@@ -659,6 +661,50 @@ export async function updateSalaryFinancials(
   });
 
   return mapSalaryRowWithTeacher(updated);
+}
+
+export async function updateTeacherBankAccount(
+  teacherId: string,
+  data: {
+    BankAccountName: string;
+    BankAccountNumber: string;
+  },
+) {
+  try {
+    await isAuthorized("manager");
+
+    if (!teacherId) {
+      throw new Error("Teacher is required");
+    }
+
+    const teacher = await prisma.user.update({
+      where: { id: teacherId },
+      data: {
+        BankAccountName: data.BankAccountName.trim(),
+        BankAccountNumber: data.BankAccountNumber.trim(),
+      },
+      select: {
+        id: true,
+        BankAccountName: true,
+        BankAccountNumber: true,
+      },
+    });
+
+    return {
+      success: true,
+      data: teacher,
+      message: "Bank account updated successfully",
+    };
+  } catch (error) {
+    console.error("Error updating teacher bank account:", error);
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to update bank account",
+    };
+  }
 }
 
 export async function deleteSalary(salaryId: string) {

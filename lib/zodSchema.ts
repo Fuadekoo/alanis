@@ -44,7 +44,13 @@ export const controllerSchema = z.intersection(commonSchema, z.object({}));
 export type ControllerSchema = z.infer<typeof controllerSchema>;
 
 // teacher
-export const teacherSchema = z.intersection(commonSchema, z.object({}));
+export const teacherSchema = z.intersection(
+  commonSchema,
+  z.object({
+    BankAccountName: z.string().default(""),
+    BankAccountNumber: z.string().default(""),
+  })
+);
 export type TeacherSchema = z.infer<typeof teacherSchema>;
 
 // student

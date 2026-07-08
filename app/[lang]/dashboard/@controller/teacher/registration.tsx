@@ -62,6 +62,16 @@ export default function Registration() {
           {...registration.register("password")}
         />
       </div>
+      <div className="grid md:grid-cols-2 gap-5">
+        <Input
+          label={isAm ? "የባንክ መለያ ስም" : "Bank Account Name"}
+          {...registration.register("BankAccountName")}
+        />
+        <Input
+          label={isAm ? "የባንክ ሒሳብ ቁጥር" : "Bank Account Number"}
+          {...registration.register("BankAccountNumber")}
+        />
+      </div>
     </RegistrationModal>
   );
 }

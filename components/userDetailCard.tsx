@@ -1,8 +1,9 @@
 import useAmharic from "@/hooks/useAmharic";
 import { Button } from "./ui/heroui";
+import { addToast } from "@heroui/react";
 import Link from "next/link";
 import Image from "next/image";
-import { Pen, Send, Trash } from "lucide-react";
+import { Pen, Send, Trash, CreditCard, Copy } from "lucide-react";
 
 export default function UserDetailCard({
   firstName,
@@ -17,6 +18,8 @@ export default function UserDetailCard({
   registerDate,
   startDate,
   controller,
+  BankAccountName,
+  BankAccountNumber,
   onEdit,
   onDelete,
 }: {
@@ -38,6 +41,8 @@ export default function UserDetailCard({
     fatherName: string;
     lastName: string;
   } | null;
+  BankAccountName?: string | null;
+  BankAccountNumber?: string | null;
   onEdit: () => void;
   onDelete?: () => void;
 }) {
@@ -120,6 +125,36 @@ export default function UserDetailCard({
           {controller.firstName} {controller.fatherName} {controller.lastName}
         </div>
       )}
+      {BankAccountNumber ? (
+        <div className="mt-1 flex items-center gap-2 rounded-lg border border-default-200 bg-default-100/60 px-2 py-1">
+          <CreditCard className="size-4 shrink-0 text-primary-500" />
+          <div className="min-w-0 flex-1 leading-tight">
+            {BankAccountName ? (
+              <p className="truncate text-xs font-medium text-default-600">
+                {BankAccountName}
+              </p>
+            ) : null}
+            <p className="truncate font-mono text-sm">{BankAccountNumber}</p>
+          </div>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="flat"
+            className="size-fit p-1.5"
+            aria-label={isAm ? "የባንክ ቁጥር ቅዳ" : "Copy bank account number"}
+            onPress={() => {
+              navigator.clipboard.writeText(BankAccountNumber);
+              addToast({
+                title: isAm ? "ተቀድቷል" : "Copied",
+                description: BankAccountNumber,
+                color: "success",
+              });
+            }}
+          >
+            <Copy className="size-4" />
+          </Button>
+        </div>
+      ) : null}
       <div className="flex gap-2">
         <p className="w-20 content-center">{isAm ? "ሁኔታ" : "status"}</p>
         {status}

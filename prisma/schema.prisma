@@ -51,6 +51,8 @@ model user {
   startDate           DateTime?
   profileNotes        String?               @db.Text
   status              userStatus            @default(new)
+  BankAccountName     String?               @default("")
+  BankAccountNumber   String?               @default("")
   controller          user?                 @relation("students", fields: [controllerId], references: [id])
   controllerId        String?
   pendingController   user?                 @relation("pendingStudents", fields: [pendingControllerId], references: [id])
@@ -83,20 +85,20 @@ model user {
 }
 
 model notes {
-  id         String   @id @default(cuid())
-  writenTo   user     @relation("NotesToUser", fields: [writentoId], references: [id], onDelete: Cascade)
+  id         String @id @default(cuid())
+  writenTo   user   @relation("NotesToUser", fields: [writentoId], references: [id], onDelete: Cascade)
   writentoId String
-  writenBy   user     @relation("NotesFromUser", fields: [writenbyId], references: [id], onDelete: Cascade)
+  writenBy   user   @relation("NotesFromUser", fields: [writenbyId], references: [id], onDelete: Cascade)
   writenbyId String
-  note       String   @db.Text
+  note       String @db.Text
 
   reportedToManager Boolean    @default(false)
   status            NoteStatus @default(OPEN)
   resolutionNote    String?    @db.Text
   resolvedAt        DateTime?
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum NoteStatus {

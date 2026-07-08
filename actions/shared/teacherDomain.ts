@@ -47,6 +47,8 @@ export const teacherSelect = {
   lastName: true,
   username: true,
   phoneNumber: true,
+  BankAccountName: true,
+  BankAccountNumber: true,
 } satisfies Prisma.userSelect;
 
 export const reportWithRelationsInclude = {

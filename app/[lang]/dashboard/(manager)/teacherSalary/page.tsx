@@ -35,6 +35,8 @@ import {
   TrendingUp,
   Edit3,
   Trash2,
+  Copy,
+  CreditCard,
 } from "lucide-react";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
@@ -49,6 +51,7 @@ import {
   createAutomaticSalaries,
   getTeacherSalaryAnalytics,
   updateSalaryFinancials,
+  updateTeacherBankAccount,
   deleteSalary,
 } from "@/actions/manager/salary";
 import { useLocalization } from "@/hooks/useLocalization";
@@ -65,6 +68,8 @@ interface TeacherSalaryData {
     firstName: string;
     fatherName: string;
     lastName: string;
+    BankAccountName?: string | null;
+    BankAccountNumber?: string | null;
   };
   month: number;
   year: number;
@@ -361,9 +366,32 @@ function Page() {
   // Edit/Delete state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSalaryId, setEditingSalaryId] = useState<string | null>(null);
+  const [editingTeacherId, setEditingTeacherId] = useState<string>("");
+  const [bankAccountName, setBankAccountName] = useState<string>("");
+  const [bankAccountNumber, setBankAccountNumber] = useState<string>("");
   const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] =
     useState(false);
   const [deletingSalaryId, setDeletingSalaryId] = useState<string | null>(null);
+
+  // Copy-to-clipboard state (tracks which value was just copied)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyToClipboard = async (value: string, key: string) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      setTimeout(() => {
+        setCopiedKey((current) => (current === key ? null : current));
+      }, 1500);
+    } catch {
+      showAlert({
+        message: isAm ? "መቅዳት አልተሳካም" : "Failed to copy",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+    }
+  };
 
   // Fetch data
   const [salaries, salariesLoading, refreshSalaries] = useData(
@@ -440,6 +468,9 @@ function Page() {
     if (!salary?.id) return;
     setEditingSalaryId(salary.id);
     setSelectedTeacher(salary.teacher.id || "");
+    setEditingTeacherId(salary.teacher.id || "");
+    setBankAccountName(salary.teacher.BankAccountName ?? "");
+    setBankAccountNumber(salary.teacher.BankAccountNumber ?? "");
     setYear(salary.year);
     setMonth(salary.month);
     setUnitPrice(salary.unitPrice || 0);
@@ -585,6 +616,9 @@ function Page() {
     setUnitPrice(0);
     setSelectedTeacherProgress(new Set());
     setSelectedShiftTeacherData(new Set());
+    setEditingTeacherId("");
+    setBankAccountName("");
+    setBankAccountNumber("");
   };
 
   // Photo upload helpers
@@ -806,6 +840,27 @@ function Page() {
         title: isAm ? "ማስጠንቀቂያ" : "Warning",
       });
       return;
+    }
+
+    // Persist the teacher's bank account first so the refreshed rows show it.
+    if (editingTeacherId) {
+      const bankResult = await updateTeacherBankAccount(editingTeacherId, {
+        BankAccountName: bankAccountName,
+        BankAccountNumber: bankAccountNumber,
+      });
+
+      if (!bankResult?.success) {
+        showAlert({
+          message: bankResult?.message
+            ? bankResult.message
+            : isAm
+              ? "የባንክ መለያ ማዘመን አልተሳካም"
+              : "Failed to update bank account",
+          type: "error",
+          title: isAm ? "ስህተት" : "Error",
+        });
+        return;
+      }
     }
 
     await updateSalaryFinancialsMutation(editingSalaryId, { unitPrice });
@@ -1567,6 +1622,51 @@ function Page() {
                               {salary.teacher.fatherName}{" "}
                               {salary.teacher.lastName}
                             </div>
+                            {salary.teacher.BankAccountNumber ? (
+                              <div className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-default-200 bg-default-50 px-2 py-1 dark:border-default-700 dark:bg-default-900/60">
+                                <CreditCard className="size-3.5 shrink-0 text-primary-500" />
+                                <div className="min-w-0 leading-tight">
+                                  {salary.teacher.BankAccountName ? (
+                                    <div className="truncate text-xs font-medium text-default-700 dark:text-default-200">
+                                      {salary.teacher.BankAccountName}
+                                    </div>
+                                  ) : null}
+                                  <div className="truncate font-mono text-xs text-default-600 dark:text-default-300">
+                                    {salary.teacher.BankAccountNumber}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    copyToClipboard(
+                                      salary.teacher.BankAccountNumber ?? "",
+                                      `bank-${salary.id}`,
+                                    )
+                                  }
+                                  className="ml-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md text-default-400 transition-colors hover:bg-primary-100 hover:text-primary-600 dark:hover:bg-primary-500/20"
+                                  aria-label={
+                                    isAm
+                                      ? "የባንክ ቁጥር ቅዳ"
+                                      : "Copy bank account number"
+                                  }
+                                  title={
+                                    isAm
+                                      ? "የባንክ ቁጥር ቅዳ"
+                                      : "Copy bank account number"
+                                  }
+                                >
+                                  {copiedKey === `bank-${salary.id}` ? (
+                                    <Check className="size-3.5 text-success-500" />
+                                  ) : (
+                                    <Copy className="size-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="mt-1.5 text-xs text-default-400">
+                                {isAm ? "የባንክ መለያ የለም" : "No bank account"}
+                              </div>
+                            )}
                             <div className="text-xs text-default-500 mt-1">
                               ID: {salary.teacher.id}
                             </div>
@@ -3124,6 +3224,40 @@ function Page() {
                 variant="bordered"
                 endContent={<Calculator className="h-4 w-4 text-gray-400" />}
               />
+            </div>
+
+            {/* Bank Account */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {isAm ? "የባንክ መለያ ስም" : "Bank Account Name"}
+                </label>
+                <Input
+                  value={bankAccountName}
+                  onChange={(e) => setBankAccountName(e.target.value)}
+                  placeholder={
+                    isAm ? "የመለያ ባለቤት ስም" : "Account holder name"
+                  }
+                  variant="bordered"
+                  startContent={
+                    <CreditCard className="h-4 w-4 text-gray-400" />
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {isAm ? "የባንክ ሒሳብ ቁጥር" : "Bank Account Number"}
+                </label>
+                <Input
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  placeholder={isAm ? "የሒሳብ ቁጥር" : "Account number"}
+                  variant="bordered"
+                  startContent={
+                    <CreditCard className="h-4 w-4 text-gray-400" />
+                  }
+                />
+              </div>
             </div>
 
             {/* Calculation Summary */}
