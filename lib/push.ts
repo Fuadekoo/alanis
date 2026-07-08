@@ -55,12 +55,21 @@ export async function sendPushToUsers(
   });
   if (subscriptions.length === 0) return { sent: 0, failed: 0 };
 
+  // Keep the encrypted payload comfortably under the 4KB web-push limit.
+  const body =
+    payload.body.length > 500
+      ? `${payload.body.slice(0, 497)}...`
+      : payload.body;
+
   const message = JSON.stringify({
     title: payload.title,
-    body: payload.body,
+    body,
     url: payload.url ?? "/",
     icon: payload.icon ?? "/al-anis.png",
   });
+
+  // Retain for up to a day so a briefly-offline device still gets it.
+  const options = { TTL: 60 * 60 * 24 } as const;
 
   const staleEndpoints: string[] = [];
   let sent = 0;
@@ -74,7 +83,8 @@ export async function sendPushToUsers(
             endpoint: sub.endpoint,
             keys: { p256dh: sub.p256dh, auth: sub.auth },
           },
-          message
+          message,
+          options
         );
         sent += 1;
       } catch (error) {

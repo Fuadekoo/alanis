@@ -25,6 +25,17 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+/** Whether an existing subscription was created with the current VAPID key. */
+function keyMatches(existing: ArrayBuffer | null, expected: Uint8Array) {
+  if (!existing) return false;
+  const actual = new Uint8Array(existing);
+  if (actual.length !== expected.length) return false;
+  for (let i = 0; i < actual.length; i += 1) {
+    if (actual[i] !== expected[i]) return false;
+  }
+  return true;
+}
+
 export default function PushNotificationCard() {
   const isAm = useAmharic();
   const [ready, setReady] = useState(false);
@@ -52,8 +63,18 @@ export default function PushNotificationCard() {
         await navigator.serviceWorker.ready;
         const existing = await registration.pushManager.getSubscription();
         if (existing) {
-          const status = await getPushSubscriptionStatus(existing.endpoint);
-          setSubscribed(status.subscribed);
+          // A subscription made with a different VAPID key can't receive our
+          // pushes — treat it as not subscribed so the user re-enables.
+          const validKey =
+            !VAPID_PUBLIC_KEY ||
+            keyMatches(
+              existing.options.applicationServerKey,
+              urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            );
+          if (validKey) {
+            const status = await getPushSubscriptionStatus(existing.endpoint);
+            setSubscribed(status.subscribed);
+          }
         }
       } catch (error) {
         console.error("Service worker registration failed", error);
@@ -93,11 +114,24 @@ export default function PushNotificationCard() {
       }
 
       const registration = await navigator.serviceWorker.ready;
+      const appServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
       let sub = await registration.pushManager.getSubscription();
+
+      // Replace a subscription that was created with a different VAPID key.
+      if (sub && !keyMatches(sub.options.applicationServerKey, appServerKey)) {
+        try {
+          await unsubscribeFromPush(sub.endpoint);
+        } catch {
+          // best-effort server cleanup
+        }
+        await sub.unsubscribe();
+        sub = null;
+      }
+
       if (!sub) {
         sub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+          applicationServerKey: appServerKey,
         });
       }
 

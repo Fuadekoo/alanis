@@ -1,3 +1,9 @@
+// Activate an updated service worker immediately instead of waiting for all
+// tabs to close, so new push/click logic takes effect on the next load.
+self.addEventListener("install", function () {
+  self.skipWaiting();
+});
+
 self.addEventListener("push", function (event) {
   let data = {};
   try {
@@ -34,20 +40,35 @@ self.addEventListener("notificationclick", function (event) {
   const isInternal = targetUrl.startsWith("/");
 
   event.waitUntil(
-    clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then(function (clientList) {
-        // Reuse an already-open tab when possible.
-        for (const client of clientList) {
-          if ("focus" in client) {
-            if (isInternal && "navigate" in client) {
-              client.navigate(targetUrl);
+    (async function () {
+      // External links (e.g. a Zoom/Meet class link) must always open a new
+      // window — focusing an existing app tab would not take the user there.
+      if (!isInternal) {
+        await clients.openWindow(targetUrl);
+        return;
+      }
+
+      // Internal path: reuse an already-open app tab when possible.
+      const clientList = await clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      for (const client of clientList) {
+        if ("focus" in client) {
+          if ("navigate" in client) {
+            try {
+              await client.navigate(targetUrl);
+            } catch (e) {
+              // Cross-origin or navigation blocked — fall back to focus.
             }
-            return client.focus();
           }
+          return client.focus();
         }
-        return clients.openWindow(targetUrl);
-      })
+      }
+
+      await clients.openWindow(targetUrl);
+    })()
   );
 });
 
