@@ -7,12 +7,12 @@ export const metadata: Metadata = {
   description: "Privacy Policy for Al-Anis Tilawa Educational System",
 };
 
-export default function PrivacyPolicyPage({
+export default async function PrivacyPolicyPage({
   params,
 }: {
-  params: { lang: string };
+  params: Promise<{ lang: string }>;
 }) {
-  const { lang } = params;
+  const { lang } = await params;
   const currentDate = new Date().toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",

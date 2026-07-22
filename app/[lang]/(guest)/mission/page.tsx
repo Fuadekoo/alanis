@@ -8,8 +8,12 @@ export const metadata: Metadata = {
   description: "Mission and Vision of Al-Anis Tilawa Educational System",
 };
 
-export default function MissionPage({ params }: { params: { lang: string } }) {
-  const { lang } = params;
+export default async function MissionPage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params;
   return (
     <div className="min-h-full bg-default-50/50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto bg-white dark:bg-default-100 shadow-sm rounded-2xl overflow-hidden border border-default-200">

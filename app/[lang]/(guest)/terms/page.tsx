@@ -7,8 +7,12 @@ export const metadata: Metadata = {
   description: "Terms and Conditions for Al-Anis Tilawa Educational System",
 };
 
-export default function TermsPage({ params }: { params: { lang: string } }) {
-  const { lang } = params;
+export default async function TermsPage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params;
   const currentDate = new Date().toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
