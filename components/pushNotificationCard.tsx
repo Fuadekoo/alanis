@@ -1,222 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/heroui";
-import { addToast } from "@heroui/react";
 import { Bell, BellOff, BellRing, Send } from "lucide-react";
 import useAmharic from "@/hooks/useAmharic";
-import {
-  getPushSubscriptionStatus,
-  sendTestPush,
-  subscribeToPush,
-  unsubscribeFromPush,
-} from "@/actions/common/push";
-
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; i += 1) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-/** Whether an existing subscription was created with the current VAPID key. */
-function keyMatches(existing: ArrayBuffer | null, expected: Uint8Array) {
-  if (!existing) return false;
-  const actual = new Uint8Array(existing);
-  if (actual.length !== expected.length) return false;
-  for (let i = 0; i < actual.length; i += 1) {
-    if (actual[i] !== expected[i]) return false;
-  }
-  return true;
-}
+import usePushNotification from "@/hooks/usePushNotification";
 
 export default function PushNotificationCard() {
   const isAm = useAmharic();
-  const [ready, setReady] = useState(false);
-  const [supported, setSupported] = useState(true);
-  const [permission, setPermission] =
-    useState<NotificationPermission>("default");
-  const [subscribed, setSubscribed] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const {
+    ready,
+    supported,
+    permission,
+    subscribed,
+    loading,
+    subscribe,
+    unsubscribe,
+    sendTest,
+  } = usePushNotification();
 
   const t = (am: string, en: string) => (isAm ? am : en);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setSupported(false);
-      setReady(true);
-      return;
-    }
-
-    setPermission(Notification.permission);
-
-    (async () => {
-      try {
-        const registration = await navigator.serviceWorker.register("/sw.js");
-        await navigator.serviceWorker.ready;
-        const existing = await registration.pushManager.getSubscription();
-        if (existing) {
-          // A subscription made with a different VAPID key can't receive our
-          // pushes — treat it as not subscribed so the user re-enables.
-          const validKey =
-            !VAPID_PUBLIC_KEY ||
-            keyMatches(
-              existing.options.applicationServerKey,
-              urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            );
-          if (validKey) {
-            const status = await getPushSubscriptionStatus(existing.endpoint);
-            setSubscribed(status.subscribed);
-          }
-        }
-      } catch (error) {
-        console.error("Service worker registration failed", error);
-      } finally {
-        setReady(true);
-      }
-    })();
-  }, []);
-
-  const handleSubscribe = useCallback(async () => {
-    if (!VAPID_PUBLIC_KEY) {
-      addToast({
-        title: t("ስህተት", "Error"),
-        description: t(
-          "የማሳወቂያ ቁልፍ አልተዋቀረም",
-          "Push notification key is not configured."
-        ),
-        color: "danger",
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const perm = await Notification.requestPermission();
-      setPermission(perm);
-      if (perm !== "granted") {
-        addToast({
-          title: t("ተከልክሏል", "Blocked"),
-          description: t(
-            "እባክዎ በአሳሽዎ ውስጥ ማሳወቂያዎችን ይፍቀዱ።",
-            "Please allow notifications in your browser settings."
-          ),
-          color: "warning",
-        });
-        return;
-      }
-
-      const registration = await navigator.serviceWorker.ready;
-      const appServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-      let sub = await registration.pushManager.getSubscription();
-
-      // Replace a subscription that was created with a different VAPID key.
-      if (sub && !keyMatches(sub.options.applicationServerKey, appServerKey)) {
-        try {
-          await unsubscribeFromPush(sub.endpoint);
-        } catch {
-          // best-effort server cleanup
-        }
-        await sub.unsubscribe();
-        sub = null;
-      }
-
-      if (!sub) {
-        sub = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: appServerKey,
-        });
-      }
-
-      const json = sub.toJSON();
-      const res = await subscribeToPush(
-        {
-          endpoint: sub.endpoint,
-          keys: {
-            p256dh: json.keys?.p256dh ?? "",
-            auth: json.keys?.auth ?? "",
-          },
-        },
-        navigator.userAgent
-      );
-
-      if (res.status) {
-        setSubscribed(true);
-        addToast({
-          title: t("ተነቅቷል", "Enabled"),
-          description: t(
-            "ማሳወቂያዎችን ማግኘት ጀምረዋል።",
-            "You'll now receive notifications on this device."
-          ),
-          color: "success",
-        });
-      } else {
-        addToast({
-          title: t("ስህተት", "Error"),
-          description: res.message,
-          color: "danger",
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      addToast({
-        title: t("ስህተት", "Error"),
-        description: t(
-          "ማሳወቂያዎችን ማንቃት አልተሳካም።",
-          "Failed to enable notifications."
-        ),
-        color: "danger",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [isAm]);
-
-  const handleUnsubscribe = useCallback(async () => {
-    setLoading(true);
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const sub = await registration.pushManager.getSubscription();
-      if (sub) {
-        await unsubscribeFromPush(sub.endpoint);
-        await sub.unsubscribe();
-      }
-      setSubscribed(false);
-      addToast({
-        title: t("ጠፍቷል", "Disabled"),
-        description: t(
-          "ማሳወቂያዎች በዚህ መሳሪያ ላይ ጠፍተዋል።",
-          "Notifications are turned off on this device."
-        ),
-        color: "default",
-      });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }, [isAm]);
-
-  const handleTest = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await sendTestPush();
-      addToast({
-        title: res.status ? t("ተልኳል", "Sent") : t("ማሳሰቢያ", "Notice"),
-        description: res.message,
-        color: res.status ? "success" : "warning",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [isAm]);
 
   return (
     <div className="rounded-xl border border-default-200 bg-default-50/60 p-4 md:p-5">
@@ -267,7 +69,7 @@ export default function PushNotificationCard() {
                     variant="flat"
                     isLoading={loading}
                     startContent={<BellOff className="size-4" />}
-                    onPress={handleUnsubscribe}
+                    onPress={unsubscribe}
                   >
                     {t("አጥፋ", "Turn off")}
                   </Button>
@@ -276,7 +78,7 @@ export default function PushNotificationCard() {
                     variant="flat"
                     isLoading={loading}
                     startContent={<Send className="size-4" />}
-                    onPress={handleTest}
+                    onPress={sendTest}
                   >
                     {t("ሙከራ ላክ", "Send test")}
                   </Button>
@@ -287,7 +89,7 @@ export default function PushNotificationCard() {
                   color="primary"
                   isLoading={loading}
                   startContent={<Bell className="size-4" />}
-                  onPress={handleSubscribe}
+                  onPress={() => subscribe()}
                 >
                   {t("ማሳወቂያ አንቃ", "Enable notifications")}
                 </Button>
