@@ -11,6 +11,7 @@ import {
   ModalContent,
   ModalFooter,
   ModalHeader,
+  Pagination,
   ScrollShadow,
   Select,
   SelectItem,
@@ -23,7 +24,9 @@ import { useDisclosure } from "@heroui/react";
 import { CheckCircle2, HeartPulse, XCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+
+const PAGE_SIZE = 8;
 
 type ReportedNote = {
   id: string;
@@ -38,6 +41,13 @@ type ReportedNote = {
     lastName: string;
     username: string | null;
     phoneNumber: string | null;
+    roomStudent: {
+      teacher: {
+        firstName: string;
+        fatherName: string;
+        lastName: string;
+      };
+    }[];
   };
   writenBy: {
     firstName: string;
@@ -51,19 +61,36 @@ export default function Page() {
   const isAm = useAmharic();
   const [data, isLoading, refresh] = useData(getReportedNotes, () => {});
   const [filter, setFilter] = useState("open");
+  const [page, setPage] = useState(1);
 
   const notes = (data?.data ?? []) as ReportedNote[];
-  const filtered = notes.filter((n) =>
-    filter === "all"
-      ? true
-      : filter === "open"
-      ? n.status === "OPEN"
-      : filter === "solved"
-      ? n.status === "SOLVED"
-      : n.status === "UNSOLVED"
+  const filtered = useMemo(
+    () =>
+      notes.filter((n) =>
+        filter === "all"
+          ? true
+          : filter === "open"
+          ? n.status === "OPEN"
+          : filter === "solved"
+          ? n.status === "SOLVED"
+          : n.status === "UNSOLVED"
+      ),
+    [notes, filter]
   );
 
   const openCount = notes.filter((n) => n.status === "OPEN").length;
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+
+  // Keep the current page in range when the filter/data shrinks the list.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const paginated = filtered.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
 
   return (
     <div className="overflow-hidden grid px-2 h-full">
@@ -85,7 +112,10 @@ export default function Page() {
             selectedKeys={new Set([filter])}
             onSelectionChange={(keys) => {
               const value = Array.from(keys)[0] as string;
-              if (value) setFilter(value);
+              if (value) {
+                setFilter(value);
+                setPage(1);
+              }
             }}
             className="w-40"
             size="sm"
@@ -111,11 +141,24 @@ export default function Page() {
             {isAm ? "ምንም ሪፖርት የለም" : "No reported problems"}
           </div>
         ) : (
-          <ScrollShadow className="py-3 pb-40 flex flex-col gap-3">
-            {filtered.map((note) => (
-              <NoteCard key={note.id} note={note} onResolved={refresh} />
-            ))}
-          </ScrollShadow>
+          <div className="grid grid-rows-[1fr_auto] overflow-hidden">
+            <ScrollShadow className="py-3 flex flex-col gap-3">
+              {paginated.map((note) => (
+                <NoteCard key={note.id} note={note} onResolved={refresh} />
+              ))}
+            </ScrollShadow>
+            {totalPages > 1 && (
+              <div className="flex justify-center py-3">
+                <Pagination
+                  showControls
+                  size="sm"
+                  total={totalPages}
+                  page={page}
+                  onChange={setPage}
+                />
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -138,6 +181,10 @@ function NoteCard({
   const studentName = `${note.writenTo.firstName} ${note.writenTo.fatherName} ${note.writenTo.lastName}`;
   const controllerName = `${note.writenBy.firstName} ${note.writenBy.fatherName}`;
   const studentPhone = (note.writenTo.phoneNumber || "").replace(/\D/g, "");
+  const teacher = note.writenTo.roomStudent[0]?.teacher;
+  const teacherName = teacher
+    ? `${teacher.firstName} ${teacher.fatherName}`
+    : "";
 
   const statusChip = () => {
     if (note.status === "SOLVED")
@@ -176,6 +223,12 @@ function NoteCard({
         <div className="flex justify-between items-start gap-2">
           <div className="flex flex-col">
             <p className="font-bold text-primary">{studentName}</p>
+            {teacherName && (
+              <span className="text-[11px] text-default-500">
+                {isAm ? "መምህር: " : "Teacher: "}
+                {teacherName}
+              </span>
+            )}
             <span className="text-[11px] text-default-400">
               {isAm ? "በ" : "by"} {controllerName} ·{" "}
               {new Date(note.createdAt).toLocaleDateString()}

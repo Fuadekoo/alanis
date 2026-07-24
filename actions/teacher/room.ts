@@ -149,11 +149,27 @@ async function notifyStudentAboutRoomLink({
     });
   });
 
-  // Best-effort browser push to the student. Independent of Telegram, and the
-  // link itself is the click target so tapping the notification joins the class.
+  const teacherInfo = await prisma.user.findFirst({
+    where: { id: teacherId },
+    select: { firstName: true, fatherName: true },
+  });
+
+  const studentName =
+    `${room.student.firstName} ${room.student.fatherName}`.trim();
+  const teacherName = teacherInfo
+    ? `${teacherInfo.firstName} ${teacherInfo.fatherName}`.trim()
+    : "";
+  const greeting = getGreeting(room.student.gender);
+
+  // Best-effort browser push to the student, worded in Amharic to match the
+  // Telegram message. The link itself is the click target so tapping the
+  // notification joins the class.
+  const pushGreeting = `${greeting} ${studentName}`.trim();
   await sendPushToUsers([room.studentId], {
-    title: "Your class link is ready",
-    body: "Your teacher just sent your class link. Tap to join.",
+    title: "📚 የክፍል ሊንክ ደርሶዎታል!",
+    body: teacherName
+      ? `${pushGreeting}፣ መምህር ${teacherName} የክፍል ሊንክ ልኮልዎታል። ወደ ክፍልዎ ለመግባት ይጫኑ።`
+      : `${pushGreeting}፣ የክፍል ሊንክ ደርሶዎታል። ወደ ክፍልዎ ለመግባት ይጫኑ።`,
     url: link,
   });
 
@@ -163,19 +179,12 @@ async function notifyStudentAboutRoomLink({
     return { ok: false, error: "Student is not connected to Telegram" };
   }
 
-  const teacherInfo = await prisma.user.findFirst({
-    where: { id: teacherId },
-    select: { firstName: true, fatherName: true },
-  });
-
   return sendRoomLinkNotification({
     chatId: studentChatId,
     link,
-    studentName: `${room.student.firstName} ${room.student.fatherName}`.trim(),
-    teacherName: teacherInfo
-      ? `${teacherInfo.firstName} ${teacherInfo.fatherName}`.trim()
-      : "",
-    greeting: getGreeting(room.student.gender),
+    studentName,
+    teacherName,
+    greeting,
     displayTime: formatDisplayTime(room.time),
     duration: room.duration,
   });
