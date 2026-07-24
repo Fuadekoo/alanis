@@ -3,6 +3,7 @@
 import React from "react";
 import SideBar from "./sidebar";
 import Header from "./header";
+import PushSubscribeBanner from "./pushSubscribeBanner";
 import Image from "next/image";
 
 export default function UserLayout({
@@ -32,8 +33,9 @@ export default function UserLayout({
       <div className="z-10 h-dvh overflow-hidden grid lg:grid-cols-[auto_1fr]">
         <input type="checkbox" id="sidebar" className="hidden peer/sidebar" />
         <SideBar {...{ menu }} />
-        <div className="grid grid-rows-[auto_1fr] min-h-screen">
+        <div className="grid grid-rows-[auto_auto_1fr] min-h-screen">
           <Header />
+          <PushSubscribeBanner />
           <article className="p-0 md:p-6 overflow-y-auto">{children}</article>
         </div>
       </div>
