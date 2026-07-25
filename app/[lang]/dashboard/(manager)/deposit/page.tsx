@@ -39,6 +39,23 @@ const formatImageUrl = (url: string | null | undefined): string => {
   return `/api/filedata/${encodeURIComponent(url)}`;
 };
 
+const fullName = (
+  person:
+    | {
+        firstName?: string | null;
+        fatherName?: string | null;
+        lastName?: string | null;
+      }
+    | null
+    | undefined
+): string => {
+  if (!person) return "";
+  return [person.firstName, person.fatherName, person.lastName]
+    .filter((part) => part && part.trim())
+    .join(" ")
+    .trim();
+};
+
 function Page() {
   const { t, formatCurrency } = useLocalization();
   const [search, setSearch] = useState("");
@@ -148,13 +165,15 @@ function Page() {
   const rows = (data?.data || []).map((deposit) => ({
     key: String(deposit.id),
     id: String(deposit.id),
-    studentFullName: deposit.depositedTo
-      ? `${deposit.depositedTo.firstName} ${deposit.depositedTo.fatherName} ${deposit.depositedTo.lastName}`
-      : "N/A",
+    studentFullName: fullName(deposit.depositedTo) || "N/A",
     studentPhone: deposit.depositedTo?.phoneNumber || "N/A",
-    teacherName: deposit.depositedTo?.roomStudent?.[0]?.teacher
-      ? `${deposit.depositedTo.roomStudent[0].teacher.firstName} ${deposit.depositedTo.roomStudent[0].teacher.fatherName} ${deposit.depositedTo.roomStudent[0].teacher.lastName}`
-      : "N/A",
+    teacherName:
+      fullName(deposit.depositedTo?.roomStudent?.[0]?.teacher) || "N/A",
+    // Who submitted this deposit; fall back to the student's assigned controller
+    controllerName:
+      fullName(deposit.depositedBy) ||
+      fullName(deposit.depositedTo?.controller) ||
+      "N/A",
     amount: deposit.amount != null ? String(deposit.amount) : "",
     photo: deposit.photo ?? "",
     status: deposit.status ?? "",
@@ -179,6 +198,12 @@ function Page() {
       label: t("deposit.teacherName"),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.teacherName,
+    },
+    {
+      key: "controllerName",
+      label: t("deposit.controllerName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => item.controllerName,
     },
     {
       key: "amount",

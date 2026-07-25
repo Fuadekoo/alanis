@@ -81,6 +81,7 @@ export const am = {
     studentName: "የተማሪ ስም",
     studentPhone: "ስልክ ቁጥር",
     teacherName: "የአስተማሪ ስም",
+    controllerName: "የተቆጣጣሪ ስም",
     amount: "መጠን",
     photo: "ፎቶ",
     status: "ሁኔታ",

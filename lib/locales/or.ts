@@ -81,6 +81,7 @@ export const or = {
     studentName: "Maqaa Barattootaa",
     studentPhone: "Lakkoofsa Bilbilaa",
     teacherName: "Maqaa Barsiisaa",
+    controllerName: "Maqaa To'ataa",
     amount: "Hamma",
     photo: "Suuraa",
     status: "Haala",

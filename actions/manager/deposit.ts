@@ -57,6 +57,21 @@ export async function getDeposit(
                 phoneNumber: { contains: search.trim(), mode: "insensitive" },
               },
             },
+            {
+              depositedBy: {
+                firstName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              depositedBy: {
+                fatherName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
+            {
+              depositedBy: {
+                lastName: { contains: search.trim(), mode: "insensitive" },
+              },
+            },
           ],
         }
       : {}),
@@ -84,6 +99,13 @@ export async function getDeposit(
             fatherName: true,
             lastName: true,
             phoneNumber: true,
+            controller: {
+              select: {
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+              },
+            },
             roomStudent: {
               select: {
                 teacher: {

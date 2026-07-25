@@ -81,6 +81,7 @@ export const en = {
     studentName: "Student Name",
     studentPhone: "Phone Number",
     teacherName: "Teacher Name",
+    controllerName: "Controller Name",
     amount: "Amount",
     photo: "Photo",
     status: "Status",
