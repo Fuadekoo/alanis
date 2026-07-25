@@ -33,12 +33,13 @@ export default function UserLayout({
       <div className="z-10 h-dvh overflow-hidden grid lg:grid-cols-[auto_1fr]">
         <input type="checkbox" id="sidebar" className="hidden peer/sidebar" />
         <SideBar {...{ menu }} />
-        <div className="grid grid-rows-[auto_auto_1fr] min-h-screen">
+        <div className="grid grid-rows-[auto_1fr] min-h-screen">
           <Header />
-          <PushSubscribeBanner />
           <article className="p-0 md:p-6 overflow-y-auto">{children}</article>
         </div>
       </div>
+      {/* Renders in a portal — keep it outside the grid so it claims no row. */}
+      <PushSubscribeBanner />
     </div>
   );
 }

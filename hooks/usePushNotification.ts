@@ -45,7 +45,8 @@ export default function usePushNotification() {
 
   const t = (am: string, en: string) => (isAm ? am : en);
 
-  useEffect(() => {
+  /** Re-read the browser permission and whether this device is subscribed. */
+  const recheck = useCallback(async () => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
       setSupported(false);
@@ -55,32 +56,34 @@ export default function usePushNotification() {
 
     setPermission(Notification.permission);
 
-    (async () => {
-      try {
-        const registration = await navigator.serviceWorker.register("/sw.js");
-        await navigator.serviceWorker.ready;
-        const existing = await registration.pushManager.getSubscription();
-        if (existing) {
-          // A subscription made with a different VAPID key can't receive our
-          // pushes — treat it as not subscribed so the user re-enables.
-          const validKey =
-            !VAPID_PUBLIC_KEY ||
-            keyMatches(
-              existing.options.applicationServerKey,
-              urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            );
-          if (validKey) {
-            const status = await getPushSubscriptionStatus(existing.endpoint);
-            setSubscribed(status.subscribed);
-          }
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      const existing = await registration.pushManager.getSubscription();
+      if (existing) {
+        // A subscription made with a different VAPID key can't receive our
+        // pushes — treat it as not subscribed so the user re-enables.
+        const validKey =
+          !VAPID_PUBLIC_KEY ||
+          keyMatches(
+            existing.options.applicationServerKey,
+            urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          );
+        if (validKey) {
+          const status = await getPushSubscriptionStatus(existing.endpoint);
+          setSubscribed(status.subscribed);
         }
-      } catch (error) {
-        console.error("Service worker registration failed", error);
-      } finally {
-        setReady(true);
       }
-    })();
+    } catch (error) {
+      console.error("Service worker registration failed", error);
+    } finally {
+      setReady(true);
+    }
   }, []);
+
+  useEffect(() => {
+    recheck();
+  }, [recheck]);
 
   const subscribe = useCallback(async () => {
     if (!VAPID_PUBLIC_KEY) {
@@ -227,5 +230,6 @@ export default function usePushNotification() {
     subscribe,
     unsubscribe,
     sendTest,
+    recheck,
   };
 }

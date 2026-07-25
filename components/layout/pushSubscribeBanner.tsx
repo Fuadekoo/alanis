@@ -1,74 +1,127 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, X } from "lucide-react";
-import { Button } from "../ui/heroui";
+import { Bell, BellRing, RefreshCw, ShieldAlert } from "lucide-react";
+import { Button, Modal, ModalContent, ModalBody } from "../ui/heroui";
 import useAmharic from "@/hooks/useAmharic";
 import usePushNotification from "@/hooks/usePushNotification";
 
 /**
- * A slim top banner that nudges the user to enable browser push notifications
- * when they haven't subscribed yet on this device. It disappears automatically
- * once subscribed, and can be dismissed for the current session.
+ * A full blocking modal shown until the user enables browser push
+ * notifications on this device. It cannot be dismissed — the app stays behind
+ * it until a subscription exists — and closes itself once subscribed.
  */
 export default function PushSubscribeBanner() {
   const isAm = useAmharic();
-  const { ready, supported, permission, subscribed, loading, subscribe } =
-    usePushNotification();
-  const [dismissed, setDismissed] = useState(false);
+  const {
+    ready,
+    supported,
+    permission,
+    subscribed,
+    loading,
+    subscribe,
+    recheck,
+  } = usePushNotification();
+  const [rechecking, setRechecking] = useState(false);
 
   const t = (am: string, en: string) => (isAm ? am : en);
 
-  // Only nudge when we know the state and there's something to do.
-  if (!ready || !supported || subscribed || dismissed) return null;
+  // Nothing to block on until we know the state, and never lock out a browser
+  // that simply can't do push (old iOS Safari, etc.).
+  if (!ready || !supported || subscribed) return null;
 
   const denied = permission === "denied";
 
+  const handleRecheck = async () => {
+    setRechecking(true);
+    try {
+      await recheck();
+    } finally {
+      setRechecking(false);
+    }
+  };
+
   return (
-    <div className="px-4 pt-3 lg:px-10">
-      <div className="flex items-center gap-3 rounded-xl border border-primary-200 bg-primary-50/80 px-3 py-2.5 shadow-sm">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Bell className="size-4" />
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-default-700">
-            {t("ማሳወቂያ ያንቁ", "Turn on notifications")}
-          </p>
-          <p className="text-[11px] leading-tight text-default-500">
+    <Modal
+      isOpen
+      hideCloseButton
+      isDismissable={false}
+      isKeyboardDismissDisabled
+      placement="center"
+      backdrop="blur"
+      size="2xl"
+      classNames={{
+        backdrop: "bg-black/70 backdrop-blur-md",
+        wrapper: "z-[9999]",
+        base: "z-[9999] mx-4",
+      }}
+    >
+      <ModalContent>
+        <ModalBody className="items-center gap-5 px-6 py-10 text-center sm:px-10">
+          <span
+            className={`flex size-24 items-center justify-center rounded-full ${
+              denied
+                ? "bg-danger-100 text-danger"
+                : "bg-primary-100 text-primary"
+            }`}
+          >
+            {denied ? (
+              <ShieldAlert className="size-12" />
+            ) : (
+              <BellRing className="size-12" />
+            )}
+          </span>
+
+          <h2 className="text-2xl font-bold text-default-800 sm:text-3xl">
+            {denied
+              ? t("ማሳወቂያዎች ተከልክለዋል", "Notifications are blocked")
+              : t("ማሳወቂያ ያንቁ", "Turn on notifications")}
+          </h2>
+
+          <p className="max-w-lg text-sm leading-relaxed text-default-600 sm:text-base">
             {denied
               ? t(
-                  "ማሳወቂያዎች ተከልክለዋል። ከአሳሽዎ ቅንብር ውስጥ ይፍቀዱ።",
-                  "Notifications are blocked. Enable them from your browser's site settings."
+                  "ለመቀጠል ማሳወቂያዎችን መፍቀድ አለብዎት። በአሳሽዎ የአድራሻ ሳጥን ላይ ያለውን የመቆለፊያ ምልክት ይጫኑ፣ ከዚያም ማሳወቂያዎችን ወደ «ፍቀድ» ይቀይሩ እና እንደገና ያረጋግጡ።",
+                  "You must allow notifications to continue. Tap the lock icon in your browser's address bar, switch Notifications to \"Allow\", then check again."
                 )
               : t(
-                  "ስለ ክፍል ሊንኮችና ማስታወቂያዎች ወዲያውኑ ይወቁ።",
-                  "Get class links and announcements the moment they arrive."
+                  "ስለ ክፍል ሊንኮች፣ ማስታወቂያዎችና ክፍያዎች ወዲያውኑ እንዲያውቁ ማሳወቂያ ማንቃት ያስፈልጋል። ከመቀጠልዎ በፊት እባክዎ ያንቁ።",
+                  "You need notifications on to get class links, announcements and payment updates the moment they arrive. Please enable them before you continue."
                 )}
           </p>
-        </div>
-        {!denied && (
-          <Button
-            size="sm"
-            color="primary"
-            isLoading={loading}
-            startContent={!loading && <Bell className="size-4" />}
-            onPress={subscribe}
-            className="shrink-0"
-          >
-            {t("አንቃ", "Enable")}
-          </Button>
-        )}
-        <Button
-          isIconOnly
-          size="sm"
-          variant="light"
-          onPress={() => setDismissed(true)}
-          aria-label={t("ዝጋ", "Dismiss")}
-          className="shrink-0"
-        >
-          <X className="size-4" />
-        </Button>
-      </div>
-    </div>
+
+          {denied ? (
+            <Button
+              size="lg"
+              color="primary"
+              isLoading={rechecking}
+              startContent={!rechecking && <RefreshCw className="size-5" />}
+              onPress={handleRecheck}
+              className="w-full max-w-xs font-semibold"
+            >
+              {t("እንደገና አረጋግጥ", "I've allowed it — check again")}
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              color="primary"
+              isLoading={loading}
+              startContent={!loading && <Bell className="size-5" />}
+              onPress={subscribe}
+              className="w-full max-w-xs font-semibold"
+            >
+              {t("ማሳወቂያ አንቃ", "Enable notifications")}
+            </Button>
+          )}
+
+          <p className="text-xs text-default-400">
+            {t(
+              "ይህ በዚህ መሳሪያ ላይ አንድ ጊዜ ብቻ ነው የሚደረገው።",
+              "You only have to do this once on this device."
+            )}
+          </p>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
   );
 }
