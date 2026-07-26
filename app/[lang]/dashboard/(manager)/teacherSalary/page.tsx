@@ -1117,6 +1117,8 @@ function Page() {
       .map((salary) => ({
         teacherName:
           `${salary.teacher.firstName} ${salary.teacher.fatherName} ${salary.teacher.lastName}`.trim(),
+        bankAccountName: salary.teacher.BankAccountName,
+        bankAccountNumber: salary.teacher.BankAccountNumber,
         monthLabel: formatMonth(salary.month),
         year: salary.year,
         amount: Number(salary.amount ?? 0),

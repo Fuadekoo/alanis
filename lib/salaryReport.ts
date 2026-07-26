@@ -13,6 +13,9 @@ export type SalaryReportStatus = "pending" | "approved" | "rejected" | string;
 
 export type SalaryReportRow = {
   teacherName: string;
+  /** Blank in the report when the teacher has no bank account on file. */
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
   monthLabel: string;
   year: number;
   amount: number;
@@ -167,9 +170,22 @@ export async function downloadSalaryReport({
   const generatedAt = new Date().toLocaleString(isAm ? "am-ET" : "en-US");
   const reportTitle = t("የመምህራን ደሞዝ ሪፖርት", "Teacher Salary Report");
 
+  // When every row covers the same month/year — the usual case, since reports
+  // are generated per month — the period is stated once in the header and the
+  // repeated Month/Year columns are dropped.
+  const singlePeriod =
+    rows.length > 0 &&
+    rows.every(
+      (row) =>
+        row.monthLabel === rows[0].monthLabel && row.year === rows[0].year,
+    );
+  const headerPeriod = singlePeriod
+    ? `${rows[0].monthLabel} ${rows[0].year}`
+    : periodLabel;
+
   doc.setProperties({
     title: reportTitle,
-    subject: `${reportTitle} — ${periodLabel}`,
+    subject: `${reportTitle} — ${headerPeriod}`,
     author: "Al Anis",
     creator: "Al Anis",
   });
@@ -204,7 +220,7 @@ export async function downloadSalaryReport({
     doc.setFont(font, "bold");
     doc.setFontSize(11);
     doc.setTextColor(...INK);
-    doc.text(periodLabel, right, 18.5, { align: "right" });
+    doc.text(headerPeriod, right, 18.5, { align: "right" });
 
     doc.setFont(font, "normal");
     doc.setFontSize(7.5);
@@ -221,14 +237,24 @@ export async function downloadSalaryReport({
     doc.line(margin, headerBottom - 4, right, headerBottom - 4);
   };
 
+  // Bank name above the account number; left blank when neither is on file.
+  const bankAccountCell = (row: SalaryReportRow) =>
+    [row.bankAccountName?.trim(), row.bankAccountNumber?.trim()]
+      .filter(Boolean)
+      .join("\n");
+
   const body = rows.map((row, index) => [
     String(index + 1),
     row.teacherName,
-    row.monthLabel,
-    String(row.year),
+    bankAccountCell(row),
+    ...(singlePeriod ? [] : [row.monthLabel, String(row.year)]),
     formatCurrency(Number(row.amount) || 0),
     statusLabel(row.status, isAm),
   ]);
+
+  // Column indexes shift when the Month/Year pair is dropped.
+  const amountIndex = singlePeriod ? 3 : 5;
+  const statusIndex = amountIndex + 1;
 
   autoTable(doc, {
     startY: headerBottom + 3,
@@ -238,8 +264,8 @@ export async function downloadSalaryReport({
       [
         "#",
         t("የመምህር ስም", "Teacher name"),
-        t("ወር", "Month"),
-        t("ዓመት", "Year"),
+        t("የባንክ ሂሳብ", "Bank account"),
+        ...(singlePeriod ? [] : [t("ወር", "Month"), t("ዓመት", "Year")]),
         t("ጠቅላላ መጠን", "Total amount"),
         t("ሁኔታ", "Status"),
       ],
@@ -255,7 +281,7 @@ export async function downloadSalaryReport({
             "መዝገቦች",
             "records",
           )}`,
-          colSpan: 4,
+          colSpan: amountIndex,
         },
         formatCurrency(total),
         "",
@@ -264,8 +290,8 @@ export async function downloadSalaryReport({
     styles: {
       font,
       fontStyle: "normal",
-      fontSize: 9,
-      cellPadding: { top: 2.2, right: 2.5, bottom: 2.2, left: 2.5 },
+      fontSize: 8.5,
+      cellPadding: { top: 2.2, right: 2, bottom: 2.2, left: 2 },
       textColor: INK,
       lineColor: LINE,
       lineWidth: 0.15,
@@ -290,22 +316,31 @@ export async function downloadSalaryReport({
       lineColor: LINE,
     },
     alternateRowStyles: { fillColor: ZEBRA },
-    columnStyles: {
-      0: { cellWidth: 10, halign: "center", textColor: MUTED },
-      1: { cellWidth: 62, fontStyle: "bold" },
-      2: { cellWidth: 30 },
-      3: { cellWidth: 18, halign: "center" },
-      4: { cellWidth: 38, halign: "right", fontStyle: "bold" },
-      5: { cellWidth: 28, halign: "center", fontStyle: "bold" },
-    },
+    columnStyles: singlePeriod
+      ? {
+          0: { cellWidth: 10, halign: "center", textColor: MUTED },
+          1: { cellWidth: 56, fontStyle: "bold" },
+          2: { cellWidth: 56 },
+          3: { cellWidth: 36, halign: "right", fontStyle: "bold" },
+          4: { cellWidth: 28, halign: "center", fontStyle: "bold" },
+        }
+      : {
+          0: { cellWidth: 8, halign: "center", textColor: MUTED },
+          1: { cellWidth: 43, fontStyle: "bold" },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 13, halign: "center" },
+          5: { cellWidth: 30, halign: "right", fontStyle: "bold" },
+          6: { cellWidth: 27, halign: "center", fontStyle: "bold" },
+        },
     // Colour the status column per row, and keep the total right-aligned.
     didParseCell: (data) => {
-      if (data.section === "body" && data.column.index === 5) {
+      if (data.section === "body" && data.column.index === statusIndex) {
         data.cell.styles.textColor = statusColor(
           rows[data.row.index]?.status ?? "pending",
         );
       }
-      if (data.section === "foot" && data.column.index === 4) {
+      if (data.section === "foot" && data.column.index === amountIndex) {
         data.cell.styles.halign = "right";
       }
     },
