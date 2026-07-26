@@ -37,6 +37,7 @@ import {
   Trash2,
   Copy,
   CreditCard,
+  Download,
 } from "lucide-react";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
@@ -58,6 +59,7 @@ import { useLocalization } from "@/hooks/useLocalization";
 import { getTeacherList } from "@/actions/manager/teacher";
 import useAlert from "@/hooks/useAlert";
 import CustomAlert from "@/components/customAlert";
+import { downloadSalaryReport } from "@/lib/salaryReport";
 
 type SalaryUiStatus = "pending" | "approved" | "rejected";
 
@@ -336,6 +338,7 @@ function Page() {
   >(new Set());
   const [filterMonth, setFilterMonth] = useState<string>("all");
   const [filterYear, setFilterYear] = useState<string>("all");
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
   const { formatCurrency } = useLocalization();
 
@@ -1059,6 +1062,90 @@ function Page() {
     ];
   }, [isAm]);
 
+  /** Label + file-name slug describing the period the report covers. */
+  const reportPeriod = useMemo(() => {
+    const monthNumber = filterMonth !== "all" ? parseInt(filterMonth, 10) : null;
+    const yearNumber = filterYear !== "all" ? parseInt(filterYear, 10) : null;
+
+    if (monthNumber && yearNumber) {
+      return {
+        label: `${formatMonth(monthNumber)} ${yearNumber}`,
+        file: `${yearNumber}-${String(monthNumber).padStart(2, "0")}`,
+      };
+    }
+    if (yearNumber) {
+      return { label: `${yearNumber}`, file: `${yearNumber}` };
+    }
+    if (monthNumber) {
+      return {
+        label: `${formatMonth(monthNumber)} — ${isAm ? "ሁሉም ዓመታት" : "all years"}`,
+        file: `month-${String(monthNumber).padStart(2, "0")}`,
+      };
+    }
+    return {
+      label: isAm ? "ሁሉም ወቅቶች" : "All periods",
+      file: "all-periods",
+    };
+    // formatMonth only depends on isAm, which is already a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterMonth, filterYear, isAm]);
+
+  /** Download the currently filtered salaries as a PDF report. */
+  const handleDownloadReport = async () => {
+    if (isDownloadingReport) return;
+
+    if (filteredSalaries.length === 0) {
+      showAlert({
+        message: isAm
+          ? "ለተመረጠው ወቅት ምንም የደሞዝ መዝገብ የለም።"
+          : "There are no salary records for the selected period.",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Notice",
+      });
+      return;
+    }
+
+    const rows = [...filteredSalaries]
+      .sort(
+        (a, b) =>
+          b.year - a.year ||
+          b.month - a.month ||
+          `${a.teacher.firstName} ${a.teacher.fatherName} ${a.teacher.lastName}`.localeCompare(
+            `${b.teacher.firstName} ${b.teacher.fatherName} ${b.teacher.lastName}`,
+          ),
+      )
+      .map((salary) => ({
+        teacherName:
+          `${salary.teacher.firstName} ${salary.teacher.fatherName} ${salary.teacher.lastName}`.trim(),
+        monthLabel: formatMonth(salary.month),
+        year: salary.year,
+        amount: Number(salary.amount ?? 0),
+        status: salary.status ?? "pending",
+      }));
+
+    setIsDownloadingReport(true);
+    try {
+      await downloadSalaryReport({
+        isAm,
+        periodLabel: reportPeriod.label,
+        fileLabel: reportPeriod.file,
+        rows,
+        formatCurrency: (amount: number) => formatCurrency(amount),
+      });
+    } catch (error) {
+      console.error("Failed to generate salary report", error);
+      showAlert({
+        message: isAm
+          ? "ሪፖርቱን ማዘጋጀት አልተሳካም። እባክዎ እንደገና ይሞክሩ።"
+          : "Failed to generate the report. Please try again.",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+    } finally {
+      setIsDownloadingReport(false);
+    }
+  };
+
   // Table columns
   const _columns = [
     {
@@ -1526,6 +1613,24 @@ function Page() {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto lg:ml-auto">
+              <Button
+                variant="flat"
+                color="success"
+                startContent={
+                  isDownloadingReport ? undefined : <Download className="size-4" />
+                }
+                isLoading={isDownloadingReport}
+                onPress={handleDownloadReport}
+                isDisabled={salariesLoading || filteredSalaries.length === 0}
+                className="w-full sm:w-auto"
+                title={
+                  isAm
+                    ? `የ${reportPeriod.label} ደሞዝ ሪፖርት አውርድ`
+                    : `Download the ${reportPeriod.label} salary report`
+                }
+              >
+                {isAm ? "PDF አውርድ" : "Download PDF"}
+              </Button>
               <Button
                 variant="flat"
                 color="secondary"
