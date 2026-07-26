@@ -38,6 +38,23 @@ import {
   XCircle,
 } from "lucide-react";
 
+const fullName = (
+  person:
+    | {
+        firstName?: string | null;
+        fatherName?: string | null;
+        lastName?: string | null;
+      }
+    | null
+    | undefined
+): string => {
+  if (!person) return "";
+  return [person.firstName, person.fatherName, person.lastName]
+    .filter((part) => part && part.trim())
+    .join(" ")
+    .trim();
+};
+
 function Page() {
   const { t, getMonthName, formatCurrency } = useLocalization();
   const [activeTab, setActiveTab] = useState<string>("paid");
@@ -211,6 +228,8 @@ function Page() {
     teacherName: payment.user?.roomStudent?.[0]?.teacher
       ? `${payment.user.roomStudent[0].teacher.firstName} ${payment.user.roomStudent[0].teacher.fatherName} ${payment.user.roomStudent[0].teacher.lastName}`
       : "N/A",
+    // The controller the student is currently assigned to.
+    controllerName: fullName(payment.user?.controller) || "N/A",
     amount:
       payment.perMonthAmount != null ? String(payment.perMonthAmount) : "",
     year: payment.year,
@@ -236,6 +255,12 @@ function Page() {
       label: t("deposit.teacherName"),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderCell: (item: any) => item.teacherName,
+    },
+    {
+      key: "controllerName",
+      label: t("deposit.controllerName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => item.controllerName,
     },
     {
       key: "year",
@@ -323,6 +348,16 @@ function Page() {
       ),
     },
     {
+      key: "controllerName",
+      label: t("deposit.controllerName"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderCell: (item: any) => (
+        <span className="text-gray-700 dark:text-gray-300">
+          {item.controllerName}
+        </span>
+      ),
+    },
+    {
       key: "learningTime",
       label: t("payment.learningTime") || "Learning Time",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -373,6 +408,8 @@ function Page() {
               student.roomStudent[0].teacher.fatherName || ""
             } ${student.roomStudent[0].teacher.lastName}`
           : "N/A",
+      // The controller the student is currently assigned to.
+      controllerName: fullName(student.controller) || "N/A",
       learningTime:
         student.roomStudent && student.roomStudent.length > 0
           ? `${student.roomStudent[0].time || "N/A"} (${

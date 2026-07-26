@@ -115,6 +115,13 @@ export async function getMonthsPayment(
             fatherName: true,
             lastName: true,
             phoneNumber: true,
+            controller: {
+              select: {
+                firstName: true,
+                fatherName: true,
+                lastName: true,
+              },
+            },
             roomStudent: {
               select: {
                 teacher: {
@@ -384,6 +391,13 @@ export async function getUnpaidStudents(
         lastName: true,
         username: true,
         phoneNumber: true,
+        controller: {
+          select: {
+            firstName: true,
+            fatherName: true,
+            lastName: true,
+          },
+        },
         roomStudent: {
           select: {
             time: true,
