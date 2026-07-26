@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, BellRing, RefreshCw, ShieldAlert } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, BellRing, RefreshCw, ShieldAlert, X } from "lucide-react";
 import { Button, Modal, ModalContent, ModalBody } from "../ui/heroui";
 import useAmharic from "@/hooks/useAmharic";
 import usePushNotification from "@/hooks/usePushNotification";
 
+/** Where a dismissal is remembered, and for how long we honour it. */
+const DISMISS_KEY = "push-prompt-dismissed-at";
+const DISMISS_FOR_MS = 24 * 60 * 60 * 1000;
+
 /**
- * A full blocking modal shown until the user enables browser push
- * notifications on this device. It cannot be dismissed — the app stays behind
- * it until a subscription exists — and closes itself once subscribed.
+ * A modal asking the user to enable browser push notifications on this device.
+ * It closes itself once subscribed, and can be dismissed with the ✕ — that
+ * choice is remembered on this device for a day before we ask again.
  */
 export default function PushSubscribeBanner() {
   const isAm = useAmharic();
@@ -23,12 +27,24 @@ export default function PushSubscribeBanner() {
     recheck,
   } = usePushNotification();
   const [rechecking, setRechecking] = useState(false);
+  // null until the stored dismissal has been read — keeps the modal from
+  // flashing on load and avoids touching localStorage during render.
+  const [dismissed, setDismissed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    try {
+      const at = Number(window.localStorage.getItem(DISMISS_KEY));
+      setDismissed(at > 0 && Date.now() - at < DISMISS_FOR_MS);
+    } catch {
+      setDismissed(false);
+    }
+  }, []);
 
   const t = (am: string, en: string) => (isAm ? am : en);
 
-  // Nothing to block on until we know the state, and never lock out a browser
-  // that simply can't do push (old iOS Safari, etc.).
-  if (!ready || !supported || subscribed) return null;
+  // Nothing to ask until we know the state, and never nag a browser that
+  // simply can't do push (old iOS Safari, etc.).
+  if (!ready || !supported || subscribed || dismissed !== false) return null;
 
   const denied = permission === "denied";
 
@@ -41,12 +57,21 @@ export default function PushSubscribeBanner() {
     }
   };
 
+  const handleDismiss = () => {
+    try {
+      window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    } catch {
+      // private mode / storage disabled — dismiss for this session only
+    }
+    setDismissed(true);
+  };
+
   return (
     <Modal
       isOpen
       hideCloseButton
       isDismissable={false}
-      isKeyboardDismissDisabled
+      onClose={handleDismiss}
       placement="center"
       backdrop="blur"
       size="2xl"
@@ -57,7 +82,20 @@ export default function PushSubscribeBanner() {
       }}
     >
       <ModalContent>
-        <ModalBody className="items-center gap-5 px-6 py-10 text-center sm:px-10">
+        <ModalBody className="relative items-center gap-5 px-6 py-10 text-center sm:px-10">
+          <Button
+            isIconOnly
+            radius="full"
+            size="sm"
+            variant="light"
+            aria-label={t("ዝጋ", "Close")}
+            title={t("አሁን አይደለም", "Not now")}
+            onPress={handleDismiss}
+            className="absolute right-2 top-2 text-default-400 data-[hover=true]:bg-default-100 data-[hover=true]:text-default-600"
+          >
+            <X className="size-4" />
+          </Button>
+
           <span
             className={`flex size-24 items-center justify-center rounded-full ${
               denied
