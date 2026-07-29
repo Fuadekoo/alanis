@@ -38,6 +38,7 @@ import {
   Copy,
   CreditCard,
   Download,
+  Gift,
 } from "lucide-react";
 import useData from "@/hooks/useData";
 import useMutation from "@/hooks/useMutation";
@@ -52,6 +53,7 @@ import {
   createAutomaticSalaries,
   getTeacherSalaryAnalytics,
   updateSalaryFinancials,
+  updateSalaryBonus,
   updateTeacherBankAccount,
   deleteSalary,
 } from "@/actions/manager/salary";
@@ -77,6 +79,10 @@ interface TeacherSalaryData {
   year: number;
   totalDayForLearning: number;
   unitPrice?: number;
+  bonus?: number;
+  /** Learning days × unit price, without the bonus. */
+  baseAmount?: number;
+  /** Bonus included. */
   amount?: number;
   status?: SalaryUiStatus;
   [key: string]: unknown;
@@ -376,6 +382,13 @@ function Page() {
     useState(false);
   const [deletingSalaryId, setDeletingSalaryId] = useState<string | null>(null);
 
+  // Per-row bonus editing: drafts keyed by salary id, so every teacher in the
+  // selected month can get a different amount before it is saved.
+  const [bonusDrafts, setBonusDrafts] = useState<Record<string, string>>({});
+  const [savingBonusId, setSavingBonusId] = useState<string | null>(null);
+  const [isBonusModalOpen, setIsBonusModalOpen] = useState(false);
+  const [bonusSalary, setBonusSalary] = useState<TeacherSalaryData | null>(null);
+
   // Copy-to-clipboard state (tracks which value was just copied)
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -499,6 +512,7 @@ function Page() {
   const summaryYearLabel = summary?.year ?? "-";
   const summaryTotalDays = summary?.totalDayForLearning ?? 0;
   const summaryUnitPrice = summary?.unitPrice ?? 0;
+  const summaryBonus = summary?.bonus ?? 0;
   const summaryAmount = summary?.amount ?? 0;
   const summaryCreatedAt =
     summary && (summary as SalaryDetail)?.createdAt
@@ -874,6 +888,95 @@ function Page() {
     await deleteSalaryMutation(deletingSalaryId);
   };
 
+  /** Reads the pending edit for a row, falling back to the saved bonus. */
+  const getBonusDraft = (salary: TeacherSalaryData) => {
+    const salaryId = salary.id ?? "";
+    return bonusDrafts[salaryId] ?? String(salary.bonus ?? 0);
+  };
+
+  const openBonusModal = (salary: TeacherSalaryData) => {
+    if (!salary?.id) return;
+    setBonusSalary(salary);
+    setBonusDrafts((current) => ({
+      ...current,
+      [salary.id as string]:
+        current[salary.id as string] ?? String(salary.bonus ?? 0),
+    }));
+    setIsBonusModalOpen(true);
+  };
+
+  const closeBonusModal = () => {
+    if (savingBonusId) return;
+    setIsBonusModalOpen(false);
+    setBonusSalary(null);
+  };
+
+  const isBonusDirty = (salary: TeacherSalaryData) => {
+    const draft = getBonusDraft(salary).trim();
+    if (draft === "") return false;
+    const parsed = Number(draft);
+    if (!Number.isFinite(parsed)) return false;
+    return parsed !== Number(salary.bonus ?? 0);
+  };
+
+  /** Saves one row's bonus; the payout total is re-derived on the server. */
+  const handleSaveBonus = async (salary: TeacherSalaryData) => {
+    const salaryId = salary.id;
+    if (!salaryId || savingBonusId) return;
+
+    const parsed = Number(getBonusDraft(salary).trim());
+
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      showAlert({
+        message: isAm
+          ? "እባክዎ ትክክለኛ የጉርሻ መጠን ያስገቡ"
+          : "Please enter a valid bonus amount",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Warning",
+      });
+      return;
+    }
+
+    setSavingBonusId(salaryId);
+    try {
+      const result = await updateSalaryBonus(salaryId, parsed);
+
+      if (!result?.success) {
+        showAlert({
+          message:
+            result?.message ||
+            (isAm ? "ጉርሻ ማዘመን አልተሳካም" : "Failed to update the bonus"),
+          type: "error",
+          title: isAm ? "ስህተት" : "Error",
+        });
+        return;
+      }
+
+      setBonusDrafts((current) => {
+        const next = { ...current };
+        delete next[salaryId];
+        return next;
+      });
+      setIsBonusModalOpen(false);
+      setBonusSalary(null);
+      refreshSalaries();
+      showAlert({
+        message: isAm ? "ጉርሻ ተስተካክሏል" : "Bonus saved successfully",
+        type: "success",
+        title: isAm ? "ተሳክቷል" : "Success",
+      });
+    } catch (error) {
+      console.error("Failed to update salary bonus", error);
+      showAlert({
+        message: isAm ? "ጉርሻ ማዘመን አልተሳካም" : "Failed to update the bonus",
+        type: "error",
+        title: isAm ? "ስህተት" : "Error",
+      });
+    } finally {
+      setSavingBonusId(null);
+    }
+  };
+
   // Open confirmation modal
   const openConfirmModal = (
     salaryId: string,
@@ -1121,6 +1224,11 @@ function Page() {
         bankAccountNumber: salary.teacher.BankAccountNumber,
         monthLabel: formatMonth(salary.month),
         year: salary.year,
+        bonus: Number(salary.bonus ?? 0),
+        baseAmount: Number(
+          salary.baseAmount ??
+            Number(salary.amount ?? 0) - Number(salary.bonus ?? 0),
+        ),
         amount: Number(salary.amount ?? 0),
         status: salary.status ?? "pending",
       }));
@@ -1699,6 +1807,9 @@ function Page() {
                       <th className="border border-default-200 p-3 text-center font-semibold min-w-[120px]">
                         {isAm ? "የአሃድ ዋጋ" : "Unit Price"}
                       </th>
+                      <th className="border border-default-200 p-3 text-center font-semibold min-w-[170px]">
+                        {isAm ? "ጉርሻ" : "Bonus"}
+                      </th>
                       <th className="border border-default-200 p-3 text-center font-semibold min-w-[140px]">
                         {isAm ? "ጠቅላላ" : "Total Amount"}
                       </th>
@@ -1816,9 +1927,30 @@ function Page() {
                             </span>
                           </td>
                           <td className="border border-default-200 p-3 align-top text-center">
+                            {Number(salary.bonus ?? 0) > 0 ? (
+                              <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-warning-50 px-2 py-0.5 text-xs font-semibold text-warning-600 dark:bg-warning-500/10 dark:text-warning-200">
+                                {Number(salary.bonus).toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-default-100 px-2 py-0.5 text-xs font-semibold text-default-500 dark:bg-default-800/60 dark:text-default-300">
+                                0
+                              </span>
+                            )}
+                          </td>
+                          <td className="border border-default-200 p-3 align-top text-center">
                             <span className="inline-flex min-w-[2.5rem] justify-center rounded-full bg-success-50 px-2 py-0.5 text-xs font-semibold text-success-600 dark:bg-success-500/10 dark:text-success-200">
                               {salary.amount?.toLocaleString()}
                             </span>
+                            {Number(salary.bonus ?? 0) > 0 ? (
+                              <div className="mt-1 text-[10px] text-default-500">
+                                {Number(
+                                  salary.baseAmount ??
+                                    Number(salary.amount ?? 0) -
+                                      Number(salary.bonus ?? 0),
+                                ).toLocaleString()}{" "}
+                                + {Number(salary.bonus ?? 0).toLocaleString()}
+                              </div>
+                            ) : null}
                           </td>
                           <td className="border border-default-200 p-3 align-top text-center">
                             <span className={paymentBadge.className}>
@@ -1871,6 +2003,30 @@ function Page() {
                               {/* Pending Actions */}
                               {salary.status === "pending" && (
                                 <div className="flex gap-1 border-l border-default-200 pl-1.5 ml-0.5">
+                                  {/* Bonus */}
+                                  <Button
+                                    size="sm"
+                                    variant="flat"
+                                    color="secondary"
+                                    isIconOnly
+                                    className="h-8 w-8 rounded-lg"
+                                    aria-label={
+                                      isAm ? "ጉርሻ ጨምር" : "Add bonus"
+                                    }
+                                    title={
+                                      Number(salary.bonus ?? 0) > 0
+                                        ? isAm
+                                          ? "ጉርሻ አስተካክል"
+                                          : "Edit bonus"
+                                        : isAm
+                                          ? "ጉርሻ ጨምር"
+                                          : "Add bonus"
+                                    }
+                                    onPress={() => openBonusModal(salary)}
+                                  >
+                                    <Gift className="size-4" />
+                                  </Button>
+
                                   {/* Edit */}
                                   <Button
                                     size="sm"
@@ -2579,6 +2735,12 @@ function Page() {
                       Salary Days
                       <span className="font-semibold text-default-800 dark:text-default-100">
                         {summaryTotalDays}
+                      </span>
+                    </span>
+                    <span className={inlineMetricClass}>
+                      {isAm ? "ጉርሻ" : "Bonus"}
+                      <span className="font-semibold text-warning-600">
+                        {summaryBonus.toLocaleString()}
                       </span>
                     </span>
                     <span className={inlineMetricClass}>
@@ -3451,6 +3613,120 @@ function Page() {
               isLoading={isDeleting}
             >
               {isAm ? "አዎ, ሰርዝ" : "Yes, Delete"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Bonus Modal — one amount per teacher, added on top of the day-rate total */}
+      <Modal
+        isOpen={isBonusModalOpen}
+        onClose={closeBonusModal}
+        size="md"
+        backdrop="blur"
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <h2 className="text-xl font-semibold">
+              {isAm ? "ጉርሻ ጨምር" : "Add Bonus"}
+            </h2>
+            <p className="text-sm text-default-500">
+              {bonusSalary
+                ? `${bonusSalary.teacher.firstName} ${bonusSalary.teacher.fatherName} ${bonusSalary.teacher.lastName} — ${formatMonth(
+                    bonusSalary.month,
+                  )} ${bonusSalary.year}`
+                : ""}
+            </p>
+          </ModalHeader>
+          <ModalBody>
+            {bonusSalary ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-default-200 bg-default-50 p-3 dark:bg-default-900/40">
+                    <p className="text-xs text-default-500">
+                      {isAm ? "መሰረታዊ ደሞዝ" : "Salary"}
+                    </p>
+                    <p className="text-lg font-semibold text-default-800 dark:text-default-100">
+                      {Number(
+                        bonusSalary.baseAmount ??
+                          Number(bonusSalary.amount ?? 0) -
+                            Number(bonusSalary.bonus ?? 0),
+                      ).toLocaleString()}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-default-400">
+                      {bonusSalary.totalDayForLearning} ×{" "}
+                      {Number(bonusSalary.unitPrice ?? 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-success-200 bg-success-50/70 p-3 dark:border-success-500/30 dark:bg-success-500/10">
+                    <p className="text-xs text-success-700 dark:text-success-300">
+                      {isAm ? "አዲስ ጠቅላላ" : "New total"}
+                    </p>
+                    <p className="text-lg font-semibold text-success-700 dark:text-success-200">
+                      {(
+                        Number(
+                          bonusSalary.baseAmount ??
+                            Number(bonusSalary.amount ?? 0) -
+                              Number(bonusSalary.bonus ?? 0),
+                        ) + (Number(getBonusDraft(bonusSalary)) || 0)
+                      ).toLocaleString()}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-success-600/80 dark:text-success-300/70">
+                      {isAm ? "ጉርሻ ተካቷል" : "Bonus included"}
+                    </p>
+                  </div>
+                </div>
+
+                <Input
+                  type="number"
+                  min={0}
+                  step="1"
+                  autoFocus
+                  label={isAm ? "የጉርሻ መጠን" : "Bonus amount"}
+                  placeholder="0"
+                  variant="bordered"
+                  value={getBonusDraft(bonusSalary)}
+                  onChange={(event) =>
+                    setBonusDrafts((current) => ({
+                      ...current,
+                      [bonusSalary.id as string]: event.target.value,
+                    }))
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && isBonusDirty(bonusSalary)) {
+                      event.preventDefault();
+                      handleSaveBonus(bonusSalary);
+                    }
+                  }}
+                  startContent={<Gift className="size-4 text-default-400" />}
+                />
+
+                <p className="text-xs text-default-500">
+                  {isAm
+                    ? "ጉርሻው ከመሰረታዊ ደሞዙ ላይ ተጨምሮ ጠቅላላ ክፍያውን ያዘምናል። ለእያንዳንዱ መምህር የተለየ መጠን ማስገባት ይችላሉ።"
+                    : "The bonus is added on top of the salary and updates the payout total. Each teacher can get a different amount."}
+                </p>
+              </div>
+            ) : null}
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="light"
+              onPress={closeBonusModal}
+              isDisabled={savingBonusId !== null}
+            >
+              {isAm ? "ይቅር" : "Cancel"}
+            </Button>
+            <Button
+              color="primary"
+              startContent={
+                savingBonusId ? undefined : <Check className="size-4" />
+              }
+              isLoading={savingBonusId !== null}
+              isDisabled={!bonusSalary || !isBonusDirty(bonusSalary)}
+              onPress={() => bonusSalary && handleSaveBonus(bonusSalary)}
+            >
+              {isAm ? "አስቀምጥ" : "Save Bonus"}
             </Button>
           </ModalFooter>
         </ModalContent>

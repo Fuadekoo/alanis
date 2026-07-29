@@ -18,6 +18,11 @@ export type SalaryReportRow = {
   bankAccountNumber?: string | null;
   monthLabel: string;
   year: number;
+  /** Extra amount granted on top of the day-rate total. */
+  bonus?: number;
+  /** Learning days × unit price, i.e. the total without the bonus. */
+  baseAmount?: number;
+  /** Bonus included — this is what gets paid. */
   amount: number;
   status: SalaryReportStatus;
 };
@@ -166,7 +171,15 @@ export async function downloadSalaryReport({
   const right = pageWidth - margin;
   const headerBottom = 32;
 
+  const rowBonus = (row: SalaryReportRow) => Number(row.bonus) || 0;
+  const rowBase = (row: SalaryReportRow) =>
+    row.baseAmount !== undefined && row.baseAmount !== null
+      ? Number(row.baseAmount) || 0
+      : (Number(row.amount) || 0) - rowBonus(row);
+
   const total = rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  const baseTotal = rows.reduce((sum, row) => sum + rowBase(row), 0);
+  const bonusTotal = rows.reduce((sum, row) => sum + rowBonus(row), 0);
   const generatedAt = new Date().toLocaleString(isAm ? "am-ET" : "en-US");
   const reportTitle = t("የመምህራን ደሞዝ ሪፖርት", "Teacher Salary Report");
 
@@ -248,12 +261,16 @@ export async function downloadSalaryReport({
     row.teacherName,
     bankAccountCell(row),
     ...(singlePeriod ? [] : [row.monthLabel, String(row.year)]),
+    formatCurrency(rowBase(row)),
+    formatCurrency(rowBonus(row)),
     formatCurrency(Number(row.amount) || 0),
     statusLabel(row.status, isAm),
   ]);
 
   // Column indexes shift when the Month/Year pair is dropped.
-  const amountIndex = singlePeriod ? 3 : 5;
+  const baseIndex = singlePeriod ? 3 : 5;
+  const bonusIndex = baseIndex + 1;
+  const amountIndex = baseIndex + 2;
   const statusIndex = amountIndex + 1;
 
   autoTable(doc, {
@@ -266,6 +283,8 @@ export async function downloadSalaryReport({
         t("የመምህር ስም", "Teacher name"),
         t("የባንክ ሂሳብ", "Bank account"),
         ...(singlePeriod ? [] : [t("ወር", "Month"), t("ዓመት", "Year")]),
+        t("መሰረታዊ ደሞዝ", "Salary"),
+        t("ጉርሻ", "Bonus"),
         t("ጠቅላላ መጠን", "Total amount"),
         t("ሁኔታ", "Status"),
       ],
@@ -281,8 +300,10 @@ export async function downloadSalaryReport({
             "መዝገቦች",
             "records",
           )}`,
-          colSpan: amountIndex,
+          colSpan: baseIndex,
         },
+        formatCurrency(baseTotal),
+        formatCurrency(bonusTotal),
         formatCurrency(total),
         "",
       ],
@@ -318,29 +339,48 @@ export async function downloadSalaryReport({
     alternateRowStyles: { fillColor: ZEBRA },
     columnStyles: singlePeriod
       ? {
-          0: { cellWidth: 10, halign: "center", textColor: MUTED },
-          1: { cellWidth: 56, fontStyle: "bold" },
-          2: { cellWidth: 56 },
-          3: { cellWidth: 36, halign: "right", fontStyle: "bold" },
-          4: { cellWidth: 28, halign: "center", fontStyle: "bold" },
+          0: { cellWidth: 8, halign: "center", textColor: MUTED },
+          1: { cellWidth: 40, fontStyle: "bold" },
+          2: { cellWidth: 42 },
+          3: { cellWidth: 26, halign: "right" },
+          4: { cellWidth: 22, halign: "right" },
+          5: { cellWidth: 26, halign: "right", fontStyle: "bold" },
+          6: { cellWidth: 22, halign: "center", fontStyle: "bold" },
         }
       : {
-          0: { cellWidth: 8, halign: "center", textColor: MUTED },
-          1: { cellWidth: 43, fontStyle: "bold" },
-          2: { cellWidth: 45 },
-          3: { cellWidth: 20 },
-          4: { cellWidth: 13, halign: "center" },
-          5: { cellWidth: 30, halign: "right", fontStyle: "bold" },
-          6: { cellWidth: 27, halign: "center", fontStyle: "bold" },
+          0: { cellWidth: 7, halign: "center", textColor: MUTED },
+          1: { cellWidth: 33, fontStyle: "bold" },
+          2: { cellWidth: 34 },
+          3: { cellWidth: 17 },
+          4: { cellWidth: 11, halign: "center" },
+          5: { cellWidth: 22, halign: "right" },
+          6: { cellWidth: 19, halign: "right" },
+          7: { cellWidth: 23, halign: "right", fontStyle: "bold" },
+          8: { cellWidth: 20, halign: "center", fontStyle: "bold" },
         },
-    // Colour the status column per row, and keep the total right-aligned.
+    // Colour the status column per row, highlight non-zero bonuses, and keep
+    // the money columns of the total row right-aligned.
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index === statusIndex) {
         data.cell.styles.textColor = statusColor(
           rows[data.row.index]?.status ?? "pending",
         );
       }
-      if (data.section === "foot" && data.column.index === amountIndex) {
+      if (data.section === "body" && data.column.index === bonusIndex) {
+        const bonus = rowBonus(rows[data.row.index]);
+        if (bonus > 0) {
+          data.cell.styles.textColor = TEAL;
+          data.cell.styles.fontStyle = "bold";
+        } else {
+          data.cell.styles.textColor = MUTED;
+        }
+      }
+      if (
+        data.section === "foot" &&
+        (data.column.index === baseIndex ||
+          data.column.index === bonusIndex ||
+          data.column.index === amountIndex)
+      ) {
         data.cell.styles.halign = "right";
       }
     },

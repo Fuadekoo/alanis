@@ -447,6 +447,7 @@ export function mapSalaryToRow(salary: {
   month: number;
   year: number;
   dailyRate: Prisma.Decimal;
+  bonus?: Prisma.Decimal | null;
   totalSalary: Prisma.Decimal;
   status: SalaryStatus;
   paymentPhoto: string | null;
@@ -461,13 +462,20 @@ export function mapSalaryToRow(salary: {
     (report) => report.attendance !== AttendanceStatus.ABSENT,
   ).length;
 
+  const bonus = Number(salary.bonus ?? 0);
+  const amount = Number(salary.totalSalary);
+
   return {
     id: salary.id,
     month: salary.month,
     year: salary.year,
     totalDayForLearning,
     unitPrice: Number(salary.dailyRate),
-    amount: Number(salary.totalSalary),
+    bonus,
+    /** Learning days × unit price, i.e. the total without the bonus. */
+    baseAmount: Number((amount - bonus).toFixed(2)),
+    /** Bonus included. */
+    amount,
     status: toLegacySalaryStatus(salary.status),
     paymentPhoto: salary.paymentPhoto,
     createdAt: salary.createdAt,

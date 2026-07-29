@@ -119,6 +119,7 @@ function mapSalaryRowWithTeacher(salary: {
   month: number;
   year: number;
   dailyRate: Prisma.Decimal;
+  bonus: Prisma.Decimal;
   totalSalary: Prisma.Decimal;
   status: import("@prisma/client").SalaryStatus;
   paymentPhoto: string | null;
@@ -606,6 +607,8 @@ export async function updateSalaryFinancials(
   salaryId: string,
   data: {
     unitPrice: number;
+    /** Omit to keep the bonus already stored on the record. */
+    bonus?: number;
   },
 ) {
   await isAuthorized("manager");
@@ -629,13 +632,26 @@ export async function updateSalaryFinancials(
     (r) => r.attendance !== AttendanceStatus.ABSENT,
   ).length;
 
-  const totalSalary = Number((totalDayForLearning * data.unitPrice).toFixed(2));
+  const bonus = Number(
+    (data.bonus !== undefined ? data.bonus : Number(salary.bonus)).toFixed(2),
+  );
+
+  if (!Number.isFinite(bonus) || bonus < 0) {
+    throw new Error("Bonus cannot be negative");
+  }
+
+  // The bonus rides on top of the day-rate total, so the payout and its
+  // linked expense always reflect both.
+  const totalSalary = Number(
+    (totalDayForLearning * data.unitPrice + bonus).toFixed(2),
+  );
 
   const updated = await prisma.$transaction(async (tx) => {
     const teacherSalary = await tx.teacherSalary.update({
       where: { id: salaryId },
       data: {
         dailyRate: new Prisma.Decimal(data.unitPrice),
+        bonus: new Prisma.Decimal(bonus),
         totalSalary: new Prisma.Decimal(totalSalary),
       },
       include: {
@@ -661,6 +677,97 @@ export async function updateSalaryFinancials(
   });
 
   return mapSalaryRowWithTeacher(updated);
+}
+
+/**
+ * Sets the bonus of a single salary row and re-derives the payout total
+ * (learning days × unit price + bonus). Only pending salaries can change.
+ */
+export async function updateSalaryBonus(salaryId: string, bonus: number) {
+  try {
+    await isAuthorized("manager");
+
+    if (!salaryId) {
+      throw new Error("Salary is required");
+    }
+
+    const normalizedBonus = Number(Number(bonus).toFixed(2));
+
+    if (!Number.isFinite(normalizedBonus) || normalizedBonus < 0) {
+      throw new Error("Bonus must be a positive number");
+    }
+
+    const salary = await prisma.teacherSalary.findUnique({
+      where: { id: salaryId },
+      include: {
+        reports: {
+          select: {
+            attendance: true,
+          },
+        },
+      },
+    });
+
+    if (!salary) {
+      throw new Error("Salary not found");
+    }
+
+    if (salary.status !== toSalaryStatus("pending")) {
+      throw new Error("Only pending salaries can be changed");
+    }
+
+    const totalDayForLearning = salary.reports.filter(
+      (report) => report.attendance !== AttendanceStatus.ABSENT,
+    ).length;
+
+    const totalSalary = Number(
+      (totalDayForLearning * Number(salary.dailyRate) + normalizedBonus).toFixed(
+        2,
+      ),
+    );
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const teacherSalary = await tx.teacherSalary.update({
+        where: { id: salaryId },
+        data: {
+          bonus: new Prisma.Decimal(normalizedBonus),
+          totalSalary: new Prisma.Decimal(totalSalary),
+        },
+        include: {
+          teacher: {
+            select: teacherSelect,
+          },
+          reports: {
+            select: {
+              attendance: true,
+            },
+          },
+        },
+      });
+
+      await tx.expense.updateMany({
+        where: { teacherSalaryId: salaryId },
+        data: {
+          amount: Math.round(totalSalary),
+        },
+      });
+
+      return teacherSalary;
+    });
+
+    return {
+      success: true,
+      data: mapSalaryRowWithTeacher(updated),
+      message: "Bonus updated successfully",
+    };
+  } catch (error) {
+    console.error("Error updating salary bonus:", error);
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Failed to update the bonus",
+    };
+  }
 }
 
 export async function updateTeacherBankAccount(

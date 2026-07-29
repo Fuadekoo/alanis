@@ -70,6 +70,8 @@ model TeacherSalary {
   month             Int
   year              Int
   dailyRate         Decimal      @db.Decimal(10, 2)
+  /// Extra amount granted on top of (learning days × dailyRate); already included in totalSalary.
+  bonus             Decimal      @default(0) @db.Decimal(10, 2)
   totalSalary       Decimal      @db.Decimal(10, 2)
   status            SalaryStatus @default(PENDING)
   paymentPhoto      String?
