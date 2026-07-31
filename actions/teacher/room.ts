@@ -5,7 +5,7 @@ import {
   sendRoomLinkNotification,
   type TelegramSendResult,
 } from "@/lib/telegram";
-import { sendPushToUsers } from "@/lib/push";
+import { notifyUsers } from "@/lib/notifications";
 import { isAuthorized } from "@/lib/utils";
 import { LinkSchema } from "@/lib/zodSchema";
 import { normalizeDay } from "@/actions/shared/teacherDomain";
@@ -165,12 +165,19 @@ async function notifyStudentAboutRoomLink({
   // Telegram message. The link itself is the click target so tapping the
   // notification joins the class.
   const pushGreeting = `${greeting} ${studentName}`.trim();
-  await sendPushToUsers([room.studentId], {
+  await notifyUsers({
+    userIds: [room.studentId],
     title: "📚 የክፍል ሊንክ ደርሶዎታል!",
     body: teacherName
       ? `${pushGreeting}፣ መምህር ${teacherName} የክፍል ሊንክ ልኮልዎታል። ወደ ክፍልዎ ለመግባት ይጫኑ።`
       : `${pushGreeting}፣ የክፍል ሊንክ ደርሶዎታል። ወደ ክፍልዎ ለመግባት ይጫኑ።`,
     url: link,
+    // Re-sending the same link (a retry) is the same notification; a new link
+    // is a new one.
+    dedupeKey: `room-link:${room.id}:${link}`,
+    // A class link goes stale fast, so don't let a push service sit on it for
+    // days. The row stays either way — the student still finds it in the app.
+    ttlSeconds: 60 * 60 * 2,
   });
 
   // 2. Then deliver the link (best-effort; the report above stays saved).

@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { sendTelegramMessage } from "@/lib/telegram";
-import { sendPushToUsers } from "@/lib/push";
+import { notifyUsers } from "@/lib/notifications";
 import { AnnouncementSchema } from "@/lib/zodSchema";
 
 export async function registerAnnouncement({
@@ -42,7 +42,7 @@ export async function registerAnnouncement({
             })
           )
       );
-    await prisma.announcement.create({
+    const created = await prisma.announcement.create({
       data: {
         text,
         lastDate,
@@ -50,16 +50,16 @@ export async function registerAnnouncement({
           create: ids,
         },
       },
+      select: { id: true },
     });
 
-    await sendPushToUsers(
-      ids.map(({ studentId }) => studentId),
-      {
-        title: "New announcement",
-        body: text,
-        url: "/",
-      }
-    );
+    await notifyUsers({
+      userIds: ids.map(({ studentId }) => studentId),
+      title: "New announcement",
+      body: text,
+      url: "/",
+      dedupeKey: `announcement:${created.id}`,
+    });
   }
   return { status: true, message: "successfully register announcement" };
 }

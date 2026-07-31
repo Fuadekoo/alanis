@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { sendTelegramMessage } from "@/lib/telegram";
-import { sendPushToUsers } from "@/lib/push";
+import { notifyUsers } from "@/lib/notifications";
 import { ControllerAnnouncementSchema } from "@/lib/zodSchema";
 
 async function getTargetControllers(forUser: string[]) {
@@ -51,7 +51,7 @@ export async function registerControllerAnnouncement({
         })
       );
 
-      await prisma.controllerAnnouncementData.create({
+      const created = await prisma.controllerAnnouncementData.create({
         data: {
           text,
           lastDate,
@@ -61,16 +61,16 @@ export async function registerControllerAnnouncement({
             })),
           },
         },
+        select: { id: true },
       });
 
-      await sendPushToUsers(
-        controllers.map(({ id }) => id),
-        {
-          title: "New announcement",
-          body: text,
-          url: "/",
-        }
-      );
+      await notifyUsers({
+        userIds: controllers.map(({ id }) => id),
+        title: "New announcement",
+        body: text,
+        url: "/",
+        dedupeKey: `controller-announcement:${created.id}`,
+      });
     }
 
     return {

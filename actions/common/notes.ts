@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { sendPushToUsers } from "@/lib/push";
+import { notifyUsers } from "@/lib/notifications";
 
 function amharicGreeting(gender?: string | null) {
   if (gender === "Female") return "እህት";
@@ -36,10 +36,12 @@ function fullName(user?: {
  * note. Never throws: a push failure must not undo the saved note.
  */
 async function notifyManagersAboutReportedNote({
+  noteId,
   writtenById,
   writtenToId,
   note,
 }: {
+  noteId: string;
   writtenById: string;
   writtenToId: string;
   note: string;
@@ -88,14 +90,13 @@ async function notifyManagersAboutReportedNote({
           ? `${writerName} አዲስ ሪፖርት ልኮልዎታል፦ ${note}`
           : `አዲስ ሪፖርት ደርሶዎታል፦ ${note}`;
 
-    await sendPushToUsers(
-      managers.map(({ id }) => id),
-      {
-        title: "📝 አዲስ ሪፖርት ደርሶዎታል!",
-        body,
-        url: "/",
-      }
-    );
+    await notifyUsers({
+      userIds: managers.map(({ id }) => id),
+      title: "📝 አዲስ ሪፖርት ደርሶዎታል!",
+      body,
+      url: "/",
+      dedupeKey: `note:${noteId}`,
+    });
   } catch (error) {
     console.error("Failed to push reported note to managers:", error);
   }
@@ -110,7 +111,7 @@ export async function addNote(
   if (!session?.user?.id) return { status: false, message: "Unauthorized" };
 
   try {
-    await prisma.notes.create({
+    const created = await prisma.notes.create({
       data: {
         writentoId,
         writenbyId: session.user.id,
@@ -118,10 +119,12 @@ export async function addNote(
         reportedToManager: reportToManager,
         status: "OPEN",
       },
+      select: { id: true },
     });
 
     if (reportToManager) {
       await notifyManagersAboutReportedNote({
+        noteId: created.id,
         writtenById: session.user.id,
         writtenToId: writentoId,
         note,

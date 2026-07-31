@@ -83,6 +83,38 @@ model user {
   notesReceived                           notes[]                       @relation("NotesToUser")
   notesWritten                            notes[]                       @relation("NotesFromUser")
   pushSubscriptions                       pushSubscription[]
+  notifications                           notification[]
+}
+
+/// Durable inbox for every notification we raise. Web push is only a delivery
+/// attempt on top of this — a row here is the source of truth, so a device that
+/// was offline (or whose push failed / expired) still gets it on next visit.
+model notification {
+  id     String @id @default(cuid())
+  user   user   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  title String
+  body  String  @db.Text
+  url   String  @default("/")
+  icon  String?
+
+  /// Stable id of the source event (e.g. `announcement:<id>`). Unique per user,
+  /// so re-running the same action can never insert the notification twice.
+  dedupeKey String?
+
+  createdAt DateTime  @default(now())
+  /// A push service accepted the message — NOT proof the device showed it.
+  pushedAt  DateTime?
+  /// The client fetched it and displayed it; stops it being re-announced.
+  seenAt    DateTime?
+  /// The user actually opened it (clicked the push, or opened it in the inbox).
+  readAt    DateTime?
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt])
+  @@index([userId, seenAt])
+  @@index([userId, createdAt])
 }
 
 model pushSubscription {

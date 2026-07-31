@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { sendTelegramMessage } from "@/lib/telegram";
-import { sendPushToUsers } from "@/lib/push";
+import { notifyUsers } from "@/lib/notifications";
 import { TeacherAnnouncementSchema } from "@/lib/zodSchema";
 
 export async function registerTeacherAnnouncement({
@@ -45,7 +45,7 @@ export async function registerTeacherAnnouncement({
             })
           )
       );
-    await prisma.teacherAnnouncementData.create({
+    const created = await prisma.teacherAnnouncementData.create({
       data: {
         text,
         lastDate,
@@ -55,16 +55,16 @@ export async function registerTeacherAnnouncement({
           })),
         },
       },
+      select: { id: true },
     });
 
-    await sendPushToUsers(
-      ids.map(({ teacherId }) => teacherId),
-      {
-        title: "New announcement",
-        body: text,
-        url: "/",
-      }
-    );
+    await notifyUsers({
+      userIds: ids.map(({ teacherId }) => teacherId),
+      title: "New announcement",
+      body: text,
+      url: "/",
+      dedupeKey: `teacher-announcement:${created.id}`,
+    });
   }
   return { status: true, message: "successfully register teacher announcement" };
 }
