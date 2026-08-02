@@ -62,6 +62,9 @@ import { getTeacherList } from "@/actions/manager/teacher";
 import useAlert from "@/hooks/useAlert";
 import CustomAlert from "@/components/customAlert";
 import { downloadSalaryReport } from "@/lib/salaryReport";
+import SalaryReportModal, {
+  type SalaryReportSettings,
+} from "@/components/salaryReportModal";
 
 type SalaryUiStatus = "pending" | "approved" | "rejected";
 
@@ -72,6 +75,7 @@ interface TeacherSalaryData {
     firstName: string;
     fatherName: string;
     lastName: string;
+    phoneNumber?: string | null;
     BankAccountName?: string | null;
     BankAccountNumber?: string | null;
   };
@@ -345,6 +349,7 @@ function Page() {
   const [filterMonth, setFilterMonth] = useState<string>("all");
   const [filterYear, setFilterYear] = useState<string>("all");
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const { formatCurrency } = useLocalization();
 
@@ -1193,8 +1198,24 @@ function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterMonth, filterYear, isAm]);
 
-  /** Download the currently filtered salaries as a PDF report. */
-  const handleDownloadReport = async () => {
+  /** Opens the column picker, or warns when there is nothing to print. */
+  const openReportModal = () => {
+    if (filteredSalaries.length === 0) {
+      showAlert({
+        message: isAm
+          ? "ለተመረጠው ወቅት ምንም የደሞዝ መዝገብ የለም።"
+          : "There are no salary records for the selected period.",
+        type: "warning",
+        title: isAm ? "ማስጠንቀቂያ" : "Notice",
+      });
+      return;
+    }
+
+    setIsReportModalOpen(true);
+  };
+
+  /** Download the currently filtered salaries with the chosen columns. */
+  const handleDownloadReport = async (settings: SalaryReportSettings) => {
     if (isDownloadingReport) return;
 
     if (filteredSalaries.length === 0) {
@@ -1220,10 +1241,13 @@ function Page() {
       .map((salary) => ({
         teacherName:
           `${salary.teacher.firstName} ${salary.teacher.fatherName} ${salary.teacher.lastName}`.trim(),
+        phone: salary.teacher.phoneNumber ?? null,
         bankAccountName: salary.teacher.BankAccountName,
         bankAccountNumber: salary.teacher.BankAccountNumber,
         monthLabel: formatMonth(salary.month),
         year: salary.year,
+        learningDays: Number(salary.totalDayForLearning ?? 0),
+        unitPrice: Number(salary.unitPrice ?? 0),
         bonus: Number(salary.bonus ?? 0),
         baseAmount: Number(
           salary.baseAmount ??
@@ -1241,7 +1265,12 @@ function Page() {
         fileLabel: reportPeriod.file,
         rows,
         formatCurrency: (amount: number) => formatCurrency(amount),
+        columns: settings.columns,
+        orientation: settings.orientation,
+        includeTotals: settings.includeTotals,
+        includeSignatures: settings.includeSignatures,
       });
+      setIsReportModalOpen(false);
     } catch (error) {
       console.error("Failed to generate salary report", error);
       showAlert({
@@ -1730,7 +1759,7 @@ function Page() {
                   isDownloadingReport ? undefined : <Download className="size-4" />
                 }
                 isLoading={isDownloadingReport}
-                onPress={handleDownloadReport}
+                onPress={openReportModal}
                 isDisabled={salariesLoading || filteredSalaries.length === 0}
                 className="w-full sm:w-auto"
                 title={
@@ -3731,6 +3760,17 @@ function Page() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* PDF report column picker */}
+      <SalaryReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        isAm={isAm}
+        periodLabel={reportPeriod.label}
+        recordCount={filteredSalaries.length}
+        isDownloading={isDownloadingReport}
+        onDownload={handleDownloadReport}
+      />
 
       {/* Custom Alert */}
       <CustomAlert
