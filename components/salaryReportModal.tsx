@@ -20,14 +20,15 @@ import {
   ArrowUp,
   Check,
   Columns3,
+  CreditCard,
   Download,
+  EyeOff,
   FileText,
-  Plus,
   RotateCcw,
-  X,
 } from "lucide-react";
 import {
   DEFAULT_SALARY_REPORT_COLUMNS,
+  SALARY_REPORT_BANK_COLUMNS,
   SALARY_REPORT_COLUMNS,
   SALARY_REPORT_PRESETS,
   measureSalaryReportColumns,
@@ -96,6 +97,45 @@ const readStoredSettings = (): SalaryReportSettings => {
 const sameColumns = (a: SalaryReportColumnKey[], b: SalaryReportColumnKey[]) =>
   a.length === b.length && a.every((key, index) => key === b[index]);
 
+const columnByKey = (key: SalaryReportColumnKey) =>
+  SALARY_REPORT_COLUMNS.find((column) => column.key === key);
+
+/** Small on/off pill used for the bank-details shortcuts. */
+function ToggleChip({
+  label,
+  isOn,
+  onToggle,
+}: {
+  label: string;
+  isOn: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={isOn}
+      onClick={onToggle}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
+        isOn
+          ? "border-success-500 bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-200"
+          : "border-default-300 bg-transparent text-default-400 line-through dark:border-default-600"
+      }`}
+    >
+      <span
+        className={`flex size-3.5 items-center justify-center rounded-full border ${
+          isOn
+            ? "border-success-500 bg-success-500 text-white"
+            : "border-default-300 dark:border-default-600"
+        }`}
+      >
+        {isOn && <Check className="size-2.5" />}
+      </span>
+      {label}
+    </button>
+  );
+}
+
 function SalaryReportModal({
   isOpen,
   onClose,
@@ -155,11 +195,33 @@ function SalaryReportModal({
   const update = (patch: Partial<SalaryReportSettings>) =>
     setSettings((current) => ({ ...current, ...patch }));
 
-  const addColumn = (key: SalaryReportColumnKey) =>
-    update({ columns: [...selected, key] });
-
   const removeColumn = (key: SalaryReportColumnKey) =>
     update({ columns: selected.filter((item) => item !== key) });
+
+  /**
+   * Turning a column back on slots it in next to where it naturally belongs
+   * instead of dumping it at the end — without reshuffling the order the user
+   * arranged by hand.
+   */
+  const toggleColumn = (key: SalaryReportColumnKey) => {
+    if (selected.includes(key)) {
+      removeColumn(key);
+      return;
+    }
+
+    const order = SALARY_REPORT_COLUMNS.map((column) => column.key);
+    const position = selected.findIndex(
+      (item) => order.indexOf(item) > order.indexOf(key),
+    );
+    const next = [...selected];
+    next.splice(position === -1 ? next.length : position, 0, key);
+
+    update({ columns: next });
+  };
+
+  const hasBankColumns = selected.some((key) =>
+    SALARY_REPORT_BANK_COLUMNS.includes(key),
+  );
 
   const moveColumn = (index: number, direction: -1 | 1) => {
     const target = index + direction;
@@ -254,131 +316,158 @@ function SalaryReportModal({
             </button>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* Selected columns, in print order */}
-            <div className="rounded-xl border border-default-200 bg-default-50/60 p-3 dark:border-default-700 dark:bg-default-900/40">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-default-500">
-                  {t("የተመረጡ አምዶች", "Selected columns")}
-                </span>
-                <span className="rounded-full bg-default-200/70 px-2 py-0.5 text-[11px] font-semibold text-default-600 dark:bg-default-700/60 dark:text-default-300">
-                  {selected.length}
-                </span>
-              </div>
+          {/* Bank details shortcut — the one people flip most often. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-default-200 bg-default-50/60 p-3 dark:border-default-700 dark:bg-default-900/40">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-default-500">
+              <CreditCard className="size-3.5" />
+              {t("የባንክ መረጃ", "Bank details")}
+            </span>
+            {SALARY_REPORT_BANK_COLUMNS.map((key) => {
+              const column = columnByKey(key);
+              if (!column) return null;
+              return (
+                <ToggleChip
+                  key={key}
+                  label={salaryReportColumnLabel(column, isAm)}
+                  isOn={selected.includes(key)}
+                  onToggle={() => toggleColumn(key)}
+                />
+              );
+            })}
+            {hasBankColumns && (
+              <button
+                type="button"
+                onClick={() =>
+                  update({
+                    columns: selected.filter(
+                      (key) => !SALARY_REPORT_BANK_COLUMNS.includes(key),
+                    ),
+                  })
+                }
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-default-200 px-3 py-1 text-xs font-medium text-default-500 transition hover:bg-default-100 dark:border-default-700 dark:hover:bg-default-800/60"
+              >
+                <EyeOff className="size-3" />
+                {t("ሁሉንም የባንክ አምዶች ደብቅ", "Hide all bank columns")}
+              </button>
+            )}
+          </div>
 
-              {selectedColumns.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-default-300 p-4 text-center text-xs text-default-400 dark:border-default-600">
-                  {t(
-                    "ቢያንስ አንድ አምድ ይምረጡ",
-                    "Pick at least one column to continue",
-                  )}
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-1.5">
-                  {selectedColumns.map((column, index) => (
-                    <li
-                      key={column.key}
-                      className="flex items-center gap-2 rounded-lg border border-default-200 bg-white px-2.5 py-1.5 dark:border-default-700 dark:bg-default-900/70"
-                    >
-                      <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-success-100 text-[11px] font-bold text-success-700 dark:bg-success-500/15 dark:text-success-300">
-                        {index + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-default-700 dark:text-default-200">
-                          {salaryReportColumnLabel(column, isAm)}
-                        </p>
-                        <p className="truncate text-[11px] text-default-400">
-                          {salaryReportColumnHint(column, isAm)}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-0.5">
-                        <button
-                          type="button"
-                          aria-label={t("ወደ ላይ", "Move up")}
-                          onClick={() => moveColumn(index, -1)}
-                          disabled={index === 0}
-                          className="rounded-md p-1 text-default-400 transition hover:bg-default-100 hover:text-default-600 disabled:opacity-30 dark:hover:bg-default-800"
-                        >
-                          <ArrowUp className="size-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={t("ወደ ታች", "Move down")}
-                          onClick={() => moveColumn(index, 1)}
-                          disabled={index === selectedColumns.length - 1}
-                          className="rounded-md p-1 text-default-400 transition hover:bg-default-100 hover:text-default-600 disabled:opacity-30 dark:hover:bg-default-800"
-                        >
-                          <ArrowDown className="size-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={t("አስወግድ", "Remove")}
-                          onClick={() => removeColumn(column.key)}
-                          className="rounded-md p-1 text-default-400 transition hover:bg-danger-50 hover:text-danger-500 dark:hover:bg-danger-500/10"
-                        >
-                          <X className="size-3.5" />
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          {/* Every column, printed or hidden, with one on/off box each */}
+          <div className="rounded-xl border border-default-200 p-3 dark:border-default-700">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-default-500">
+                {t("የሪፖርቱ አምዶች", "Report columns")}
+              </span>
+              <span className="rounded-full bg-default-100 px-2 py-0.5 text-[11px] font-semibold text-default-600 dark:bg-default-800/60 dark:text-default-300">
+                {t(
+                  `${selected.length} ከ ${SALARY_REPORT_COLUMNS.length} ይታተማሉ`,
+                  `${selected.length} of ${SALARY_REPORT_COLUMNS.length} printed`,
+                )}
+              </span>
             </div>
 
-            {/* Columns still available */}
-            <div className="rounded-xl border border-default-200 bg-white p-3 dark:border-default-700 dark:bg-default-900/40">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-default-500">
-                  {t("ሌሎች አምዶች", "Available columns")}
-                </span>
-                {availableColumns.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      update({
-                        columns: [
-                          ...selected,
-                          ...availableColumns.map((column) => column.key),
-                        ],
-                      })
-                    }
-                    className="text-[11px] font-semibold text-success-600 hover:underline dark:text-success-300"
+            {selectedColumns.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-default-300 p-4 text-center text-xs text-default-400 dark:border-default-600">
+                {t("ቢያንስ አንድ አምድ ይምረጡ", "Tick at least one column to continue")}
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {selectedColumns.map((column, index) => (
+                  <li
+                    key={column.key}
+                    className="flex items-center gap-1 rounded-lg border border-success-200 bg-success-50/40 px-2 py-1.5 dark:border-success-500/30 dark:bg-success-500/10"
                   >
-                    {t("ሁሉንም ጨምር", "Add all")}
-                  </button>
-                )}
-              </div>
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked
+                      onClick={() => toggleColumn(column.key)}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    >
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded border border-success-500 bg-success-500 text-white">
+                        <Check className="size-3" />
+                      </span>
+                      <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-white text-[11px] font-bold text-success-700 dark:bg-default-900/70 dark:text-success-300">
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-default-700 dark:text-default-200">
+                          {salaryReportColumnLabel(column, isAm)}
+                        </span>
+                        <span className="block truncate text-[11px] text-default-400">
+                          {salaryReportColumnHint(column, isAm)}
+                        </span>
+                      </span>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <button
+                        type="button"
+                        aria-label={t("ወደ ላይ", "Move up")}
+                        onClick={() => moveColumn(index, -1)}
+                        disabled={index === 0}
+                        className="rounded-md p-1 text-default-400 transition hover:bg-white hover:text-default-600 disabled:opacity-30 dark:hover:bg-default-800"
+                      >
+                        <ArrowUp className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t("ወደ ታች", "Move down")}
+                        onClick={() => moveColumn(index, 1)}
+                        disabled={index === selectedColumns.length - 1}
+                        className="rounded-md p-1 text-default-400 transition hover:bg-white hover:text-default-600 disabled:opacity-30 dark:hover:bg-default-800"
+                      >
+                        <ArrowDown className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t("ደብቅ", "Hide")}
+                        onClick={() => removeColumn(column.key)}
+                        className="rounded-md p-1 text-default-400 transition hover:bg-danger-50 hover:text-danger-500 dark:hover:bg-danger-500/10"
+                      >
+                        <EyeOff className="size-3.5" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
 
-              {availableColumns.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-default-300 p-4 text-center text-xs text-default-400 dark:border-default-600">
-                  {t("ሁሉም አምዶች ተመርጠዋል", "Every column is already selected")}
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-1.5">
+            {availableColumns.length > 0 && (
+              <>
+                <div className="my-2.5 flex items-center gap-2">
+                  <span className="h-px flex-1 bg-default-200 dark:bg-default-700" />
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-default-400">
+                    <EyeOff className="size-3" />
+                    {t("የተደበቁ — አይታተሙም", "Hidden — not printed")}
+                  </span>
+                  <span className="h-px flex-1 bg-default-200 dark:bg-default-700" />
+                </div>
+
+                <ul className="grid gap-1.5 sm:grid-cols-2">
                   {availableColumns.map((column) => (
                     <li key={column.key}>
                       <button
                         type="button"
-                        onClick={() => addColumn(column.key)}
-                        className="flex w-full items-center gap-2 rounded-lg border border-default-200 px-2.5 py-1.5 text-left transition hover:border-success-400 hover:bg-success-50/60 dark:border-default-700 dark:hover:border-success-500/50 dark:hover:bg-success-500/10"
+                        role="checkbox"
+                        aria-checked={false}
+                        onClick={() => toggleColumn(column.key)}
+                        className="flex w-full items-center gap-2 rounded-lg border border-dashed border-default-300 px-2 py-1.5 text-left opacity-70 transition hover:border-success-400 hover:bg-success-50/50 hover:opacity-100 dark:border-default-600 dark:hover:border-success-500/50 dark:hover:bg-success-500/10"
                       >
-                        <span className="flex size-5 shrink-0 items-center justify-center rounded-md border border-dashed border-default-300 text-default-400 dark:border-default-600">
-                          <Plus className="size-3" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-default-600 dark:text-default-300">
+                        <span className="size-4 shrink-0 rounded border border-default-300 dark:border-default-600" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-default-600 dark:text-default-300">
                             {salaryReportColumnLabel(column, isAm)}
-                          </p>
-                          <p className="truncate text-[11px] text-default-400">
+                          </span>
+                          <span className="block truncate text-[11px] text-default-400">
                             {salaryReportColumnHint(column, isAm)}
-                          </p>
-                        </div>
+                          </span>
+                        </span>
                       </button>
                     </li>
                   ))}
                 </ul>
-              )}
-            </div>
+              </>
+            )}
           </div>
 
           {/* Page options */}

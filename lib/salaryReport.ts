@@ -357,11 +357,31 @@ export const SALARY_REPORT_PRESETS: Array<{
     ).map((column) => column.key),
   },
   {
+    id: "no-bank",
+    labelAm: "ያለ ባንክ",
+    labelEn: "No bank details",
+    columns: [
+      "index",
+      "teacherName",
+      "baseAmount",
+      "bonus",
+      "amount",
+      "status",
+    ],
+  },
+  {
     id: "compact",
     labelAm: "አጭር",
     labelEn: "Compact",
     columns: ["index", "teacherName", "amount", "status"],
   },
+];
+
+/** Columns the "hide bank details" shortcut turns off. */
+export const SALARY_REPORT_BANK_COLUMNS: SalaryReportColumnKey[] = [
+  "bankAccount",
+  "bankAccountName",
+  "bankAccountNumber",
 ];
 
 /** Printable width of an A4 page in each orientation, minus the 12mm margins. */
