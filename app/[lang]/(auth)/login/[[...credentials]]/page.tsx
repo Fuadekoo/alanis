@@ -8,7 +8,7 @@ import { loginSchema } from "@/lib/zodSchema";
 import { Eye, EyeOff, KeyRound, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import React, { useEffect, useState, useRef } from "react";
 
 export default function Page() {
@@ -16,11 +16,19 @@ export default function Page() {
     lang: string;
     credentials?: string[];
   }>();
-  const router = useRouter();
+  // Kept true from the moment the login succeeds until the browser leaves the
+  // page, so the button never flips back to "Login" while the dashboard loads.
+  const [redirecting, setRedirecting] = useState(false);
   const { onSubmit, validationErrors, register, setValue, isLoading } =
     useRegistration(authenticate, loginSchema, (state) => {
       if (state.status) {
-        router.refresh();
+        setRedirecting(true);
+        // Straight to the dashboard. `router.refresh()` used to re-render the
+        // login page and leave it to middleware to bounce the user onward —
+        // an extra round trip before the dashboard was even requested. A full
+        // navigation also re-renders the root layout, so `SessionProvider`
+        // carries the signed-in session that the chat socket and notes read.
+        window.location.replace(`/${lang || "am"}/dashboard`);
       }
     });
   const [hidden, setHidden] = useState(true);
@@ -76,8 +84,23 @@ export default function Page() {
               }
               {...register("password")}
             />
-            <Button type="submit" color="primary" isLoading={isLoading}>
-              {lang == "am" ? "ይግቡ" : lang == "or" ? "Seenaa" : "Login"}
+            <Button
+              type="submit"
+              color="primary"
+              isLoading={isLoading || redirecting}
+              isDisabled={redirecting}
+            >
+              {redirecting
+                ? lang == "am"
+                  ? "እየገቡ ነው ..."
+                  : lang == "or"
+                  ? "Seenaa jira ..."
+                  : "Signing in ..."
+                : lang == "am"
+                ? "ይግቡ"
+                : lang == "or"
+                ? "Seenaa"
+                : "Login"}
             </Button>
           </div>
         </div>
