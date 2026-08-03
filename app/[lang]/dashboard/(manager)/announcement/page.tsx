@@ -26,9 +26,13 @@ import useAmharic from "@/hooks/useAmharic";
 import useData from "@/hooks/useData";
 import useDelete, { UseDelete } from "@/hooks/useDelete";
 import { UseRegistration, useRegistration } from "@/hooks/useRegistration";
+import {
+  formatCalendarDay,
+  fromDatePicker,
+  toDatePickerValue,
+} from "@/lib/calendarDay";
 import { announcementSchema } from "@/lib/zodSchema";
 import { Spinner } from "@heroui/react";
-import { getLocalTimeZone, parseDate } from "@internationalized/date";
 import { X } from "lucide-react";
 import React, { useState } from "react";
 
@@ -71,7 +75,7 @@ export default function Page() {
                 className="p-5 shrink-0 bg-default-50/50 rounded-xl "
               >
                 <p className="text-sm text-default-500 ">
-                  {date.toString().slice(4, 15)}
+                  {formatCalendarDay(date)}
                 </p>
                 <p className="">{text}</p>
                 <div className="py-5 flex flex-wrap gap-2 ">
@@ -87,9 +91,7 @@ export default function Page() {
                 <div className="grid md:grid-cols-2 gap-2 content-center ">
                   <p className="text-sm text-default-500 grid grid-cols-2 gap-2 ">
                     <span className="">last Date </span>
-                    <span className="">
-                      {lastDate?.toString().slice(4, 15) ?? ""}
-                    </span>
+                    <span className="">{formatCalendarDay(lastDate)}</span>
                   </p>
                   <div className="flex gap-4 justify-between md:justify-end">
                     <Button
@@ -183,26 +185,10 @@ function Registration({
                   <div className=" flex gap-2">
                     <DatePicker
                       className="flex-1"
-                      value={
-                        form.watch("lastDate")
-                          ? parseDate(
-                              form
-                                .watch("lastDate")
-                                ?.toISOString()
-                                .split("T")[0] ?? ""
-                            )
-                          : null
+                      value={toDatePickerValue(form.watch("lastDate"))}
+                      onChange={(v) =>
+                        form.setValue("lastDate", fromDatePicker(v))
                       }
-                      onChange={(v) => {
-                        if (v) {
-                          form.setValue(
-                            "lastDate",
-                            v.toDate(getLocalTimeZone())
-                          );
-                        } else {
-                          form.setValue("lastDate", undefined);
-                        }
-                      }}
                     />
                     <Button
                       isIconOnly

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { endOfToday, startOfToday } from "@/lib/calendarDay";
 import prisma from "@/lib/db";
 
 /**
@@ -7,18 +8,7 @@ import prisma from "@/lib/db";
  * a class joined at 23:30 in Addis is never filed under the next day.
  */
 export function getTodayAttendanceRange() {
-  const ethiopiaOffsetMs = 3 * 60 * 60 * 1000;
-  const ethiopiaNow = new Date(Date.now() + ethiopiaOffsetMs);
-  const start = new Date(
-    Date.UTC(
-      ethiopiaNow.getUTCFullYear(),
-      ethiopiaNow.getUTCMonth(),
-      ethiopiaNow.getUTCDate()
-    ) - ethiopiaOffsetMs
-  );
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-
-  return { start, end };
+  return { start: startOfToday(), end: endOfToday() };
 }
 
 export type RoomAttendanceResult = {

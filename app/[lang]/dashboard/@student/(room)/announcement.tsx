@@ -2,6 +2,7 @@
 
 import { getAnnouncement } from "@/actions/student/announcement";
 import useData from "@/hooks/useData";
+import { formatCalendarDay } from "@/lib/calendarDay";
 import React from "react";
 
 export function Announcement() {
@@ -17,7 +18,7 @@ export function Announcement() {
           >
             <p className="text-default-100 dark:text-default-200">{text}</p>
             <p className="text-xs text-default-400 dark:text-default-500">
-              {date.toString().slice(4, 15)}
+              {formatCalendarDay(date)}
             </p>
           </div>
         ))}

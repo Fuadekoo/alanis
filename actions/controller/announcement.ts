@@ -1,14 +1,23 @@
 "use server";
 
+import { startOfToday } from "@/lib/calendarDay";
 import prisma from "@/lib/db";
 import { isAuthorized } from "@/lib/utils";
 
 export async function getControllerAnnouncement() {
   const controller = await isAuthorized("controller");
+  // `lastDate` is the last day the announcement should show, so it stays live
+  // for the whole of that day. Comparing against `new Date()` expired it at
+  // midnight and the chosen last day never actually worked.
+  const liveToday = [
+    { lastDate: { gte: startOfToday() } },
+    { lastDate: null },
+  ];
+
   const [broadcastData, specificData] = await Promise.all([
     prisma.controllerAnnouncementData.findMany({
       where: {
-        OR: [{ lastDate: { gte: new Date() } }, { lastDate: null }],
+        OR: liveToday,
         announcementController: { none: {} },
       },
       select: { id: true, text: true, date: true },
@@ -16,7 +25,7 @@ export async function getControllerAnnouncement() {
     }),
     prisma.controllerAnnouncementData.findMany({
       where: {
-        OR: [{ lastDate: { gte: new Date() } }, { lastDate: null }],
+        OR: liveToday,
         announcementController: { some: { controllerId: controller.id } },
       },
       select: { id: true, text: true, date: true },
