@@ -15,6 +15,7 @@ import {
   getStudentPendingControllerState,
   setPendingControllerId,
 } from "@/lib/pendingController";
+import { notifyControllerOfStudentAssignment } from "@/lib/controllerNotifications";
 import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 
@@ -24,6 +25,11 @@ export async function registerStudent({
   ...data
 }: StudentSchema): Promise<MutationState> {
   let message = "registration is successfully";
+  const session = await auth();
+  const actorId = session?.user?.id;
+  // Decided inside the transaction, acted on after it commits.
+  let notifyNewController = false;
+  let newStudentId = id;
 
   if (id) {
     const hashedPassword = password ? await bcrypt.hash(password, 12) : null;
@@ -49,6 +55,10 @@ export async function registerStudent({
       controllerChangeRequested =
         !!existingStudent.controllerId &&
         existingStudent.controllerId !== data.controllerId;
+
+      // Saving the student without touching the controller field must not
+      // raise a notification.
+      notifyNewController = existingStudent.controllerId !== data.controllerId;
 
       await tx.user.update({
         where: { id },
@@ -97,6 +107,17 @@ export async function registerStudent({
     if (controllerChangeRequested) {
       message = "controller change is waiting for the new controller to accept";
     }
+
+    if (notifyNewController) {
+      await notifyControllerOfStudentAssignment({
+        controllerId: data.controllerId,
+        studentId: id,
+        actorId,
+        // A student who already had a controller only moves once the new one
+        // accepts, so ask them to act rather than announcing it as done.
+        awaitingAcceptance: controllerChangeRequested,
+      });
+    }
   } else {
     await prisma.$transaction(async (tx) => {
       const student = await tx.user.create({
@@ -120,7 +141,19 @@ export async function registerStudent({
         studentId: student.id,
         controllerId: data.controllerId,
       });
+
+      newStudentId = student.id;
     });
+
+    // A brand new student goes straight onto the controller's list — nothing
+    // to accept, so this is the plain "assigned to you" message.
+    if (newStudentId) {
+      await notifyControllerOfStudentAssignment({
+        controllerId: data.controllerId,
+        studentId: newStudentId,
+        actorId,
+      });
+    }
   }
 
   return { status: true, message };

@@ -1,11 +1,13 @@
 "use server";
 
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { Filter } from "@/lib/definitions";
 import {
   ensureOpenControllerAssignmentHistory,
   isMissingAssignmentHistoryTableError,
 } from "@/lib/assignmentHistory";
+import { notifyControllerOfStudentAssignment } from "@/lib/controllerNotifications";
 import { setPendingControllerId } from "@/lib/pendingController";
 import { sorting } from "@/lib/utils";
 import { AssignControllerSchema, ControllerSchema } from "@/lib/zodSchema";
@@ -213,6 +215,10 @@ export async function assignController({
   id,
 }: AssignControllerSchema) {
   let message = "successfully assign controller";
+  // Decided inside the transaction, acted on after it commits: the new
+  // controller is only told once the assignment is actually saved.
+  let notifyNewController = false;
+  let awaitingAcceptance = false;
 
   await prisma.$transaction(async (tx) => {
     const student = await tx.user.findFirst({
@@ -233,6 +239,11 @@ export async function assignController({
 
     const controllerChangeRequested =
       !!student.controllerId && student.controllerId !== controllerId;
+
+    // Re-assigning a student to the controller they already have changes
+    // nothing, so it must not raise a notification.
+    notifyNewController = student.controllerId !== controllerId;
+    awaitingAcceptance = controllerChangeRequested;
 
     if (controllerChangeRequested) {
       const supported = await setPendingControllerId(tx, student.id, controllerId);
@@ -261,6 +272,16 @@ export async function assignController({
       message = "controller change is waiting for the new controller to accept";
     }
   });
+
+  if (notifyNewController) {
+    const session = await auth();
+    await notifyControllerOfStudentAssignment({
+      controllerId,
+      studentId: id,
+      actorId: session?.user?.id,
+      awaitingAcceptance,
+    });
+  }
 
   return { status: true, message };
 }
