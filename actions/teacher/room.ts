@@ -6,6 +6,7 @@ import {
   type TelegramSendResult,
 } from "@/lib/telegram";
 import { notifyUsers } from "@/lib/notifications";
+import { buildRoomJoinUrl } from "@/lib/roomJoinLink";
 import { isAuthorized } from "@/lib/utils";
 import { LinkSchema } from "@/lib/zodSchema";
 import { normalizeDay } from "@/actions/shared/teacherDomain";
@@ -149,6 +150,13 @@ async function notifyStudentAboutRoomLink({
     });
   });
 
+  // The student must reach the class through our own endpoint, otherwise the
+  // tap happens entirely inside Telegram/Zoom and no attendance is ever saved.
+  // `buildRoomJoinUrl` returns null only on a misconfigured environment, in
+  // which case we still deliver the raw link rather than nothing.
+  const joinUrl =
+    buildRoomJoinUrl({ roomId: room.id, studentId: room.studentId }) ?? link;
+
   const teacherInfo = await prisma.user.findFirst({
     where: { id: teacherId },
     select: { firstName: true, fatherName: true },
@@ -171,7 +179,7 @@ async function notifyStudentAboutRoomLink({
     body: teacherName
       ? `${pushGreeting}፣ መምህር ${teacherName} የክፍል ሊንክ ልኮልዎታል። ወደ ክፍልዎ ለመግባት ይጫኑ።`
       : `${pushGreeting}፣ የክፍል ሊንክ ደርሶዎታል። ወደ ክፍልዎ ለመግባት ይጫኑ።`,
-    url: link,
+    url: joinUrl,
     // Re-sending the same link (a retry) is the same notification; a new link
     // is a new one.
     dedupeKey: `room-link:${room.id}:${link}`,
@@ -189,6 +197,7 @@ async function notifyStudentAboutRoomLink({
   return sendRoomLinkNotification({
     chatId: studentChatId,
     link,
+    joinUrl,
     studentName,
     teacherName,
     greeting,

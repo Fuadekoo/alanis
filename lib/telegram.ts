@@ -66,7 +66,14 @@ export async function sendTelegramMessage(
 
 export type RoomLinkNotificationParams = {
   chatId: string;
+  /** The real class link (Zoom/meet). Used only as a fallback. */
   link: string;
+  /**
+   * Tracked `/api/room/join` URL. This is what the button points at, so the tap
+   * reaches our server, saves the attendance and only then redirects to the
+   * class — a bare `link` here would join the class without any record.
+   */
+  joinUrl?: string;
   studentName: string;
   teacherName: string;
   greeting: string;
@@ -77,6 +84,7 @@ export type RoomLinkNotificationParams = {
 export async function sendRoomLinkNotification({
   chatId,
   link,
+  joinUrl,
   studentName,
   teacherName,
   greeting,
@@ -84,6 +92,10 @@ export async function sendRoomLinkNotification({
   duration,
 }: RoomLinkNotificationParams): Promise<TelegramSendResult> {
   const trimmedLink = link.trim();
+  const trimmedJoinUrl = joinUrl?.trim() ?? "";
+  const buttonUrl = isValidHttpUrl(trimmedJoinUrl)
+    ? trimmedJoinUrl
+    : trimmedLink;
 
   const message =
     `📚 <b>የክፍል ሊንክ ደርሶዎታል!</b>\n\n` +
@@ -93,7 +105,7 @@ export async function sendRoomLinkNotification({
     `⏱ ቆይታ: <b>${duration} ደቂቃ</b>\n\n` +
     `ከታች ያለውን ቁልፍ በመጫን ወደ ክፍልዎ ይግቡ 👇`;
 
-  if (isValidHttpUrl(trimmedLink)) {
+  if (isValidHttpUrl(buttonUrl)) {
     return sendTelegramMessage(chatId, message, {
       parse_mode: "HTML",
       reply_markup: {
@@ -101,7 +113,7 @@ export async function sendRoomLinkNotification({
           [
             {
               text: "📖 ወደ ክፍል ይግቡ / Join Class",
-              url: trimmedLink,
+              url: buttonUrl,
             },
           ],
         ],

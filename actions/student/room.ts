@@ -1,82 +1,17 @@
 "use server";
 
 import prisma from "@/lib/db";
+import {
+  hasStudentRoomAttendanceToday,
+  recordStudentRoomAttendance,
+} from "@/lib/roomAttendance";
 import { isAuthorized } from "@/lib/utils";
-
-function getTodayAttendanceRange() {
-  const ethiopiaOffsetMs = 3 * 60 * 60 * 1000;
-  const ethiopiaNow = new Date(Date.now() + ethiopiaOffsetMs);
-  const start = new Date(
-    Date.UTC(
-      ethiopiaNow.getUTCFullYear(),
-      ethiopiaNow.getUTCMonth(),
-      ethiopiaNow.getUTCDate()
-    ) - ethiopiaOffsetMs
-  );
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-
-  return { start, end };
-}
 
 export async function registerRoomAttendance(roomId: string) {
   try {
     const student = await isAuthorized("student");
-    const studentData = await prisma.user.findUnique({
-      where: { id: student.id },
-      select: { id: true, startDate: true, status: true },
-    });
-
-    if (!studentData) {
-      return { status: false, message: "student account not found" };
-    }
-
-    if (studentData.status === "inactive") {
-      return {
-        status: false,
-        message: "inactive students are not allowed to join room",
-      };
-    }
-
-    const room = await prisma.room.findFirst({
-      where: { id: roomId, studentId: student.id },
-      select: { id: true },
-    });
-
-    if (!room) {
-      return { status: false, message: "room not found for this student" };
-    }
-
-    const { start, end } = getTodayAttendanceRange();
-
-    const existingAttendance = await prisma.roomAttendance.findFirst({
-      where: {
-        userId: student.id,
-        roomId: room.id,
-        date: {
-          gte: start,
-          lt: end,
-        },
-      },
-    });
-
-    if (existingAttendance) {
-      return { status: true, message: "Attendance already registered" };
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.roomAttendance.create({
-        data: { userId: student.id, roomId: room.id },
-      });
-
-      if (!studentData.startDate) {
-        await tx.user.update({
-          where: { id: student.id },
-          data: { startDate: new Date() },
-        });
-      }
-    });
-
-    return { status: true, message: "successfully register attendance" };
+    // Same helper the Telegram join link uses, so both routes save identically.
+    return await recordStudentRoomAttendance({ studentId: student.id, roomId });
   } catch (error) {
     console.error("registerRoomAttendance failed:", error);
     return { status: false, message: "failed to register attendance" };
@@ -128,20 +63,11 @@ export async function getStudentController() {
 export async function verifyRoomAttendance(roomId: string) {
   try {
     const student = await isAuthorized("student");
-    const { start, end } = getTodayAttendanceRange();
 
-    const attendance = await prisma.roomAttendance.findFirst({
-      where: {
-        userId: student.id,
-        roomId: roomId,
-        date: {
-          gte: start,
-          lt: end,
-        },
-      },
-    });
-
-    if (attendance) {
+    // Also true when the student joined from Telegram: the bot's button now
+    // records attendance through the same table, so the dashboard shows the
+    // room as already joined instead of asking again.
+    if (await hasStudentRoomAttendanceToday({ studentId: student.id, roomId })) {
       return { status: true, message: "Attendance verified" };
     }
 
