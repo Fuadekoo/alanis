@@ -12,6 +12,9 @@ import { LinkSchema } from "@/lib/zodSchema";
 import { normalizeDay } from "@/actions/shared/teacherDomain";
 import { AttendanceStatus, Prisma, TeacherStudentStatus } from "@prisma/client";
 
+/** Where the student lands when they open the class-link notification. */
+const STUDENT_DASHBOARD_URL = "/am/dashboard";
+
 function getGreeting(gender: string) {
   if (gender === "Female") return "እህት";
   if (gender === "Male") return "ወንድም";
@@ -170,8 +173,11 @@ async function notifyStudentAboutRoomLink({
   const greeting = getGreeting(room.student.gender);
 
   // Best-effort browser push to the student, worded in Amharic to match the
-  // Telegram message. The link itself is the click target so tapping the
-  // notification joins the class.
+  // Telegram message. Unlike the Telegram button, the click target is our own
+  // dashboard rather than the class link: a push is opened from a device that
+  // already has the app (or PWA) installed, and jumping straight out to Zoom
+  // left the student outside the app with nothing else on screen. From the
+  // dashboard they tap "Join", which records attendance the usual way.
   const pushGreeting = `${greeting} ${studentName}`.trim();
   await notifyUsers({
     userIds: [room.studentId],
@@ -179,7 +185,7 @@ async function notifyStudentAboutRoomLink({
     body: teacherName
       ? `${pushGreeting}፣ መምህር ${teacherName} የክፍል ሊንክ ልኮልዎታል። ወደ ክፍልዎ ለመግባት ይጫኑ።`
       : `${pushGreeting}፣ የክፍል ሊንክ ደርሶዎታል። ወደ ክፍልዎ ለመግባት ይጫኑ።`,
-    url: joinUrl,
+    url: STUDENT_DASHBOARD_URL,
     // Re-sending the same link (a retry) is the same notification; a new link
     // is a new one.
     dedupeKey: `room-link:${room.id}:${link}`,

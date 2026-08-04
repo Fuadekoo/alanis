@@ -54,8 +54,8 @@ self.addEventListener("push", function (event) {
 
 /**
  * Tell the server the user opened this one. Read state lives in Postgres, so
- * doing it here keeps the badge correct even when the click opens an external
- * link and no app tab ever loads.
+ * doing it here keeps the badge correct even when the opened tab never gets far
+ * enough to report the read itself.
  */
 function markRead(notificationId) {
   if (!notificationId) return Promise.resolve();
@@ -69,27 +69,41 @@ function markRead(notificationId) {
   });
 }
 
+// Where a notification click lands when its own url cannot be opened in-app.
+const APP_FALLBACK_URL = "/am/dashboard";
+
+/**
+ * A notification tap must always land in this app (browser tab or installed
+ * PWA) — never straight into Zoom, Meet or any other external target. Anything
+ * that would leave our origin, and any `/api/*` endpoint (those are redirects
+ * or JSON, not pages), is replaced by the dashboard, where the student joins
+ * the class through the normal button and gets attendance recorded.
+ */
+function toInAppUrl(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl || "/", self.location.origin);
+    if (parsed.origin !== self.location.origin) return APP_FALLBACK_URL;
+    if (parsed.pathname.startsWith("/api/")) return APP_FALLBACK_URL;
+    return parsed.pathname + parsed.search + parsed.hash;
+  } catch (e) {
+    return APP_FALLBACK_URL;
+  }
+}
+
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
 
-  const targetUrl =
-    (event.notification.data && event.notification.data.url) || "/";
+  const targetUrl = toInAppUrl(
+    event.notification.data && event.notification.data.url
+  );
   const notificationId =
     (event.notification.data && event.notification.data.notificationId) || null;
-  const isInternal = targetUrl.startsWith("/");
 
   event.waitUntil(
     (async function () {
       await markRead(notificationId);
 
-      // External links (e.g. a Zoom/Meet class link) must always open a new
-      // window — focusing an existing app tab would not take the user there.
-      if (!isInternal) {
-        await clients.openWindow(targetUrl);
-        return;
-      }
-
-      // Internal path: reuse an already-open app tab when possible.
+      // Reuse an already-open app tab when possible.
       const clientList = await clients.matchAll({
         type: "window",
         includeUncontrolled: true,

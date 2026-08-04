@@ -18,6 +18,24 @@ import useAmharic from "@/hooks/useAmharic";
 import usePushNotification from "@/hooks/usePushNotification";
 import useNotificationInbox from "@/hooks/useNotificationInbox";
 
+/**
+ * The in-app path a notification should open, or `null` when there is nowhere
+ * useful to go (no url, the bare root, an external link, or an API endpoint).
+ */
+function toInAppPath(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) return null;
+
+  try {
+    const parsed = new URL(rawUrl, window.location.origin);
+    if (parsed.origin !== window.location.origin) return null;
+    if (parsed.pathname.startsWith("/api/")) return null;
+    if (parsed.pathname === "/") return null;
+    return parsed.pathname + parsed.search + parsed.hash;
+  } catch {
+    return null;
+  }
+}
+
 export default function NotificationBell() {
   const isAm = useAmharic();
   const router = useRouter();
@@ -32,11 +50,16 @@ export default function NotificationBell() {
   // Opening an item is what marks it read — never the mere arrival of a push.
   const handleOpen = async (item: (typeof notifications)[number]) => {
     if (!item.readAt) await markRead([item.id]);
-    if (!item.url || item.url === "/") return;
+
+    // A notification always navigates inside the app, never out to an external
+    // target such as a Zoom class link. Anything off-origin — and `/api/*`,
+    // which only redirects or returns JSON — is ignored so the user stays put.
+    // Class links are reached from the dashboard, where joining is recorded.
+    const path = toInAppPath(item.url);
+    if (!path) return;
 
     setIsOpen(false);
-    if (item.url.startsWith("/")) router.push(item.url);
-    else window.open(item.url, "_blank", "noopener,noreferrer");
+    router.push(path);
   };
 
   return (
